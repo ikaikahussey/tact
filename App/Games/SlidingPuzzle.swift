@@ -1,18 +1,21 @@
 import Foundation
 
-/// The state of a sliding-tile puzzle: every tile id plus one blank slot.
-/// Tapping a tile in the blank's row or column slides the whole run of tiles
+/// The state of a sliding-tile puzzle: every tile plus one blank slot.
+/// Moving a tile in the blank's row or column slides the whole run of tiles
 /// between them toward the blank.
-struct SlidingPuzzle: Equatable {
+struct SlidingPuzzle<Tile: Hashable>: Equatable {
     let columns: Int
-    let solvedOrder: [UUID]
-    private(set) var slots: [UUID?]
+    let solvedOrder: [Tile]
+    private(set) var slots: [Tile?]
 
-    init(tileIDs: [UUID], columns: Int = 4) {
+    init(tileIDs: [Tile], columns: Int = 4) {
         self.columns = max(1, columns)
         self.solvedOrder = tileIDs
         self.slots = tileIDs.map(Optional.some) + [nil]
     }
+
+    var tiles: [Tile] { solvedOrder }
+    var rows: Int { Int((Double(slots.count) / Double(columns)).rounded(.up)) }
 
     var blankIndex: Int {
         slots.firstIndex { $0 == nil } ?? slots.count - 1
@@ -20,6 +23,22 @@ struct SlidingPuzzle: Equatable {
 
     var isSolved: Bool {
         slots == solvedOrder.map(Optional.some) + [nil]
+    }
+
+    func slot(of tile: Tile) -> Int? {
+        slots.firstIndex(of: tile)
+    }
+
+    /// Where a tile at `index` would travel if it moved: `.horizontal` when the
+    /// blank is in its row, `.vertical` when in its column, `nil` otherwise.
+    /// `sign` is +1 toward the right/bottom and -1 toward the left/top.
+    func moveDirection(from index: Int) -> (horizontal: Bool, sign: Int)? {
+        guard !run(from: index).isEmpty else { return nil }
+        let blank = blankIndex
+        if index / columns == blank / columns {
+            return (true, blank > index ? 1 : -1)
+        }
+        return (false, blank > index ? 1 : -1)
     }
 
     /// Slot indices that would move if `index` were tapped, ordered from the
@@ -50,8 +69,9 @@ struct SlidingPuzzle: Equatable {
         guard !run.isEmpty else { return false }
         let blank = blankIndex
         // Shift every tile in the run one step toward the blank; the tapped slot becomes blank.
-        for (position, slot) in run.reversed().enumerated() {
-            let destination = position == 0 ? blank : run.reversed()[position - 1]
+        let towardBlank = Array(run.reversed())
+        for (position, slot) in towardBlank.enumerated() {
+            let destination = position == 0 ? blank : towardBlank[position - 1]
             slots[destination] = slots[slot]
         }
         slots[run[0]] = nil

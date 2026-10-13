@@ -13,7 +13,7 @@ struct PeopleTabView: View {
     var body: some View {
         NavigationStack {
             Group {
-                switch layout {
+                switch layout.resolved {
                 case .list:
                     PeopleListContent()
                 case .grid:

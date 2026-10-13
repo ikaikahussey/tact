@@ -10,7 +10,7 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section("People View") {
-                    ForEach(PeopleLayout.allCases) { option in
+                    ForEach(PeopleLayout.available) { option in
                         Button {
                             layout = option
                             dismiss()
@@ -19,31 +19,24 @@ struct SettingsView: View {
                                 Label(option.title, systemImage: option.systemImage)
                                     .foregroundStyle(.primary)
                                 Spacer()
-                                if layout == option {
+                                if layout.resolved == option {
                                     Image(systemName: "checkmark")
                                         .foregroundStyle(Color.accentColor)
                                         .fontWeight(.semibold)
                                 }
                             }
                         }
-                        .accessibilityAddTraits(layout == option ? [.isSelected] : [])
+                        .accessibilityAddTraits(layout.resolved == option ? [.isSelected] : [])
                     }
                 }
 
-                Section("Random Colors") {
-                    Picker("Palette", selection: $store.settings.randomColorSettings.palette) {
-                        ForEach(ColorPalette.allCases) { palette in
-                            Text(palette.rawValue).tag(palette)
-                        }
-                    }
-                }
 
                 Section("Art Puzzle") {
                     NavigationLink {
                         ArtSettingsView()
                     } label: {
-                        LabeledContent("Puzzle Photo",
-                                       value: store.settings.artSettings.imageData == nil ? "None" : "Chosen")
+                        LabeledContent("Puzzle Picture",
+                                       value: store.settings.artSettings.imageData == nil ? "Default" : "Your Photo")
                     }
                 }
 

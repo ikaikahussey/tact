@@ -79,6 +79,21 @@ final class HelpersTests: XCTestCase {
         XCTAssertEqual(cache.image(for: data)?.size.width, 1000)
     }
 
+    func testDefaultPuzzleImageIsBundled() throws {
+        let data = PuzzleDefaultImage.data
+        XCTAssertFalse(data.isEmpty)
+        let image = try XCTUnwrap(UIImage(data: data))
+        XCTAssertLessThanOrEqual(max(image.size.width, image.size.height), ImageProcessing.maxStoredDimension)
+        XCTAssertNotNil(ArtImageCache().tile(for: data, index: ArtPuzzle.pieceCount - 1, tileCount: ArtPuzzle.pieceCount))
+    }
+
+    func testHiddenLayoutsResolveToList() {
+        XCTAssertEqual(PeopleLayout.colors.resolved, .list)
+        XCTAssertEqual(PeopleLayout.flashcards.resolved, .list)
+        XCTAssertEqual(PeopleLayout.art.resolved, .art)
+        XCTAssertFalse(PeopleLayout.available.contains(.colors))
+    }
+
     func testBirthdayFormatting() {
         let locale = Locale(identifier: "en_US")
         XCTAssertEqual(ContactSnapshot.format(birthday: DateComponents(month: 12, day: 10), locale: locale), "December 10")

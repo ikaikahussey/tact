@@ -10,6 +10,13 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
 
     static let storageKey = "peopleLayout"
 
+    /// Layouts offered in Settings. Random Colors and Flashcards are kept for
+    /// stored preferences but hidden until they are ready to ship.
+    static let available: [PeopleLayout] = [.list, .grid, .art]
+
+    /// The layout to show: hidden layouts fall back to the list.
+    var resolved: PeopleLayout { Self.available.contains(self) ? self : .list }
+
     var id: String { rawValue }
 
     var title: String {

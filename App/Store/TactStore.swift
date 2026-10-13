@@ -167,6 +167,13 @@ final class TactStore: ObservableObject {
         return unique.sorted { (position[$0] ?? .max) < (position[$1] ?? .max) }
     }
 
+    // MARK: Puzzle
+
+    /// The user's chosen puzzle photo, or the bundled default picture.
+    var puzzleImageData: Data {
+        settings.artSettings.imageData ?? PuzzleDefaultImage.data
+    }
+
     // MARK: Export
 
     func outline(now: Date = Date()) -> String {

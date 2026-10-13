@@ -52,6 +52,24 @@ final class SlidingPuzzleTests: XCTestCase {
         XCTAssertFalse(puzzle.isSolved)
     }
 
+    func testIntegerTilesAndDirections() {
+        var puzzle = ArtPuzzle.makePuzzle()
+        XCTAssertEqual(puzzle.slots.count, 16)
+        XCTAssertEqual(puzzle.rows, 4)
+        XCTAssertTrue(puzzle.isSolved)
+        XCTAssertEqual(puzzle.slot(of: 14), 14)
+        XCTAssertEqual(puzzle.moveDirection(from: 14)?.horizontal, true)
+        XCTAssertEqual(puzzle.moveDirection(from: 14)?.sign, 1)
+        XCTAssertEqual(puzzle.moveDirection(from: 11)?.horizontal, false)
+        XCTAssertEqual(puzzle.moveDirection(from: 11)?.sign, 1)
+        XCTAssertNil(puzzle.moveDirection(from: 0))
+        puzzle.tap(12)   // whole bottom row slides right, blank now at 12
+        XCTAssertEqual(puzzle.moveDirection(from: 13)?.sign, -1)
+        XCTAssertEqual(puzzle.moveDirection(from: 0)?.horizontal, false)
+        XCTAssertEqual(puzzle.moveDirection(from: 0)?.sign, 1)
+        XCTAssertNil(puzzle.slot(of: 99))
+    }
+
     func testSinglePersonPuzzle() {
         var puzzle = SlidingPuzzle(tileIDs: [ids[0]])
         XCTAssertTrue(puzzle.tap(0))

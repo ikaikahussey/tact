@@ -42,4 +42,6 @@ Things that need a human with the developer account, in the order you will hit t
 5. **Screenshots and description.** Take screenshots from the simulator for the 6.9" and 6.5" sizes.
 6. **Version and build.** Bump `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` for each upload.
 
+The Art Puzzle's default picture is the `PuzzleDefault` image set in `App/Assets.xcassets`. It is a 1-bit rendering of Hashiguchi Goyō's 1920 print "Kamisuki" from blog.gingerbeardman.com, cropped square; the print is public domain but the rendering is the blog author's work, so confirm permission or attribution before release. The Random Colors and Flashcards layouts are implemented but hidden from Settings (`PeopleLayout.available`) until they are wanted.
+
 Minimum iOS version is 17.0. The app is iPhone-only (it runs on iPad in compatibility mode).
