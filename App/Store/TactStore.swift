@@ -135,11 +135,27 @@ final class TactStore: ObservableObject {
         return note
     }
 
-    func updateNote(id: UUID, text: String, personIds: some Collection<UUID>) {
+    /// Updates text and links. `modifiedDate` moves only when something changed.
+    func updateNote(id: UUID, text: String, personIds: some Collection<UUID>, now: Date = Date()) {
         guard let index = notes.firstIndex(where: { $0.id == id }) else { return }
         let ordered = orderedPersonIds(personIds)
-        if notes[index].text != text { notes[index].text = text }
-        if notes[index].personIds != ordered { notes[index].personIds = ordered }
+        guard notes[index].text != text || notes[index].personIds != ordered else { return }
+        var note = notes[index]
+        note.text = text
+        note.personIds = ordered
+        note.modifiedDate = now
+        notes[index] = note
+    }
+
+    /// Changes when the note happened; this is the date notes are sorted by.
+    func setNoteDate(id: UUID, to date: Date) {
+        guard let index = notes.firstIndex(where: { $0.id == id }), notes[index].date != date else { return }
+        notes[index].date = date
+    }
+
+    /// A short title for a note: the first linked person, or the date.
+    func title(for note: Note) -> String {
+        names(forPersonIDs: note.personIds).first ?? note.date.formatted(date: .abbreviated, time: .omitted)
     }
 
     func deleteNote(id: UUID) {

@@ -188,6 +188,8 @@ struct NewNoteSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
     @State private var selectedPersonIds: Set<UUID> = []
+    @State private var showingAddPerson = false
+    @State private var newPersonName = ""
     @FocusState private var textFocused: Bool
 
     private var trimmedText: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -195,22 +197,23 @@ struct NewNoteSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    if !store.people.isEmpty {
-                        Text("People").font(.headline)
-                        PersonSelectionGrid(selectedPersonIds: $selectedPersonIds)
-                    }
-                    Text("Note").font(.headline)
+                VStack(alignment: .leading, spacing: 20) {
                     TextField("What do you want to remember?", text: $text, axis: .vertical)
                         .lineLimit(5...12)
                         .focused($textFocused)
-                        .padding(10)
+                        .padding(12)
                         .background(Color.tactCardBackground)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("People")
+                            .font(.caption).foregroundStyle(.secondary).textCase(.uppercase)
+                        PersonChipRow(selectedPersonIds: $selectedPersonIds, onAdd: { showingAddPerson = true })
+                    }
                 }
                 .padding()
             }
-            .background(Color.tactSecondaryBackground)
+            .scrollDismissesKeyboard(.interactively)
+            .background(Color.tactBackground)
             .navigationTitle("New Note")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -225,38 +228,19 @@ struct NewNoteSheet: View {
                     .disabled(trimmedText.isEmpty)
                 }
             }
-            .onAppear { textFocused = store.people.isEmpty }
-        }
-        .presentationDetents([.medium, .large])
-    }
-}
-
-/// Grid of person tiles that toggles membership in `selectedPersonIds`.
-struct PersonSelectionGrid: View {
-    @EnvironmentObject private var store: TactStore
-    @Binding var selectedPersonIds: Set<UUID>
-    var leading: (() -> AnyView)? = nil
-
-    var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 4), spacing: 4) {
-            if let leading { leading() }
-            ForEach(store.people) { person in
-                let isSelected = selectedPersonIds.contains(person.id)
-                Button {
-                    if isSelected { selectedPersonIds.remove(person.id) } else { selectedPersonIds.insert(person.id) }
-                } label: {
-                    PersonTile(person: person, style: .photo, size: 72)
-                        .frame(maxWidth: .infinity)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 4)
-                                .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 3)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
+            .onAppear { textFocused = true }
+            .alert("Add Person", isPresented: $showingAddPerson) {
+                TextField("Name", text: $newPersonName)
+                    .textInputAutocapitalization(.words)
+                Button("Cancel", role: .cancel) { newPersonName = "" }
+                Button("Add") {
+                    if let person = store.addPerson(named: newPersonName) {
+                        selectedPersonIds.insert(person.id)
+                    }
+                    newPersonName = ""
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(person.name)
-                .accessibilityAddTraits(isSelected ? [.isSelected] : [])
             }
         }
+        .presentationDetents([.medium, .large])
     }
 }

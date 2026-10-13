@@ -46,6 +46,29 @@ final class TactStoreTests: XCTestCase {
         XCTAssertEqual(store.note(id: note.id)?.personIds, [grace.id, ada.id])
     }
 
+    func testModifiedDateMovesOnlyWhenSomethingChanges() {
+        let ada = store.addPerson(named: "Ada")!
+        let note = store.addNote(text: "Hi", personIds: [ada.id])!
+        XCTAssertEqual(note.modifiedDate, note.date)
+        XCTAssertFalse(note.wasEdited)
+
+        let later = note.date.addingTimeInterval(600)
+        store.updateNote(id: note.id, text: "Hi", personIds: [ada.id], now: later)
+        XCTAssertEqual(store.note(id: note.id)?.modifiedDate, note.date, "no-op must not bump")
+
+        store.updateNote(id: note.id, text: "Hi there", personIds: [ada.id], now: later)
+        XCTAssertEqual(store.note(id: note.id)?.modifiedDate, later)
+        XCTAssertTrue(store.note(id: note.id)!.wasEdited)
+
+        let yesterday = Date(timeIntervalSinceNow: -86_400)
+        store.setNoteDate(id: note.id, to: yesterday)
+        XCTAssertEqual(store.note(id: note.id)?.date, yesterday)
+        XCTAssertEqual(store.note(id: note.id)?.modifiedDate, later, "changing the date is not an edit")
+        XCTAssertEqual(store.title(for: store.note(id: note.id)!), "Ada")
+        XCTAssertEqual(store.title(for: Note(text: "x", date: Date(timeIntervalSince1970: 0))),
+                       Date(timeIntervalSince1970: 0).formatted(date: .abbreviated, time: .omitted))
+    }
+
     func testLinkAndUnlinkNotes() {
         let ada = store.addPerson(named: "Ada")!
         let note = store.addNote(text: "Hi")!

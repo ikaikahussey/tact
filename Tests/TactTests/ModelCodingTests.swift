@@ -19,6 +19,15 @@ final class ModelCodingTests: XCTestCase {
         XCTAssertNil(people[0].contact)
     }
 
+    func testNoteWithoutModifiedDateDecodes() throws {
+        let json = #"[{"id":"6D1A4F7E-1C0B-4E8B-9D6A-1234567890AB","personIds":[],"text":"Old","date":0}]"#.data(using: .utf8)!
+        let notes = try JSONDecoder().decode([Note].self, from: json)
+        XCTAssertEqual(notes[0].date, Date(timeIntervalSinceReferenceDate: 0))
+        XCTAssertEqual(notes[0].modifiedDate, notes[0].date)
+        let roundTrip = try JSONDecoder().decode([Note].self, from: JSONEncoder().encode(notes))
+        XCTAssertEqual(roundTrip, notes)
+    }
+
     func testPersonRoundTripsWithContactSnapshot() throws {
         let snapshot = ContactSnapshot(name: "Ada Lovelace", phones: ["+1 555 0100"], emails: ["ada@example.com"],
                                        addresses: ["1 Analytical Way"], birthday: "December 10", organization: "Babbage & Co",

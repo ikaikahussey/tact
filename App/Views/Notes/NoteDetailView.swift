@@ -11,7 +11,11 @@ struct NoteDetailView: View {
     @State private var hasLoaded = false
     @State private var showingDeleteAlert = false
     @State private var showingAddPerson = false
+    @State private var showingDatePicker = false
+    @State private var draftDate = Date()
     @State private var newPersonName = ""
+    @State private var openPersonID: UUID?
+    @FocusState private var editorFocused: Bool
 
     var body: some View {
         if let note = store.note(id: noteID) {
@@ -23,31 +27,32 @@ struct NoteDetailView: View {
 
     private func content(for note: Note) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("People")
-                    .font(.caption).foregroundStyle(.secondary).textCase(.uppercase)
-
-                PersonSelectionGrid(selectedPersonIds: $selectedPersonIds) {
-                    AnyView(addPersonTile)
+            VStack(alignment: .leading, spacing: 20) {
+                editor
+                metadata(for: note)
+                section("People") {
+                    PersonChipRow(selectedPersonIds: $selectedPersonIds,
+                                  onAdd: { showingAddPerson = true },
+                                  onOpen: { openPersonID = $0 })
                 }
-
-                Text("Note")
-                    .font(.caption).foregroundStyle(.secondary).textCase(.uppercase)
-
-                TextEditor(text: $text)
-                    .frame(minHeight: 200)
-                    .padding(8)
-                    .background(Color.tactCardBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                Text("Created \(note.date, style: .date)")
-                    .font(.caption).foregroundStyle(.secondary)
+                Button(role: .destructive) { showingDeleteAlert = true } label: {
+                    Label("Delete Note", systemImage: "trash")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                }
+                .buttonStyle(.bordered)
+                .tint(.red)
+                .padding(.top, 12)
             }
             .padding()
         }
+        .scrollDismissesKeyboard(.interactively)
         .background(Color.tactBackground)
-        .navigationTitle("Edit Note")
+        .navigationTitle(store.title(for: note))
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(item: $openPersonID) { id in
+            PersonDetailView(personID: id)
+        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 ShareLink(item: text) {
@@ -55,10 +60,10 @@ struct NoteDetailView: View {
                 }
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
-            ToolbarItem(placement: .destructiveAction) {
-                Button(role: .destructive) { showingDeleteAlert = true } label: {
-                    Label("Delete Note", systemImage: "trash")
-                }
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { editorFocused = false }
+                    .fontWeight(.semibold)
             }
         }
         .onAppear {
@@ -66,6 +71,7 @@ struct NoteDetailView: View {
             text = note.text
             selectedPersonIds = Set(note.personIds)
             hasLoaded = true
+            if note.text.isEmpty { editorFocused = true }
         }
         .onChange(of: text) { _, _ in save() }
         .onChange(of: selectedPersonIds) { _, _ in save() }
@@ -90,19 +96,88 @@ struct NoteDetailView: View {
                 newPersonName = ""
             }
         }
+        .sheet(isPresented: $showingDatePicker) {
+            datePickerSheet
+        }
     }
 
-    private var addPersonTile: some View {
-        Button { showingAddPerson = true } label: {
-            ZStack {
-                Color.tactTileGray
-                Image(systemName: "plus").font(.title2).foregroundStyle(.primary)
+    // MARK: Pieces
+
+    private var editor: some View {
+        ZStack(alignment: .topLeading) {
+            if text.isEmpty {
+                Text("What do you want to remember?")
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 13)
+                    .padding(.vertical, 16)
+                    .accessibilityHidden(true)
             }
-            .frame(height: 72)
-            .clipShape(RoundedRectangle(cornerRadius: 4))
+            TextEditor(text: $text)
+                .focused($editorFocused)
+                .scrollContentBackground(.hidden)
+                .scrollDisabled(true)
+                .padding(8)
+                .frame(minHeight: 180)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Add Person")
+        .background(Color.tactCardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .onTapGesture { editorFocused = true }
+    }
+
+    private func metadata(for note: Note) -> some View {
+        HStack(spacing: 12) {
+            Button {
+                draftDate = note.date
+                showingDatePicker = true
+            } label: {
+                Label(note.date.formatted(date: .abbreviated, time: .omitted), systemImage: "calendar")
+                    .font(.subheadline)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityLabel("Date, \(note.date.formatted(date: .long, time: .omitted))")
+            .accessibilityHint("Changes when this happened")
+
+            if note.wasEdited {
+                Text("Edited \(note.modifiedDate, style: .relative) ago")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer()
+        }
+    }
+
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.caption).foregroundStyle(.secondary).textCase(.uppercase)
+            content()
+        }
+    }
+
+    private var datePickerSheet: some View {
+        NavigationStack {
+            VStack {
+                DatePicker("When it happened", selection: $draftDate, displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .padding()
+                Spacer()
+            }
+            .navigationTitle("Date")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { showingDatePicker = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        store.setNoteDate(id: noteID, to: draftDate)
+                        showingDatePicker = false
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 
     private func save() {
