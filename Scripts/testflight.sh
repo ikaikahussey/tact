@@ -2,8 +2,8 @@
 # Archives Tact for the App Store and uploads it to TestFlight.
 #
 # Usage:
-#   TEAM_ID=ABCDE12345 Scripts/testflight.sh            # upload with your Xcode login
-#   TEAM_ID=... ASC_KEY_PATH=~/AuthKey_XXXX.p8 ASC_KEY_ID=XXXX ASC_ISSUER_ID=... Scripts/testflight.sh
+#   Scripts/testflight.sh                              # upload with your Xcode login
+#   ASC_KEY_PATH=~/AuthKey_XXXX.p8 ASC_KEY_ID=XXXX ASC_ISSUER_ID=... Scripts/testflight.sh
 #
 # Requirements: Xcode signed in to the Apple Developer account that owns TEAM_ID
 # (Xcode > Settings > Accounts), the bundle id registered in App Store Connect, and
@@ -16,7 +16,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-: "${TEAM_ID:?Set TEAM_ID to your 10-character Apple Developer team id}"
+TEAM_ID="${TEAM_ID:-3D52FT6PP7}"
 BUILD_NUMBER="${BUILD_NUMBER:-$(date -u +%Y%m%d%H%M)}"
 ARCHIVE="build/Tact.xcarchive"
 EXPORT_DIR="build/export"

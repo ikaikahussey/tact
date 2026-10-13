@@ -13,6 +13,7 @@
     "transitivelyLinkDependencies": false
   },
   "settings": {
+    "DEVELOPMENT_TEAM": "3D52FT6PP7",
     "SWIFT_VERSION": "5.0"
   },
   "targets": {

@@ -13,12 +13,12 @@
 From the repository root:
 
 ```bash
-TEAM_ID=ABCDE12345 Scripts/testflight.sh
+Scripts/testflight.sh
 ```
 
-The script archives a Release build with a timestamp build number, signs it automatically, and uploads it. Processing takes a few minutes; then the build appears under TestFlight in App Store Connect.
+The team (3D52FT6PP7) is set in the project. The script archives a Release build with a timestamp build number, signs it automatically, and uploads it. Processing takes a few minutes; then the build appears under TestFlight in App Store Connect.
 
-Or in Xcode: select "Any iOS Device (arm64)", set your team under Signing & Capabilities for both targets, Product > Archive, then Distribute App > TestFlight & App Store.
+Or in Xcode: select "Any iOS Device (arm64)", Product > Archive, then Distribute App > TestFlight & App Store.
 
 To upload without being interactively signed in (CI), create an App Store Connect API key with the App Manager role and pass `ASC_KEY_PATH`, `ASC_KEY_ID` and `ASC_ISSUER_ID` as well.
 

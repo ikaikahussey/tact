@@ -36,7 +36,7 @@ xcodebuild -project Tact.xcodeproj -scheme Tact -destination 'platform=iOS Simul
 Things that need a human with the developer account, in the order you will hit them:
 
 1. **Bundle identifier.** `PRODUCT_BUNDLE_IDENTIFIER` is `app.bitrig.ikaikahussey.tact` in both targets. Change it if you want a different one, then register it in App Store Connect.
-2. **Signing.** Set your team under *Signing & Capabilities* for both targets (`DEVELOPMENT_TEAM` is empty on purpose so the project builds on any machine).
+2. **Signing.** Both targets are set to team 3D52FT6PP7 with automatic signing; Xcode must be signed in to that account.
 3. **Privacy policy URL.** Required because the app requests Contacts access. The app never uploads anything; the policy can say so.
 4. **App Privacy answers in App Store Connect.** Data is not collected. `App/PrivacyInfo.xcprivacy` already declares the UserDefaults use.
 5. **Screenshots and description.** Take screenshots from the simulator for the 6.9" and 6.5" sizes.
