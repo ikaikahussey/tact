@@ -103,3 +103,27 @@ struct GameTypeSettings: Codable, Equatable {
             ?? ArtGameSettings()
     }
 }
+
+/// How the Notes tab arranges notes.
+enum NotesGrouping: String, CaseIterable, Identifiable, Codable {
+    case recent
+    case person
+
+    static let storageKey = "notesGrouping"
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .recent: return "Most Recent"
+        case .person: return "By Person"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .recent: return "clock"
+        case .person: return "person.2"
+        }
+    }
+}
