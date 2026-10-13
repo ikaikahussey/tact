@@ -1,0 +1,62 @@
+# Shipping Tact to TestFlight
+
+## One-time setup (needs your Apple Developer account)
+
+1. **Sign in to Xcode.** Xcode > Settings > Accounts > add your Apple ID. Note the 10-character Team ID shown next to the team.
+2. **Register the app.** In [App Store Connect](https://appstoreconnect.apple.com) > Apps > "+" > New App:
+   iOS, name "Tact", bundle ID `com.ikaikahussey.tact` (register it under Certificates, Identifiers & Profiles if it is not offered), SKU `tact-ios`.
+   If you want a different bundle ID, change `PRODUCT_BUNDLE_IDENTIFIER` in both targets of `Tact.xcodeproj` first.
+3. **Privacy policy URL.** Required before external testers can be added, because the app asks for Contacts access. A short page saying the app stores everything on the device and uploads nothing is enough.
+
+## Each upload
+
+From the repository root:
+
+```bash
+TEAM_ID=ABCDE12345 Scripts/testflight.sh
+```
+
+The script archives a Release build with a timestamp build number, signs it automatically, and uploads it. Processing takes a few minutes; then the build appears under TestFlight in App Store Connect.
+
+Or in Xcode: select "Any iOS Device (arm64)", set your team under Signing & Capabilities for both targets, Product > Archive, then Distribute App > TestFlight & App Store.
+
+To upload without being interactively signed in (CI), create an App Store Connect API key with the App Manager role and pass `ASC_KEY_PATH`, `ASC_KEY_ID` and `ASC_ISSUER_ID` as well.
+
+## Export compliance
+
+`ITSAppUsesNonExemptEncryption` is set to `false` in `App/Info.plist`, so TestFlight will not stop to ask about encryption. The app uses no encryption beyond the system's.
+
+## What to Test (paste into TestFlight)
+
+```
+Tact 1.0 – first beta
+
+Tact keeps notes about the people in your life. Everything stays on your phone.
+
+Please try:
+• Add a few people, give some a photo, and link one to a contact card.
+• Write notes from the Notes tab and from a person's screen. Link a note to more than one person.
+• Switch the People view (tap the "People" header) between List, Photo Grid and Art Puzzle.
+• In the Art Puzzle, drag pieces to solve it, then choose your own photo.
+• Group Notes by person (tap the "Notes" header).
+• Edit a note: change its date, add or remove people, then delete it.
+• Force-quit and reopen: everything should still be there.
+
+Tell us about anything confusing, slow, or that lost data. Use the TestFlight screenshot feedback if you can.
+```
+
+## Beta App Review notes
+
+TestFlight external testing goes through a light review. Suggested notes for the reviewer:
+
+```
+Tact is a personal notes app. No account is needed. Contacts access is optional and only used
+when the user taps "Link Contact" on a person; it copies name, phone, email and address into
+the app's local storage. Nothing is uploaded.
+```
+
+## Before each build
+
+- Bump `MARKETING_VERSION` when the user-facing version changes (the build number is automatic).
+- Run the tests: `xcodebuild -project Tact.xcodeproj -scheme Tact -destination 'platform=iOS Simulator,name=iPhone 17' test`
+- Check the About row in Settings shows the version you expect.
