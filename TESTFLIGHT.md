@@ -4,7 +4,7 @@
 
 1. **Sign in to Xcode.** Xcode > Settings > Accounts > add your Apple ID. Note the 10-character Team ID shown next to the team.
 2. **Register the app.** In [App Store Connect](https://appstoreconnect.apple.com) > Apps > "+" > New App:
-   iOS, name "Tact", bundle ID `com.ikaikahussey.tact` (register it under Certificates, Identifiers & Profiles if it is not offered), SKU `tact-ios`.
+   iOS, name "Tact", bundle ID `app.bitrig.ikaikahussey.tact` (register it under Certificates, Identifiers & Profiles if it is not offered), SKU `app.bitrig.ikaikahussey.tact` (already created, Apple ID 6759739594).
    If you want a different bundle ID, change `PRODUCT_BUNDLE_IDENTIFIER` in both targets of `Tact.xcodeproj` first.
 3. **Privacy policy URL.** Required before external testers can be added, because the app asks for Contacts access. A short page saying the app stores everything on the device and uploads nothing is enough.
 
