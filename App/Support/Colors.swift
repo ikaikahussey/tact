@@ -19,3 +19,47 @@ extension Bundle {
         return "\(short) (\(build))"
     }
 }
+
+/// Shows "Tact" as the small title in the top bar of every tab. The tab's own
+/// large header is drawn in the content by `TabHeader`.
+struct AppTitleBar: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Tact")
+                        .font(.headline)
+                        .accessibilityAddTraits(.isHeader)
+                }
+            }
+    }
+}
+
+extension View {
+    func appTitleBar() -> some View { modifier(AppTitleBar()) }
+}
+
+/// Large header at the top of a tab, in the style of a large navigation title.
+struct TabHeader<Accessory: View>: View {
+    let title: String
+    @ViewBuilder var accessory: () -> Accessory
+
+    init(_ title: String, @ViewBuilder accessory: @escaping () -> Accessory = { EmptyView() }) {
+        self.title = title
+        self.accessory = accessory
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(title)
+                .font(.largeTitle.bold())
+                .accessibilityAddTraits(.isHeader)
+            accessory()
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 4)
+        .padding(.bottom, 8)
+    }
+}

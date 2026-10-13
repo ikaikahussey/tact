@@ -22,6 +22,18 @@ struct SearchView: View {
 
     var body: some View {
         NavigationStack {
+            VStack(spacing: 0) {
+                TabHeader("Search")
+                results
+            }
+            .background(Color.tactBackground)
+            .navigationTitle("Search")
+            .appTitleBar()
+            .searchable(text: $searchText, prompt: "Search people and notes")
+        }
+    }
+
+    private var results: some View {
             Group {
                 if query.isEmpty {
                     ContentUnavailableView {
@@ -66,8 +78,5 @@ struct SearchView: View {
                     .listStyle(.insetGrouped)
                 }
             }
-            .navigationTitle("Search")
-            .searchable(text: $searchText, prompt: "Search people and notes")
-        }
     }
 }

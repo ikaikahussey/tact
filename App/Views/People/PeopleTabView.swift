@@ -10,9 +10,37 @@ struct PeopleTabView: View {
     @State private var newPersonName = ""
     @State private var isJiggleMode = false
 
+    /// "People" with a chevron: tapping opens the view-mode menu.
+    private var header: some View {
+        Menu {
+            Picker("View", selection: $layout) {
+                ForEach(PeopleLayout.available) { option in
+                    Label(option.title, systemImage: option.systemImage).tag(option)
+                }
+            }
+            Divider()
+            Button { showingSettings = true } label: {
+                Label("Settings…", systemImage: "gearshape")
+            }
+        } label: {
+            TabHeader("People") {
+                Image(systemName: "chevron.down.circle.fill")
+                    .font(.title3)
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.secondary)
+            }
+            .foregroundStyle(.primary)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("People, \(layout.resolved.title)")
+        .accessibilityHint("Changes how people are shown")
+    }
+
     var body: some View {
         NavigationStack {
-            Group {
+            VStack(spacing: 0) {
+                header
                 switch layout.resolved {
                 case .list:
                     PeopleListContent()
@@ -27,16 +55,13 @@ struct PeopleTabView: View {
                     ArtPuzzleView()
                 }
             }
-            .navigationTitle("Tact")
-            .navigationBarTitleDisplayMode(.large)
+            .background(Color.tactBackground)
+            .navigationTitle("People")
+            .appTitleBar()
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    if isJiggleMode {
+                if isJiggleMode {
+                    ToolbarItem(placement: .topBarTrailing) {
                         Button("Done") { withAnimation { isJiggleMode = false } }
-                    } else {
-                        Button { showingSettings = true } label: {
-                            Label("Settings", systemImage: "gearshape")
-                        }
                     }
                 }
                 ToolbarItem(placement: .primaryAction) {

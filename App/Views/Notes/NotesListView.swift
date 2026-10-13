@@ -6,6 +6,27 @@ struct NotesListView: View {
 
     var body: some View {
         NavigationStack {
+            VStack(spacing: 0) {
+                TabHeader("Notes")
+                notesList
+            }
+            .background(Color.tactBackground)
+            .navigationTitle("Notes")
+            .appTitleBar()
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showingAddNote = true } label: {
+                        Label("New Note", systemImage: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingAddNote) {
+                NewNoteSheet()
+            }
+        }
+    }
+
+    private var notesList: some View {
             List {
                 ForEach(store.sortedNotes) { note in
                     NoteRow(note: note)
@@ -30,18 +51,6 @@ struct NotesListView: View {
                     }
                 }
             }
-            .navigationTitle("Notes")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button { showingAddNote = true } label: {
-                        Label("New Note", systemImage: "plus")
-                    }
-                }
-            }
-            .sheet(isPresented: $showingAddNote) {
-                NewNoteSheet()
-            }
-        }
     }
 }
 

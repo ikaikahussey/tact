@@ -4,32 +4,10 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var store: TactStore
     @Environment(\.dismiss) private var dismiss
-    @AppStorage(PeopleLayout.storageKey) private var layout: PeopleLayout = .list
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("People View") {
-                    ForEach(PeopleLayout.available) { option in
-                        Button {
-                            layout = option
-                            dismiss()
-                        } label: {
-                            HStack {
-                                Label(option.title, systemImage: option.systemImage)
-                                    .foregroundStyle(.primary)
-                                Spacer()
-                                if layout.resolved == option {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(Color.accentColor)
-                                        .fontWeight(.semibold)
-                                }
-                            }
-                        }
-                        .accessibilityAddTraits(layout.resolved == option ? [.isSelected] : [])
-                    }
-                }
-
 
                 Section("Art Puzzle") {
                     NavigationLink {
