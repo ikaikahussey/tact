@@ -10,19 +10,24 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
 
     static let storageKey = "peopleLayout"
 
-    /// Layouts offered in Settings. Random Colors and Flashcards are kept for
-    /// stored preferences but hidden until they are ready to ship.
-    static let available: [PeopleLayout] = [.list, .grid, .art]
+    /// Layouts offered in the People menu. Random Colors and Flashcards are
+    /// kept for stored preferences but hidden until they are ready to ship.
+    /// The Art Puzzle now plays inside the Tiles grid (see `Game`).
+    static let available: [PeopleLayout] = [.list, .grid]
 
-    /// The layout to show: hidden layouts fall back to the list.
-    var resolved: PeopleLayout { Self.available.contains(self) ? self : .list }
+    /// The layout to show: the old Art Puzzle layout opens the Tiles grid,
+    /// other hidden layouts fall back to the list.
+    var resolved: PeopleLayout {
+        if self == .art { return .grid }
+        return Self.available.contains(self) ? self : .list
+    }
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .list:       return "List"
-        case .grid:       return "Photo Grid"
+        case .grid:       return "Tiles"
         case .colors:     return "Random Colors"
         case .flashcards: return "Flashcards"
         case .art:        return "Art Puzzle"
@@ -70,21 +75,10 @@ struct RandomColorGameSettings: Codable, Equatable {
     }
 }
 
-struct ArtGameSettings: Codable, Equatable {
-    /// JPEG data of the photo sliced into puzzle tiles. One copy for the whole app.
-    var imageData: Data?
-
-    init(imageData: Data? = nil) {
-        self.imageData = imageData
-    }
-
-    private enum CodingKeys: String, CodingKey { case imageData }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        imageData = (try? container.decodeIfPresent(Data.self, forKey: .imageData)) ?? nil
-    }
-}
+/// Settings for the Art Puzzle. It has none since the puzzle moved onto the
+/// people tiles; kept so older settings files still decode (unknown keys,
+/// such as the old puzzle photo, are ignored).
+struct ArtGameSettings: Codable, Equatable {}
 
 /// App-wide settings for the game-style layouts.
 struct GameTypeSettings: Codable, Equatable {

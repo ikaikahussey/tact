@@ -1,14 +1,17 @@
 import SwiftUI
 
-/// The People tab. Switches between the list and the game-style layouts and
-/// hosts the shared "Add Person" and settings actions.
+/// The People tab. Switches between the list and the Tiles grid, starts
+/// games, and hosts the shared "Add Person" and settings actions.
 struct PeopleTabView: View {
     @EnvironmentObject private var store: TactStore
     @AppStorage(PeopleLayout.storageKey) private var layout: PeopleLayout = .list
     @State private var showingAddPerson = false
     @State private var showingSettings = false
     @State private var newPersonName = ""
-    @State private var isJiggleMode = false
+    @State private var gridMode: GridMode = .browse
+    @State private var pendingGame: Game?
+    @State private var unlockShortfall: Int?
+    @State private var presentedGame: Game?
 
     /// "People" with a chevron: tapping opens the view-mode menu.
     private var header: some View {
@@ -16,6 +19,17 @@ struct PeopleTabView: View {
             Picker("View", selection: $layout) {
                 ForEach(PeopleLayout.available) { option in
                     Label(option.title, systemImage: option.systemImage).tag(option)
+                }
+            }
+            Section("Games") {
+                ForEach(Game.allCases) { game in
+                    Button { play(game) } label: {
+                        // A second Text beside the Label becomes the menu item's subtitle.
+                        Label(game.title, systemImage: game.systemImage)
+                        if let shortfall = shortfall(for: game), shortfall > 0 {
+                            Text("Locked · add \(shortfall) more \(shortfall == 1 ? "person" : "people")")
+                        }
+                    }
                 }
             }
             Divider()
@@ -34,7 +48,24 @@ struct PeopleTabView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("People, \(layout.resolved.title)")
-        .accessibilityHint("Changes how people are shown")
+        .accessibilityHint("Changes how people are shown or starts a game")
+    }
+
+    /// How many more people a game needs, when known.
+    private func shortfall(for game: Game) -> Int? {
+        switch game {
+        case .artPuzzle: return unlockShortfall
+        case .tangram: return max(0, TangramGameView.piecesPerSet - store.people.count)
+        }
+    }
+
+    private func play(_ game: Game) {
+        if game.playsInTiles {
+            layout = .grid
+            pendingGame = game
+        } else {
+            presentedGame = game
+        }
     }
 
     var body: some View {
@@ -44,24 +75,24 @@ struct PeopleTabView: View {
                 switch layout.resolved {
                 case .list:
                     PeopleListContent()
-                case .grid:
-                    PeopleGridContent(tileStyle: .photo, isJiggleMode: $isJiggleMode) { showingAddPerson = true }
+                case .grid, .art:
+                    PeopleGridContent(tileStyle: .tangram, mode: $gridMode, pendingGame: $pendingGame,
+                                      unlockShortfall: $unlockShortfall) { showingAddPerson = true }
                 case .colors:
                     PeopleGridContent(tileStyle: .color(store.settings.randomColorSettings.palette),
-                                      isJiggleMode: $isJiggleMode) { showingAddPerson = true }
+                                      mode: $gridMode, pendingGame: $pendingGame,
+                                      unlockShortfall: $unlockShortfall) { showingAddPerson = true }
                 case .flashcards:
                     FlashcardView()
-                case .art:
-                    ArtPuzzleView()
                 }
             }
             .background(Color.tactBackground)
             .navigationTitle("People")
             .appTitleBar()
             .toolbar {
-                if isJiggleMode {
+                if gridMode == .reorder {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Done") { withAnimation { isJiggleMode = false } }
+                        Button("Done") { withAnimation { gridMode = .browse } }
                     }
                 }
                 ToolbarItem(placement: .primaryAction) {
@@ -82,7 +113,17 @@ struct PeopleTabView: View {
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
             }
-            .onChange(of: layout) { _, _ in isJiggleMode = false }
+            .navigationDestination(item: $presentedGame) { game in
+                switch game {
+                case .tangram: TangramGameView()
+                case .artPuzzle: EmptyView()
+                }
+            }
+            .onChange(of: layout) { _, _ in gridMode = .browse }
+            .onAppear {
+                // The Art Puzzle used to be its own layout; it now lives in Tiles.
+                if layout == .art { layout = .grid }
+            }
         }
     }
 }

@@ -1,8 +1,8 @@
 import SwiftUI
 
 enum TileStyle: Equatable {
-    /// The person's photo, or their name on a plain card.
-    case photo
+    /// The person's generated tangram artwork with their name.
+    case tangram
     /// A colour derived from the person's seed.
     case color(ColorPalette)
 }
@@ -18,20 +18,8 @@ struct PersonTile: View {
             switch style {
             case .color(let palette):
                 RandomColor.color(seed: person.colorSeed, palette: palette)
-            case .photo:
-                if let image = person.thumbnail() {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                } else {
-                    Color.tactCardBackground
-                    Text(person.name)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                        .multilineTextAlignment(.center)
-                        .minimumScaleFactor(0.6)
-                        .padding(6)
-                }
+            case .tangram:
+                TangramTileView(person: person, size: size)
             }
         }
         .frame(width: size, height: size)
@@ -41,7 +29,8 @@ struct PersonTile: View {
     }
 }
 
-/// Circular avatar used in lists.
+/// Circular avatar used in lists and chips: the photo, or the tangram artwork
+/// when there is none.
 struct PersonAvatar: View {
     let person: Person
     var size: CGFloat = 40
@@ -53,9 +42,7 @@ struct PersonAvatar: View {
                     .resizable()
                     .scaledToFill()
             } else {
-                Circle()
-                    .fill(Color.tactTileGray)
-                    .overlay(Image(systemName: "person.fill").foregroundStyle(.secondary))
+                TangramTileView(person: person, size: size, showsName: false)
             }
         }
         .frame(width: size, height: size)

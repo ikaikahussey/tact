@@ -53,7 +53,7 @@ final class SlidingPuzzleTests: XCTestCase {
     }
 
     func testIntegerTilesAndDirections() {
-        var puzzle = ArtPuzzle.makePuzzle()
+        var puzzle = SlidingPuzzle(tileIDs: Array(0..<15))
         XCTAssertEqual(puzzle.slots.count, 16)
         XCTAssertEqual(puzzle.rows, 4)
         XCTAssertTrue(puzzle.isSolved)

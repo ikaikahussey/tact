@@ -36,8 +36,8 @@ Tact keeps notes about the people in your life. Everything stays on your phone.
 Please try:
 • Add a few people, give some a photo, and link one to a contact card.
 • Write notes from the Notes tab and from a person's screen. Link a note to more than one person.
-• Switch the People view (tap the "People" header) between List, Photo Grid and Art Puzzle.
-• In the Art Puzzle, drag pieces to solve it, then choose your own photo.
+• Switch the People view (tap the "People" header) between List and Tiles. Everyone gets their own tangram artwork.
+• Add people until the tiles fill the screen, then tap Shuffle (or People ▸ Games ▸ Art Puzzle). Slide the tiles back into order; touch and hold a tile to open that person.
 • Group Notes by person (tap the "Notes" header).
 • Edit a note: change its date, add or remove people, then delete it.
 • Force-quit and reopen: everything should still be there.
