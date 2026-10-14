@@ -107,6 +107,33 @@ final class TactStore: ObservableObject {
         people.move(fromOffsets: source, toOffset: destination)
     }
 
+    // MARK: Tiles
+
+    func updateTile(forPersonID id: UUID, _ change: (inout TileArt) -> Void) {
+        guard let index = people.firstIndex(where: { $0.id == id }) else { return }
+        change(&people[index].tile)
+    }
+
+    /// Moves a person's tile to a cell on the canvas, swapping with whoever
+    /// is there. Everyone's current cell is pinned first so that filling the
+    /// old spot doesn't shuffle unplaced tiles around.
+    func moveTile(personID id: UUID, toCell target: Int) {
+        guard target >= 0 else { return }
+        let cellOf = Dictionary(uniqueKeysWithValues: TileLayout.cells(for: people).map { ($1, $0) })
+        guard let source = cellOf[id], source != target else { return }
+        var updated = people
+        for index in updated.indices {
+            let cell = cellOf[updated[index].id]
+            updated[index].tile.cell = cell
+            if updated[index].id == id {
+                updated[index].tile.cell = target
+            } else if cell == target {
+                updated[index].tile.cell = source
+            }
+        }
+        people = updated
+    }
+
     func linkContact(toPersonID id: UUID, identifier: String, snapshot: ContactSnapshot) {
         guard let index = people.firstIndex(where: { $0.id == id }) else { return }
         people[index].contactIdentifier = identifier

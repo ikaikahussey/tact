@@ -26,9 +26,9 @@ xcodebuild -project Tact.xcodeproj -scheme Tact -destination 'platform=iOS Simul
 | --- | --- |
 | `App/Models` | `Person`, `Note`, `ContactSnapshot` and the settings types. Plain `Codable` values. |
 | `App/Store` | `TactStore` (the single source of truth, all mutations) and `PersistenceController` (JSON files plus one JPEG per photo in Application Support, with migration from the 1.0 UserDefaults format). |
-| `App/Games` | The `Game` registry, the reusable `SlidingPuzzleBoard` and its pure `SlidingPuzzle` model, Flashcards, and the colour derivation for Random Colors. |
+| `App/Games` | Flashcards and the colour derivation for Random Colors. |
 | `App/Views` | SwiftUI screens, grouped by tab. |
-| `App/Support` | Small helpers: outline export, Contacts conversion, colours, and the `TangramArt` geometry behind each person's tile. |
+| `App/Support` | Small helpers: outline export, Contacts conversion, colours. |
 | `Tests/TactTests` | XCTest unit tests for the models, persistence, store rules and puzzle logic. |
 
 ## Before submitting to the App Store
@@ -42,6 +42,6 @@ Things that need a human with the developer account, in the order you will hit t
 5. **Screenshots and description.** Take screenshots from the simulator for the 6.9" and 6.5" sizes.
 6. **Version and build.** Bump `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` for each upload.
 
-Every person gets a generated tangram tile (`TangramFigure` + `TangramDesign`, picked from their colour seed). The Art Puzzle plays on the Tiles grid itself and unlocks once people fill the screen. Tangram (`TangramGameView`, model in `TangramPuzzle`) turns seven people into the seven pieces, to fill a silhouette or for free play. New games are a `Game` case plus a view or grid mode. The Random Colors and Flashcards layouts are implemented but hidden from Settings (`PeopleLayout.available`) until they are wanted.
+The Tiles view is a free-play canvas: each person is a filled square or right-angle triangle (`TileArt`, stored on `Person`) that can be turned and recoloured with a tap, switched between square and triangle with a double tap, and dragged to any cell (`TileLayout`). The Random Colors and Flashcards layouts are implemented but hidden from Settings (`PeopleLayout.available`) until they are wanted.
 
 Minimum iOS version is 17.0. The app is iPhone-only (it runs on iPad in compatibility mode).

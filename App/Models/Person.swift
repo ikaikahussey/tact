@@ -11,6 +11,8 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
     /// Details copied from the linked Contacts entry so they can be shown
     /// without re-requesting Contacts access on every launch.
     var contact: ContactSnapshot?
+    /// The person's shape on the Tiles canvas.
+    var tile: TileArt
 
     init(
         id: UUID = UUID(),
@@ -18,7 +20,8 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
         colorSeed: Int? = nil,
         photoData: Data? = nil,
         contactIdentifier: String? = nil,
-        contact: ContactSnapshot? = nil
+        contact: ContactSnapshot? = nil,
+        tile: TileArt? = nil
     ) {
         self.id = id
         self.name = name
@@ -26,6 +29,7 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
         self.photoData = photoData
         self.contactIdentifier = contactIdentifier
         self.contact = contact
+        self.tile = tile ?? TileArt(seed: self.colorSeed)
     }
 
     var hasLinkedContact: Bool { contactIdentifier != nil }
@@ -35,7 +39,7 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, name
         case colorSeed = "imageSection"
-        case photoData, contactIdentifier, contact
+        case photoData, contactIdentifier, contact, tile
     }
 
     init(from decoder: Decoder) throws {
@@ -46,6 +50,7 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
         photoData = try container.decodeIfPresent(Data.self, forKey: .photoData)
         contactIdentifier = try container.decodeIfPresent(String.self, forKey: .contactIdentifier)
         contact = try? container.decodeIfPresent(ContactSnapshot.self, forKey: .contact)
+        tile = (try? container.decodeIfPresent(TileArt.self, forKey: .tile)) ?? nil ?? TileArt(seed: colorSeed)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -58,6 +63,7 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
         }
         try container.encodeIfPresent(contactIdentifier, forKey: .contactIdentifier)
         try container.encodeIfPresent(contact, forKey: .contact)
+        try container.encode(tile, forKey: .tile)
     }
 }
 

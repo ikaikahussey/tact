@@ -12,10 +12,9 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
 
     /// Layouts offered in the People menu. Random Colors and Flashcards are
     /// kept for stored preferences but hidden until they are ready to ship.
-    /// The Art Puzzle now plays inside the Tiles grid (see `Game`).
     static let available: [PeopleLayout] = [.list, .grid]
 
-    /// The layout to show: the old Art Puzzle layout opens the Tiles grid,
+    /// The layout to show: the old Art Puzzle layout opens the Tiles canvas,
     /// other hidden layouts fall back to the list.
     var resolved: PeopleLayout {
         if self == .art { return .grid }
@@ -75,9 +74,8 @@ struct RandomColorGameSettings: Codable, Equatable {
     }
 }
 
-/// Settings for the Art Puzzle. It has none since the puzzle moved onto the
-/// people tiles; kept so older settings files still decode (unknown keys,
-/// such as the old puzzle photo, are ignored).
+/// Settings for the retired Art Puzzle. Kept so older settings files still
+/// decode (unknown keys, such as the old puzzle photo, are ignored).
 struct ArtGameSettings: Codable, Equatable {}
 
 /// App-wide settings for the game-style layouts.

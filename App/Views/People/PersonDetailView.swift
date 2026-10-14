@@ -41,15 +41,17 @@ struct PersonDetailView: View {
                         .accessibilityAddTraits(.isButton)
                         .accessibilityHint("Changes the photo")
                 } else {
-                    GeometryReader { geometry in
-                        TangramTileView(person: person, size: geometry.size.width, showsName: false, height: 220)
+                    ZStack {
+                        TilePalette.color(person.tile.colorIndex).opacity(0.18)
+                        TileArtView(art: person.tile, side: 150)
                     }
+                    .frame(maxWidth: .infinity)
                     .frame(height: 220)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .contentShape(Rectangle())
                     .onTapGesture { showingPhotoPicker = true }
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("Artwork for \(person.name)")
+                    .accessibilityLabel("Tile for \(person.name)")
                     .accessibilityAddTraits(.isButton)
                     .accessibilityHint("Adds a photo")
                 }
