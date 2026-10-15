@@ -1,5 +1,17 @@
 import Foundation
 import Combine
+import os
+
+/// Where the iCloud backup stands, for display in Settings.
+enum CloudBackupStatus: Equatable {
+    /// Looking for iCloud and for a backup from an earlier install.
+    case checking
+    case on
+    /// Not signed in to iCloud, or iCloud is turned off for Tact.
+    case unavailable
+    /// A backup exists but could not be downloaded; retried on next launch.
+    case failed
+}
 
 /// Single source of truth for people, notes and settings. All mutations go
 /// through its methods so every change is validated and persisted.
@@ -16,6 +28,10 @@ final class TactStore: ObservableObject {
     @Published var settings: GameTypeSettings {
         didSet { if settings != oldValue { markDirty(.settings) } }
     }
+    @Published private(set) var backupStatus: CloudBackupStatus
+
+    /// Set once this install has merged in (or found no) earlier backup.
+    static let backupMergedKey = "cloudBackupMerged"
 
     private enum Target { case people, notes, settings }
 
@@ -24,11 +40,19 @@ final class TactStore: ObservableObject {
     private let saveDelay: TimeInterval
     private var dirty: Set<Target> = []
     private var pendingSave: DispatchWorkItem?
+    private let backupQueue = DispatchQueue(label: "app.tact.store.backup", qos: .utility)
+    /// Only touched on `saveQueue`; `nil` until the backup is connected.
+    private var backup: CloudBackup?
+    private let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Tact", category: "Store")
 
+    /// - Parameter makeBackup: Returns the iCloud backup, or `nil` when iCloud is
+    ///   unavailable. Called once, off the main thread. Pass `nil` to keep data
+    ///   on this device only.
     init(
         persistence: PersistenceController = PersistenceController(),
         defaults: UserDefaults = .standard,
-        saveDelay: TimeInterval = 0.5
+        saveDelay: TimeInterval = 0.5,
+        backup makeBackup: (() -> CloudBackup?)? = nil
     ) {
         self.persistence = persistence
         self.saveDelay = saveDelay
@@ -36,7 +60,9 @@ final class TactStore: ObservableObject {
         people = data.people
         notes = data.notes
         settings = data.settings
+        backupStatus = makeBackup == nil ? .unavailable : .checking
         Self.migrateLayoutPreference(in: defaults)
+        if let makeBackup { connectBackup(makeBackup, defaults: defaults) }
     }
 
     // MARK: Lookup
@@ -312,7 +338,7 @@ final class TactStore: ObservableObject {
         let settings = self.settings
         let persistence = self.persistence
 
-        let work = {
+        let work = { [weak self] in
             do {
                 if targets.contains(.people) { try persistence.savePeople(people) }
                 if targets.contains(.notes) { try persistence.saveNotes(notes) }
@@ -320,11 +346,75 @@ final class TactStore: ObservableObject {
             } catch {
                 assertionFailure("Save failed: \(error)")
             }
+            self?.mirrorToBackup()
         }
         if waitUntilDone {
             saveQueue.sync(execute: work)
         } else {
             saveQueue.async(execute: work)
+        }
+    }
+
+    // MARK: iCloud backup
+
+    /// Finds the iCloud backup. The first time this install sees one, its people
+    /// and notes are merged in; after that every save is mirrored to it.
+    private func connectBackup(_ makeBackup: @escaping () -> CloudBackup?, defaults: UserDefaults) {
+        let alreadyMerged = defaults.bool(forKey: Self.backupMergedKey)
+        backupQueue.async { [weak self] in
+            guard let backup = makeBackup() else {
+                DispatchQueue.main.async { self?.backupStatus = .unavailable }
+                return
+            }
+            var restored: PersistedData?
+            if !alreadyMerged && backup.hasBackup() {
+                let staging = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("TactRestore-\(UUID().uuidString)", isDirectory: true)
+                defer { try? FileManager.default.removeItem(at: staging) }
+                do {
+                    try backup.restore(into: staging)
+                    restored = PersistenceController(directory: staging).load()
+                } catch {
+                    // Leave the backup untouched so this install cannot overwrite it.
+                    self?.log.error("Restore failed: \(error.localizedDescription, privacy: .public)")
+                    DispatchQueue.main.async { self?.backupStatus = .failed }
+                    return
+                }
+            }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if let restored {
+                    self.merge(restored)
+                    // Queue the merged save ahead of the first mirror.
+                    self.flush()
+                }
+                defaults.set(true, forKey: Self.backupMergedKey)
+                self.backupStatus = .on
+                self.saveQueue.async { [weak self] in
+                    self?.backup = backup
+                    self?.mirrorToBackup()
+                }
+            }
+        }
+    }
+
+    /// Adds people and notes from an earlier backup that this install does not
+    /// have. Anything created here before the backup arrived is kept.
+    private func merge(_ restored: PersistedData) {
+        let personIDs = Set(people.map(\.id))
+        let noteIDs = Set(notes.map(\.id))
+        people = restored.people.filter { !personIDs.contains($0.id) } + people
+        notes += restored.notes.filter { !noteIDs.contains($0.id) }
+        if settings == GameTypeSettings() { settings = restored.settings }
+    }
+
+    /// Copies the saved files to iCloud. Runs on `saveQueue`.
+    private func mirrorToBackup() {
+        guard let backup else { return }
+        do {
+            try backup.mirror(from: persistence.directory)
+        } catch {
+            log.error("Backup failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 

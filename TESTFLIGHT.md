@@ -6,7 +6,7 @@
 2. **Register the app.** In [App Store Connect](https://appstoreconnect.apple.com) > Apps > "+" > New App:
    iOS, name "Tact", bundle ID `app.bitrig.ikaikahussey.tact` (register it under Certificates, Identifiers & Profiles if it is not offered), SKU `app.bitrig.ikaikahussey.tact` (already created, Apple ID 6759739594).
    If you want a different bundle ID, change `PRODUCT_BUNDLE_IDENTIFIER` in both targets of `Tact.xcodeproj` first.
-3. **Privacy policy URL.** Required before external testers can be added, because the app asks for Contacts access. A short page saying the app stores everything on the device and uploads nothing is enough.
+3. **Privacy policy URL.** Required before external testers can be added, because the app asks for Contacts access. A short page saying the app stores data on the device and in the user's own iCloud account, and sends nothing to the developer, is enough.
 
 ## Each upload
 
@@ -42,6 +42,7 @@ Please try:
 • Group Notes by person (tap the "Notes" header).
 • Edit a note: change its date, add or remove people, then delete it.
 • Force-quit and reopen: everything should still be there.
+• With iCloud on, delete Tact, reinstall it from TestFlight and open it: your people and notes should come back within a minute (Settings shows "iCloud Backup: On").
 
 Tell us about anything confusing, slow, or that lost data. Use the TestFlight screenshot feedback if you can.
 ```
@@ -53,7 +54,8 @@ TestFlight external testing goes through a light review. Suggested notes for the
 ```
 Tact is a personal notes app. No account is needed. Contacts access is optional and only used
 when the user taps "Link Contact" on a person; it copies name, phone, email and address into
-the app's local storage. Nothing is uploaded.
+the app's local storage. Data is backed up to the user's own iCloud account (iCloud Drive app
+container) so it survives reinstalling; nothing is sent to the developer.
 ```
 
 ## Before each build

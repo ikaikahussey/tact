@@ -2,7 +2,7 @@
 
 Tact is an iOS app for keeping notes about the people in your life. Add a person, link them to a Contacts card, jot down what you want to remember, and study them back with the grid, flashcard and puzzle views.
 
-Everything stays on the device. There is no account, no server and no analytics.
+Data stays on the device, with a copy in the user's own iCloud account (when iCloud is on) so it survives deleting and reinstalling the app. There is no account, no server of ours and no analytics.
 
 ## Building
 
@@ -37,7 +37,8 @@ Things that need a human with the developer account, in the order you will hit t
 
 1. **Bundle identifier.** `PRODUCT_BUNDLE_IDENTIFIER` is `app.bitrig.ikaikahussey.tact` in both targets. Change it if you want a different one, then register it in App Store Connect.
 2. **Signing.** Both targets are set to team 3D52FT6PP7 with automatic signing; Xcode must be signed in to that account.
-3. **Privacy policy URL.** Required because the app requests Contacts access. The app never uploads anything; the policy can say so.
+   The app uses the iCloud Documents capability with container `iCloud.app.bitrig.ikaikahussey.tact` (`App/Tact.entitlements`). Automatic signing registers it on the first device build or archive; if it does not, add the container under Certificates, Identifiers & Profiles > iCloud Containers and enable iCloud on the App ID.
+3. **Privacy policy URL.** Required because the app requests Contacts access. The app sends nothing to the developer; data is backed up only to the user's own iCloud account. The policy can say so.
 4. **App Privacy answers in App Store Connect.** Data is not collected. `App/PrivacyInfo.xcprivacy` already declares the UserDefaults use.
 5. **Screenshots and description.** Take screenshots from the simulator for the 6.9" and 6.5" sizes.
 6. **Version and build.** Bump `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` for each upload.

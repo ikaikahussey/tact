@@ -2,7 +2,7 @@ import SwiftUI
 
 @main
 struct TactApp: App {
-    @StateObject private var store = TactStore()
+    @StateObject private var store = TactStore(backup: CloudBackup.iCloud)
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
