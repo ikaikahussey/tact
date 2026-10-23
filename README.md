@@ -42,6 +42,6 @@ Things that need a human with the developer account, in the order you will hit t
 5. **Screenshots and description.** Take screenshots from the simulator for the 6.9" and 6.5" sizes.
 6. **Version and build.** Bump `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` for each upload.
 
-The Tiles view is a free-play canvas: each person is a filled square or right-angle triangle (`TileArt`, stored on `Person`) that can be turned and recoloured with a tap, switched between square and triangle with a double tap, and dragged to any cell (`TileLayout`). The Random Colors and Flashcards layouts are implemented but hidden from Settings (`PeopleLayout.available`) until they are wanted.
+The Tiles view is a free-play canvas: each person is a filled square, right-angle triangle or circle (`TileArt`, stored on `Person`), one cell or two-by-two. Tapping a tile opens the person; touching and holding it offers shape, colour and rotation, and tiles can be dragged to any cell (`TileLayout`, which pushes aside tiles a large tile lands on). The Random Colors and Flashcards layouts are implemented but hidden from Settings (`PeopleLayout.available`) until they are wanted.
 
 Minimum iOS version is 17.0. The app is iPhone-only (it runs on iPad in compatibility mode).

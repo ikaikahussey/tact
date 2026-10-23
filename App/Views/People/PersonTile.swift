@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// The colours a tile cycles through when tapped. Mid-tone and saturated so
-/// they read on light and dark backgrounds alike.
+/// The colours a tile can be. Mid-tone and saturated so they read on light
+/// and dark backgrounds alike. New colours go at the end so saved indexes
+/// keep their colour.
 enum TilePalette {
     static let colors: [Color] = [
         Color(red: 0.91, green: 0.33, blue: 0.24),  // coral
@@ -12,9 +13,17 @@ enum TilePalette {
         Color(red: 0.23, green: 0.47, blue: 0.83),  // blue
         Color(red: 0.48, green: 0.36, blue: 0.84),  // violet
         Color(red: 0.87, green: 0.35, blue: 0.61),  // pink
+        Color(red: 0.84, green: 0.18, blue: 0.22),  // red
+        Color(red: 0.36, green: 0.73, blue: 0.93),  // sky
+        Color(red: 0.62, green: 0.43, blue: 0.29),  // brown
+        Color(red: 0.52, green: 0.55, blue: 0.60),  // gray
     ]
 
-    static let names = ["coral", "amber", "yellow", "green", "teal", "blue", "violet", "pink"]
+    static let names = ["coral", "amber", "yellow", "green", "teal", "blue", "violet", "pink",
+                        "red", "sky", "brown", "gray"]
+
+    /// Menu order: the rainbow, then the neutrals.
+    static let menuOrder = [8, 0, 1, 2, 3, 4, 9, 5, 6, 7, 10, 11]
 
     static func color(_ index: Int) -> Color {
         colors[((index % colors.count) + colors.count) % colors.count]
@@ -23,10 +32,25 @@ enum TilePalette {
     static func name(_ index: Int) -> String {
         names[((index % names.count) + names.count) % names.count]
     }
+
+    /// A shape filled with a palette colour, for menus, which otherwise draw
+    /// symbols in one colour. Small styles are drawn smaller than large ones.
+    static func menuIcon(_ style: TileArt.Style, colorIndex: Int) -> UIImage {
+        let box = CGRect(x: 0, y: 0, width: 24, height: 24)
+        let side: CGFloat = style.isLarge || style == .circle ? 22 : 14
+        let rect = CGRect(x: 1, y: box.maxY - 1 - side, width: side, height: side)
+        let path = TileShape(shape: style.shape).path(in: rect)
+        return UIGraphicsImageRenderer(size: box.size).image { context in
+            context.cgContext.addPath(path.cgPath)
+            context.cgContext.setFillColor(UIColor(color(colorIndex)).cgColor)
+            context.cgContext.fillPath()
+        }
+        .withRenderingMode(.alwaysOriginal)
+    }
 }
 
-/// A filled square, or a right-angle triangle with its right angle at the
-/// bottom-left before turning.
+/// A filled square, a circle, or a right-angle triangle with its right angle
+/// at the bottom-left before turning.
 struct TileShape: Shape {
     let shape: TileArt.Shape
 
@@ -35,6 +59,8 @@ struct TileShape: Shape {
         switch shape {
         case .square:
             path.addRect(rect)
+        case .circle:
+            path.addEllipse(in: rect)
         case .triangle:
             path.move(to: CGPoint(x: rect.minX, y: rect.minY))
             path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))

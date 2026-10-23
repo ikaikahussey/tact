@@ -109,29 +109,63 @@ final class TactStore: ObservableObject {
 
     // MARK: Tiles
 
+    /// Changes a person's tile. A tile that grows pushes aside the tiles it
+    /// now covers.
     func updateTile(forPersonID id: UUID, _ change: (inout TileArt) -> Void) {
         guard let index = people.firstIndex(where: { $0.id == id }) else { return }
-        change(&people[index].tile)
+        var updated = people
+        change(&updated[index].tile)
+        if updated[index].tile.span != people[index].tile.span {
+            let cellOf = Dictionary(uniqueKeysWithValues: TileLayout.cells(for: people).map { ($1, $0) })
+            if let cell = cellOf[id] {
+                updated = Self.pinning(updated, moving: id, to: cell, cellOf: cellOf, vacated: nil)
+            }
+        }
+        people = updated
     }
 
     /// Moves a person's tile to a cell on the canvas, swapping with whoever
-    /// is there. Everyone's current cell is pinned first so that filling the
-    /// old spot doesn't shuffle unplaced tiles around.
+    /// is there.
     func moveTile(personID id: UUID, toCell target: Int) {
         guard target >= 0 else { return }
         let cellOf = Dictionary(uniqueKeysWithValues: TileLayout.cells(for: people).map { ($1, $0) })
         guard let source = cellOf[id], source != target else { return }
+        people = Self.pinning(people, moving: id, to: target, cellOf: cellOf, vacated: source)
+    }
+
+    /// Pins everyone to their current cell (so filling gaps doesn't shuffle
+    /// unplaced tiles around) and puts `id` at `target`, moved left if it
+    /// would run off the edge. Tiles it now covers move to `vacated` when
+    /// they fit there, and otherwise to the first gap they fit in.
+    private static func pinning(_ people: [Person], moving id: UUID, to target: Int,
+                                cellOf: [UUID: Int], vacated: Int?) -> [Person] {
+        guard let moverIndex = people.firstIndex(where: { $0.id == id }) else { return people }
         var updated = people
-        for index in updated.indices {
+        let anchor = TileLayout.fitting(target, span: updated[moverIndex].tile.span)
+        let moverCells = Set(TileLayout.covered(anchor: anchor, span: updated[moverIndex].tile.span) ?? [anchor])
+        updated[moverIndex].tile.cell = anchor
+        var taken = moverCells
+        var displaced: [Int] = []
+        for index in updated.indices where index != moverIndex {
             let cell = cellOf[updated[index].id]
             updated[index].tile.cell = cell
-            if updated[index].id == id {
-                updated[index].tile.cell = target
-            } else if cell == target {
-                updated[index].tile.cell = source
+            let cells = cell.flatMap { TileLayout.covered(anchor: $0, span: updated[index].tile.span) } ?? []
+            if moverCells.isDisjoint(with: cells) {
+                taken.formUnion(cells)
+            } else {
+                displaced.append(index)
             }
         }
-        people = updated
+        for index in displaced {
+            if let vacated, let cells = TileLayout.covered(anchor: vacated, span: updated[index].tile.span),
+               taken.isDisjoint(with: cells) {
+                updated[index].tile.cell = vacated
+                taken.formUnion(cells)
+            } else {
+                updated[index].tile.cell = nil
+            }
+        }
+        return updated
     }
 
     func linkContact(toPersonID id: UUID, identifier: String, snapshot: ContactSnapshot) {
