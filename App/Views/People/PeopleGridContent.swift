@@ -59,7 +59,7 @@ struct PeopleGridContent: View {
 
                     if let dropTarget {
                         Rectangle()
-                            .strokeBorder(Color.accentColor, lineWidth: 3)
+                            .strokeBorder(.tint, lineWidth: 3)
                             .frame(width: squareSize, height: squareSize)
                             .offset(origin(dropTarget))
                             .allowsHitTesting(false)

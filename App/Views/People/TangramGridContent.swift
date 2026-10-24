@@ -54,7 +54,7 @@ struct TangramGridContent: View {
 
                     if let dropTarget {
                         Rectangle()
-                            .strokeBorder(Color.accentColor, lineWidth: 3)
+                            .strokeBorder(.tint, lineWidth: 3)
                             .frame(width: cellSize, height: cellSize)
                             .offset(origin(dropTarget))
                             .allowsHitTesting(false)
@@ -224,6 +224,7 @@ struct TangramShape: Shape {
 struct TangramPieceView: View {
     let person: Person
     let side: CGFloat
+    @Environment(\.appPalette) private var palette
 
     var body: some View {
         let piece = person.tangram
@@ -235,7 +236,7 @@ struct TangramPieceView: View {
             : CGPoint(x: corners.map(\.x).reduce(0, +) / Double(corners.count) * unit,
                       y: corners.map(\.y).reduce(0, +) / Double(corners.count) * unit)
         ZStack(alignment: .topLeading) {
-            outline.fill(TilePalette.color(person.tile.colorIndex))
+            outline.fill(TilePalette.color(person.tile.colorIndex, in: palette))
             outline.stroke(Color.tactBackground, lineWidth: 1)
             Text(person.name)
                 .font(.system(size: max(9, unit * 0.11), weight: .semibold, design: .rounded))

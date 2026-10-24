@@ -17,6 +17,26 @@ enum TilePattern: Int, CaseIterable {
         // Divided first so neighbouring seeds, which share colours, differ.
         self = Self.allCases[(abs(seed) / 3) % Self.allCases.count]
     }
+
+    var title: String {
+        switch self {
+        case .quarterCircles: "Quarter Circles"
+        case .nestedSquares:  "Nested Squares"
+        case .pinwheel:       "Pinwheel"
+        case .bullseye:       "Bullseye"
+        case .diamond:        "Diamond"
+        case .sunrise:        "Sunrise"
+        case .stripes:        "Stripes"
+        case .halfSquare:     "Half Square"
+        }
+    }
+}
+
+extension Person {
+    /// The motif on the person's tile: the one they chose, or one from their seed.
+    var tilePattern: TilePattern {
+        tile.pattern.flatMap(TilePattern.init(rawValue:)) ?? TilePattern(seed: colorSeed)
+    }
 }
 
 /// Four shades of a palette colour: nearly white, light, the colour itself,
@@ -27,9 +47,10 @@ struct TileShades {
     let base: Color
     let dark: Color
 
-    init(colorIndex: Int) {
+    init(colorIndex: Int, palette: AppPalette = .current) {
+        let color = TilePalette.color(colorIndex, in: palette)
         var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
-        UIColor(TilePalette.color(colorIndex)).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        UIColor(color).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
         func mix(_ target: CGFloat, _ amount: CGFloat) -> Color {
             Color(red: red + (target - red) * amount,
                   green: green + (target - green) * amount,
@@ -37,7 +58,7 @@ struct TileShades {
         }
         pale = mix(1, 0.78)
         light = mix(1, 0.42)
-        base = TilePalette.color(colorIndex)
+        base = color
         dark = mix(0, 0.32)
     }
 }
@@ -46,10 +67,11 @@ struct TileShades {
 struct TilePatternView: View {
     let pattern: TilePattern
     let colorIndex: Int
+    @Environment(\.appPalette) private var palette
 
     var body: some View {
         Canvas { context, size in
-            Self.draw(pattern, shades: TileShades(colorIndex: colorIndex),
+            Self.draw(pattern, shades: TileShades(colorIndex: colorIndex, palette: palette),
                       in: CGRect(origin: .zero, size: size), context: &context)
         }
     }

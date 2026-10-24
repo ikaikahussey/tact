@@ -1,9 +1,9 @@
 import Foundation
 
 /// How a person's tile looks and where it sits on the Tiles canvas: a
-/// square with the person's geometric pattern (`TilePattern`), turned in
-/// quarter turns, in one of the palette colours. Shapes belong to the
-/// Tangram canvas; tiles are always one square cell.
+/// square with the person's photo, or their geometric pattern
+/// (`TilePattern`) turned in quarter turns in one of the palette colours.
+/// Shapes belong to the Tangram canvas; tiles are always one square cell.
 struct TileArt: Codable, Equatable, Hashable {
     /// Number of colours in `TilePalette`; colour indexes wrap around it.
     static let colorCount = 12
@@ -14,11 +14,19 @@ struct TileArt: Codable, Equatable, Hashable {
     /// Cell on the Tiles canvas, row by row from the top-left. `nil` until the
     /// tile has been placed; such tiles take the first free cells.
     var cell: Int?
+    /// Raw value of the chosen `TilePattern`. `nil` uses the one picked from
+    /// the person's seed.
+    var pattern: Int?
+    /// Whether the tile shows the person's photo, when they have one, instead
+    /// of the pattern.
+    var showsPhoto: Bool
 
-    init(quarterTurns: Int = 0, colorIndex: Int = 0, cell: Int? = nil) {
+    init(quarterTurns: Int = 0, colorIndex: Int = 0, cell: Int? = nil, pattern: Int? = nil, showsPhoto: Bool = true) {
         self.quarterTurns = quarterTurns
         self.colorIndex = colorIndex
         self.cell = cell
+        self.pattern = pattern
+        self.showsPhoto = showsPhoto
     }
 
     /// The starting look for a person, derived from their seed so it is stable.
@@ -32,7 +40,7 @@ struct TileArt: Codable, Equatable, Hashable {
     }
 
     // Tiles saved with a shape or size from earlier versions decode without them.
-    private enum CodingKeys: String, CodingKey { case quarterTurns, colorIndex, cell }
+    private enum CodingKeys: String, CodingKey { case quarterTurns, colorIndex, cell, pattern, showsPhoto }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -41,6 +49,8 @@ struct TileArt: Codable, Equatable, Hashable {
         colorIndex = ((color % Self.colorCount) + Self.colorCount) % Self.colorCount
         let cell = (try? container.decodeIfPresent(Int.self, forKey: .cell)) ?? nil
         self.cell = cell.flatMap { $0 >= 0 ? $0 : nil }
+        pattern = (try? container.decodeIfPresent(Int.self, forKey: .pattern)) ?? nil
+        showsPhoto = (try? container.decodeIfPresent(Bool.self, forKey: .showsPhoto)) ?? nil ?? true
     }
 }
 

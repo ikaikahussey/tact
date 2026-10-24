@@ -61,7 +61,7 @@ struct PersonChip: View {
         .padding(.trailing, 12)
         .padding(.vertical, 4)
         .foregroundStyle(isSelected ? Color(uiColor: .systemBackground) : .primary)
-        .background(isSelected ? Color.accentColor : Color.tactCardBackground, in: Capsule())
+        .background(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.tactCardBackground), in: Capsule())
         .overlay(Capsule().strokeBorder(Color.primary.opacity(isSelected ? 0 : 0.12)))
         .animation(.easeInOut(duration: 0.15), value: isSelected)
     }
