@@ -37,8 +37,8 @@ Please try:
 • Add a few people, give some a photo, and link one to a contact card.
 • Write notes from the Notes tab and from a person's screen. Link a note to more than one person.
 • Switch the People view (tap the "People" header) between List, Tiles, Tangram and Puzzle. In List, tap + on a person to add a note about them, and the small outline button beside the People header shows each person with their notes beneath them. Each person is a tile.
-• In Tiles, each person is a patterned tile. Tap a tile to open the person. Touch and hold a tile to pick its colour or turn it, or drag it anywhere. Try making a picture.
-• In Tangram, triangles fit together along cell diagonals and squares can turn 45° into diamonds. Drop a triangle next to another piece and it turns to fit. Tap Fit Together to pack everything in snugly; tap again for a different arrangement.
+• In Tiles, each person is a patterned tile. Tap a tile to open the person. Touch and hold a tile to pick its colour or turn it, or drag it anywhere. Try making a picture. The round arrows button brings the tiles together again.
+• In Tangram, triangles fit together along cell diagonals and squares can turn 45° into diamonds. Drop a triangle next to another piece and it turns to fit. Tap the round shuffle button to fit everything together snugly; tap again for a different arrangement.
 • In Puzzle, slide the pieces to rebuild the picture; tap Photo to use your own.
 • Group Notes by person (tap the "Notes" header).
 • Edit a note: change its date, add or remove people, then delete it.

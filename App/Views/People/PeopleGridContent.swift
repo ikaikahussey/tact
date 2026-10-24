@@ -3,6 +3,7 @@ import SwiftUI
 /// The Tiles canvas: a four-column grid where each person is a square with
 /// their geometric pattern. Tap a tile to open the person; touch and hold to
 /// change its colour or turn it, or drag it to any cell (gaps allowed).
+/// Bring Together closes the gaps.
 struct PeopleGridContent: View {
     @EnvironmentObject private var store: TactStore
     @State private var openPersonID: UUID?
@@ -66,10 +67,22 @@ struct PeopleGridContent: View {
                 }
                 .frame(width: geometry.size.width, height: CGFloat(cellCount / columns) * pitch, alignment: .topLeading)
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: layout)
-                .padding(.bottom, 20)
+                .padding(.bottom, 80)
             }
         }
         .background(Color.tactBackground)
+        .overlay(alignment: .bottomTrailing) {
+            if store.people.count > 1 {
+                CanvasActionButton(title: "Bring Together", systemImage: "arrow.down.right.and.arrow.up.left",
+                                   hint: "Closes the gaps between tiles, keeping their order.",
+                                   isEnabled: !TileLayout.isCompact(store.people)) {
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                        store.bringTilesTogether()
+                    }
+                }
+                .padding(16)
+            }
+        }
         .overlay {
             if store.people.isEmpty {
                 ContentUnavailableView {

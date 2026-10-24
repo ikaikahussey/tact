@@ -149,6 +149,16 @@ final class TactStore: ObservableObject {
         people = Self.pinningTile(people, moving: id, to: target, anchors: anchors, vacated: source)
     }
 
+    /// Closes the gaps on the Tiles canvas, keeping everyone's order.
+    func bringTilesTogether() {
+        let cells = TileLayout.compacted(people)
+        var updated = people
+        for index in updated.indices {
+            updated[index].tile.cell = cells[updated[index].id]
+        }
+        people = updated
+    }
+
     private static func pinningTile(_ people: [Person], moving id: UUID, to anchor: Int,
                                     anchors: [UUID: Int], vacated: Int?) -> [Person] {
         GridPlacement.pinning(people, moving: id, to: anchor, anchors: anchors, vacated: vacated,

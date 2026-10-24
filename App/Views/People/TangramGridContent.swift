@@ -88,19 +88,14 @@ struct TangramGridContent: View {
 
     /// Packs every piece in snugly, picking a new arrangement each press.
     private var fitControls: some View {
-        Button {
+        CanvasActionButton(title: "Fit Together", systemImage: "shuffle",
+                           hint: "Packs every piece in snugly, a different way each time. Triangles may turn to fit.") {
             var generator = SystemRandomNumberGenerator()
             let pieces = TangramLayout.packed(store.people, using: &generator)
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
                 store.setTangramPieces(pieces)
             }
-        } label: {
-            Label("Fit Together", systemImage: "shuffle")
         }
-        .buttonStyle(.borderedProminent)
-        .buttonBorderShape(.capsule)
-        .accessibilityHint("Packs every piece in snugly, a different way each time. Triangles may turn to fit.")
     }
 
     private func drop(_ items: [String], at cell: Int) -> Bool {

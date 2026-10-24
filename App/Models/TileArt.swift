@@ -59,6 +59,19 @@ enum TileLayout {
         GridPlacement.anchors(for: people, cell: \.tile.cell, footprint: footprint(of:at:))
     }
 
+    /// Everyone's tile in the first cells, in the order they sit now, so the
+    /// gaps close up.
+    static func compacted(_ people: [Person]) -> [UUID: Int] {
+        let anchors = anchors(for: people)
+        let order = anchors.sorted { $0.value < $1.value }.map(\.key)
+        return Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
+    }
+
+    /// Whether the tiles already fill the first cells with no gaps.
+    static func isCompact(_ people: [Person]) -> Bool {
+        Set(anchors(for: people).values) == Set(0..<people.count)
+    }
+
     static func footprint(of person: Person, at anchor: Int) -> Set<Int>? {
         anchor >= 0 ? [anchor] : nil
     }

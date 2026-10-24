@@ -91,6 +91,24 @@ extension TactStoreTests {
         XCTAssertEqual(layout[2], ada.id)
     }
 
+    func testBringingTilesTogetherClosesGapsAndKeepsOrder() {
+        let store = TestSupport.makeStore(directory: TestSupport.temporaryDirectory(), defaults: TestSupport.defaults())
+        let ada = store.addPerson(named: "Ada")!
+        let grace = store.addPerson(named: "Grace")!
+        let kai = store.addPerson(named: "Kai")!
+        XCTAssertTrue(TileLayout.isCompact(store.people))
+        store.moveTile(personID: ada.id, toCell: 13)
+        store.moveTile(personID: kai.id, toCell: 6)
+        XCTAssertFalse(TileLayout.isCompact(store.people))
+
+        store.bringTilesTogether()
+        let layout = TileLayout.cells(for: store.people)
+        XCTAssertEqual(layout[0], grace.id)
+        XCTAssertEqual(layout[1], kai.id)
+        XCTAssertEqual(layout[2], ada.id)
+        XCTAssertTrue(TileLayout.isCompact(store.people))
+    }
+
     func testTappingATileUpdatesOnlyThatPerson() {
         let store = TestSupport.makeStore(directory: TestSupport.temporaryDirectory(), defaults: TestSupport.defaults())
         let ada = store.addPerson(named: "Ada")!
