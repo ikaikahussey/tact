@@ -135,30 +135,18 @@ final class TactStore: ObservableObject {
 
     // MARK: Tiles
 
-    /// Changes a person's tile. A tile that grows pushes aside the tiles it
-    /// now covers.
     func updateTile(forPersonID id: UUID, _ change: (inout TileArt) -> Void) {
         guard let index = people.firstIndex(where: { $0.id == id }) else { return }
-        var updated = people
-        change(&updated[index].tile)
-        if updated[index].tile.span != people[index].tile.span {
-            let anchors = TileLayout.anchors(for: people)
-            if let cell = anchors[id] {
-                let anchor = TileLayout.fitting(cell, span: updated[index].tile.span)
-                updated = Self.pinningTile(updated, moving: id, to: anchor, anchors: anchors, vacated: nil)
-            }
-        }
-        people = updated
+        change(&people[index].tile)
     }
 
     /// Moves a person's tile to a cell on the canvas, swapping with whoever
-    /// is there. A tile that would run off the edge moves left to fit.
+    /// is there.
     func moveTile(personID id: UUID, toCell target: Int) {
-        guard target >= 0, let person = person(id: id) else { return }
+        guard target >= 0 else { return }
         let anchors = TileLayout.anchors(for: people)
-        let anchor = TileLayout.fitting(target, span: person.tile.span)
-        guard let source = anchors[id], source != anchor else { return }
-        people = Self.pinningTile(people, moving: id, to: anchor, anchors: anchors, vacated: source)
+        guard let source = anchors[id], source != target else { return }
+        people = Self.pinningTile(people, moving: id, to: target, anchors: anchors, vacated: source)
     }
 
     private static func pinningTile(_ people: [Person], moving id: UUID, to anchor: Int,

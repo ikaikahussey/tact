@@ -154,7 +154,7 @@ struct TangramGridContent: View {
                             Label {
                                 Text(TilePalette.name(index).capitalized)
                             } icon: {
-                                Image(uiImage: TilePalette.menuIcon(.circle, colorIndex: index))
+                                Image(uiImage: TilePalette.swatch(index))
                             }
                             .tag(index)
                         }

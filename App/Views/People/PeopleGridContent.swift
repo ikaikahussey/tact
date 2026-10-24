@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// The Tiles canvas: a four-column grid where each person is a filled square,
-/// triangle or circle, one cell or two-by-two. Tap a tile to open the person;
-/// touch and hold to change its shape, colour or turn, or drag it to any cell
-/// (gaps allowed).
+/// The Tiles canvas: a four-column grid where each person is a square with
+/// their geometric pattern. Tap a tile to open the person; touch and hold to
+/// change its colour or turn it, or drag it to any cell (gaps allowed).
 struct PeopleGridContent: View {
     @EnvironmentObject private var store: TactStore
     @State private var openPersonID: UUID?
@@ -28,8 +27,7 @@ struct PeopleGridContent: View {
             let people = Dictionary(store.people.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
             let placed = layout.compactMap { cell, id in people[id].map { (cell: cell, person: $0) } }
                 .sorted { $0.cell < $1.cell }
-            let occupied = placed.flatMap { TileLayout.covered(anchor: $0.cell, span: $0.person.tile.span) ?? [$0.cell] }
-            let cellCount = Self.cellCount(occupied: occupied, visibleRows: visibleRows, columns: columns)
+            let cellCount = Self.cellCount(occupied: layout.keys, visibleRows: visibleRows, columns: columns)
             let origin = { (cell: Int) in
                 CGSize(width: CGFloat(cell % columns) * pitch, height: CGFloat(cell / columns) * pitch)
             }
@@ -49,10 +47,9 @@ struct PeopleGridContent: View {
                     }
 
                     ForEach(placed, id: \.person.id) { anchor, person in
-                        let span = person.tile.span
-                        tile(for: person, size: squareSize * CGFloat(span) + spacing * CGFloat(span - 1))
-                            .dropDestination(for: String.self) { items, location in
-                                drop(items, at: anchor + Int(location.y / pitch) * columns + Int(location.x / pitch))
+                        tile(for: person, size: squareSize)
+                            .dropDestination(for: String.self) { items, _ in
+                                drop(items, at: anchor)
                             } isTargeted: { targeted in
                                 target(anchor, targeted)
                             }
@@ -78,7 +75,7 @@ struct PeopleGridContent: View {
                 ContentUnavailableView {
                     Label("No People Yet", systemImage: "square.grid.2x2")
                 } description: {
-                    Text("Tap + to add someone. Each person becomes a tile: tap it to open them, or touch and hold to change its shape and colour.")
+                    Text("Tap + to add someone. Each person becomes a patterned tile: tap it to open them, or touch and hold to change its colour.")
                 }
             }
         }
@@ -98,13 +95,6 @@ struct PeopleGridContent: View {
     }
 
     private func tile(for person: Person, size: CGFloat) -> some View {
-        let style = Binding(
-            get: { person.tile.style },
-            set: { newValue in
-                UISelectionFeedbackGenerator().selectionChanged()
-                store.updateTile(forPersonID: person.id) { $0.style = newValue }
-            }
-        )
         let colorIndex = Binding(
             get: { person.tile.colorIndex },
             set: { newValue in
@@ -116,23 +106,13 @@ struct PeopleGridContent: View {
             .contentShape(Rectangle())
             .onTapGesture { openPersonID = person.id }
             .contextMenu {
-                Picker("Shape", selection: style) {
-                    ForEach(TileArt.Style.allCases) { option in
-                        Label {
-                            Text(option.title)
-                        } icon: {
-                            Image(uiImage: TilePalette.menuIcon(option, colorIndex: person.tile.colorIndex))
-                        }
-                        .tag(option)
-                    }
-                }
                 Menu {
                     Picker("Color", selection: colorIndex) {
                         ForEach(TilePalette.menuOrder, id: \.self) { index in
                             Label {
                                 Text(TilePalette.name(index).capitalized)
                             } icon: {
-                                Image(uiImage: TilePalette.menuIcon(.circle, colorIndex: index))
+                                Image(uiImage: TilePalette.swatch(index))
                             }
                             .tag(index)
                         }
@@ -148,14 +128,9 @@ struct PeopleGridContent: View {
                 PersonTile(person: person, size: size)
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(person.name), \(TilePalette.name(person.tile.colorIndex)) \(person.tile.style.title.lowercased())")
-            .accessibilityHint("Opens \(person.name). Touch and hold to change the shape or colour, or to move the tile.")
+            .accessibilityLabel("\(person.name), \(TilePalette.name(person.tile.colorIndex)) tile")
+            .accessibilityHint("Opens \(person.name). Touch and hold to change the colour, turn the tile, or move it.")
             .accessibilityAddTraits(.isButton)
-            .accessibilityAction(named: "Change shape") {
-                let styles = TileArt.Style.allCases
-                let next = styles[(styles.firstIndex(of: person.tile.style)! + 1) % styles.count]
-                store.updateTile(forPersonID: person.id) { $0.style = next }
-            }
             .accessibilityAction(named: "Change colour") {
                 let order = TilePalette.menuOrder
                 let next = order[((order.firstIndex(of: person.tile.colorIndex) ?? 0) + 1) % order.count]

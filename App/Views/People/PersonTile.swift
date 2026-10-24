@@ -33,46 +33,20 @@ enum TilePalette {
         names[((index % names.count) + names.count) % names.count]
     }
 
-    /// A shape filled with a palette colour, for menus, which otherwise draw
-    /// symbols in one colour. Small styles are drawn smaller than large ones.
-    static func menuIcon(_ style: TileArt.Style, colorIndex: Int) -> UIImage {
-        let box = CGRect(x: 0, y: 0, width: 24, height: 24)
-        let side: CGFloat = style.isLarge || style == .circle ? 22 : 14
-        let rect = CGRect(x: 1, y: box.maxY - 1 - side, width: side, height: side)
-        let path = TileShape(shape: style.shape).path(in: rect)
-        return UIGraphicsImageRenderer(size: box.size).image { context in
-            context.cgContext.addPath(path.cgPath)
+    /// A dot of a palette colour, for menus, which otherwise draw symbols in
+    /// one colour.
+    static func swatch(_ colorIndex: Int) -> UIImage {
+        let size = CGSize(width: 24, height: 24)
+        return UIGraphicsImageRenderer(size: size).image { context in
             context.cgContext.setFillColor(UIColor(color(colorIndex)).cgColor)
-            context.cgContext.fillPath()
+            context.cgContext.fillEllipse(in: CGRect(origin: .zero, size: size).insetBy(dx: 1, dy: 1))
         }
         .withRenderingMode(.alwaysOriginal)
     }
 }
 
-/// A filled square, a circle, or a right-angle triangle with its right angle
-/// at the bottom-left before turning.
-struct TileShape: Shape {
-    let shape: TileArt.Shape
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        switch shape {
-        case .square:
-            path.addRect(rect)
-        case .circle:
-            path.addEllipse(in: rect)
-        case .triangle:
-            path.move(to: CGPoint(x: rect.minX, y: rect.minY))
-            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-            path.closeSubpath()
-        }
-        return path
-    }
-}
-
-/// A tile's shape filled with its geometric motif in the tile colour,
-/// turned, filling a square of `side` points.
+/// A tile's geometric motif in the tile colour, turned, filling a square of
+/// `side` points.
 struct TileArtView: View {
     let art: TileArt
     let pattern: TilePattern
@@ -80,14 +54,13 @@ struct TileArtView: View {
 
     var body: some View {
         TilePatternView(pattern: pattern, colorIndex: art.colorIndex)
-            .clipShape(TileShape(shape: art.shape))
             .frame(width: side, height: side)
             .rotationEffect(.degrees(Double(art.quarterTurns) * 90))
             .animation(.spring(response: 0.3, dampingFraction: 0.75), value: art)
     }
 }
 
-/// A person's square on the Tiles canvas: their patterned shape with their name.
+/// A person's square on the Tiles canvas: their pattern with their name.
 struct PersonTile: View {
     let person: Person
     let size: CGFloat
