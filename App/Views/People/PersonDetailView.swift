@@ -42,8 +42,8 @@ struct PersonDetailView: View {
                         .accessibilityHint("Changes the photo")
                 } else {
                     ZStack {
-                        TilePalette.color(person.tile.colorIndex).opacity(0.18)
-                        TileArtView(art: person.tile, side: 150)
+                        TileShades(colorIndex: person.tile.colorIndex).pale
+                        TileArtView(art: person.tile, pattern: TilePattern(seed: person.colorSeed), side: 150)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 220)

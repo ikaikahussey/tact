@@ -31,6 +31,13 @@ final class TileArtTests: XCTestCase {
         XCTAssertEqual(Set(TilePalette.menuOrder), Set(0..<TileArt.colorCount))
     }
 
+    func testEachPersonKeepsTheirPatternAndEveryPatternIsUsed() {
+        for seed in [0, 5, 77, 359, -42] {
+            XCTAssertEqual(TilePattern(seed: seed), TilePattern(seed: seed))
+        }
+        XCTAssertEqual(Set((0..<360).map { TilePattern(seed: $0) }), Set(TilePattern.allCases))
+    }
+
     func testDecodingIsTolerant() throws {
         let json = #"{"shape":"hexagon","colorIndex":-3,"cell":-1}"#.data(using: .utf8)!
         let art = try JSONDecoder().decode(TileArt.self, from: json)

@@ -71,21 +71,23 @@ struct TileShape: Shape {
     }
 }
 
-/// A tile's shape, coloured and turned, filling a square of `side` points.
+/// A tile's shape filled with its geometric motif in the tile colour,
+/// turned, filling a square of `side` points.
 struct TileArtView: View {
     let art: TileArt
+    let pattern: TilePattern
     let side: CGFloat
 
     var body: some View {
-        TileShape(shape: art.shape)
-            .fill(TilePalette.color(art.colorIndex))
+        TilePatternView(pattern: pattern, colorIndex: art.colorIndex)
+            .clipShape(TileShape(shape: art.shape))
             .frame(width: side, height: side)
             .rotationEffect(.degrees(Double(art.quarterTurns) * 90))
             .animation(.spring(response: 0.3, dampingFraction: 0.75), value: art)
     }
 }
 
-/// A person's square on the Tiles canvas: their shape with their name.
+/// A person's square on the Tiles canvas: their patterned shape with their name.
 struct PersonTile: View {
     let person: Person
     let size: CGFloat
@@ -93,7 +95,7 @@ struct PersonTile: View {
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             Color.tactCardBackground
-            TileArtView(art: person.tile, side: size)
+            TileArtView(art: person.tile, pattern: TilePattern(seed: person.colorSeed), side: size)
             Text(person.name)
                 .font(.system(size: max(10, size * 0.12), weight: .semibold, design: .rounded))
                 .lineLimit(1)
@@ -109,7 +111,7 @@ struct PersonTile: View {
 }
 
 /// Circular avatar used in lists and chips: the photo, or the person's tile
-/// shape when there is none.
+/// pattern when there is none.
 struct PersonAvatar: View {
     let person: Person
     var size: CGFloat = 40
@@ -121,10 +123,8 @@ struct PersonAvatar: View {
                     .resizable()
                     .scaledToFill()
             } else {
-                ZStack {
-                    TilePalette.color(person.tile.colorIndex).opacity(0.25)
-                    TileArtView(art: person.tile, side: size)
-                }
+                TilePatternView(pattern: TilePattern(seed: person.colorSeed), colorIndex: person.tile.colorIndex)
+                    .rotationEffect(.degrees(Double(person.tile.quarterTurns) * 90))
             }
         }
         .frame(width: size, height: size)
