@@ -5,7 +5,8 @@ import SwiftUI
 /// share a cell, and squares turn 45° into diamonds that four triangles fit
 /// around. Tap a piece to open the person; touch and hold to change its
 /// shape, colour or turn, or drag it somewhere else. A triangle dropped next
-/// to another turns to fill the gap if it can.
+/// to another turns to fill the gap if it can. Fit Together packs every
+/// piece in as snugly as it can, a different way each time.
 struct TangramGridContent: View {
     @EnvironmentObject private var store: TactStore
     @State private var openPersonID: UUID?
@@ -61,10 +62,16 @@ struct TangramGridContent: View {
                 }
                 .frame(width: geometry.size.width, height: CGFloat(cellCount / columns) * cellSize, alignment: .topLeading)
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: anchors)
-                .padding(.bottom, 20)
+                .padding(.bottom, 80)
             }
         }
         .background(Color.tactBackground)
+        .overlay(alignment: .bottomTrailing) {
+            if store.people.count > 1 {
+                fitControls
+                    .padding(16)
+            }
+        }
         .overlay {
             if store.people.isEmpty {
                 ContentUnavailableView {
@@ -77,6 +84,23 @@ struct TangramGridContent: View {
         .navigationDestination(item: $openPersonID) { id in
             PersonDetailView(personID: id)
         }
+    }
+
+    /// Packs every piece in snugly, picking a new arrangement each press.
+    private var fitControls: some View {
+        Button {
+            var generator = SystemRandomNumberGenerator()
+            let pieces = TangramLayout.packed(store.people, using: &generator)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                store.setTangramPieces(pieces)
+            }
+        } label: {
+            Label("Fit Together", systemImage: "shuffle")
+        }
+        .buttonStyle(.borderedProminent)
+        .buttonBorderShape(.capsule)
+        .accessibilityHint("Packs every piece in snugly, a different way each time. Triangles may turn to fit.")
     }
 
     private func drop(_ items: [String], at cell: Int) -> Bool {

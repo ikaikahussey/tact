@@ -186,6 +186,16 @@ final class TactStore: ObservableObject {
         people = Self.pinningTangram(updated, moving: id, to: anchor, anchors: anchors, vacated: source)
     }
 
+    /// Replaces several people's pieces at once, as when fitting everything
+    /// together.
+    func setTangramPieces(_ pieces: [UUID: TangramPiece]) {
+        var updated = people
+        for index in updated.indices {
+            if let piece = pieces[updated[index].id] { updated[index].tangram = piece }
+        }
+        people = updated
+    }
+
     private static func pinningTangram(_ people: [Person], moving id: UUID, to anchor: Int,
                                        anchors: [UUID: Int], vacated: Int?) -> [Person] {
         GridPlacement.pinning(people, moving: id, to: anchor, anchors: anchors, vacated: vacated,

@@ -72,6 +72,95 @@ final class TangramTests: XCTestCase {
         XCTAssertEqual(anchors[c.id], 0, "fills the other half of A's cell")
     }
 
+    /// Applies a packing and checks it keeps shapes, has no overlaps, and is
+    /// what the layout shows. Returns the rows used.
+    private func applyPacking(_ people: inout [Person], seed: UInt64 = 1) -> Int {
+        var generator = SeededGenerator(seed: seed)
+        let packed = TangramLayout.packed(people, using: &generator)
+        XCTAssertEqual(packed.count, people.count)
+        for index in people.indices {
+            let piece = packed[people[index].id]!
+            XCTAssertEqual(piece.shape, people[index].tangram.shape)
+            XCTAssertEqual(piece.isTilted, people[index].tangram.isTilted)
+            people[index].tangram = piece
+        }
+        let anchors = TangramLayout.anchors(for: people)
+        var covered = Set<Int>()
+        for person in people {
+            XCTAssertEqual(anchors[person.id], person.tangram.cell, "the layout keeps every packed spot")
+            let quarters = TangramLayout.footprint(of: person.tangram, at: person.tangram.cell!)!
+            XCTAssertTrue(covered.isDisjoint(with: quarters))
+            covered.formUnion(quarters)
+        }
+        return covered.max()! / 4 / TangramLayout.columns + 1
+    }
+
+    func testFitTogetherPairsTrianglesIntoCells() {
+        var people = (0..<4).map { Person(name: "T\($0)", tangram: TangramPiece(shape: .triangle, cell: $0 * 5)) }
+        XCTAssertEqual(applyPacking(&people), 1)
+        let cells = people.map { $0.tangram.cell! }
+        XCTAssertEqual(Set(cells), [0, 1], "four triangles make two full cells")
+    }
+
+    func testFitTogetherFillsTheCornersAroundADiamond() {
+        var people = (0..<4).map { Person(name: "T\($0)", tangram: TangramPiece(shape: .triangle, cell: 20 + $0)) }
+        people.append(Person(name: "D", tangram: TangramPiece(shape: .square, isTilted: true, cell: 30)))
+        people.append(Person(name: "S", tangram: TangramPiece(shape: .largeSquare)))
+        XCTAssertEqual(applyPacking(&people), 2, "a large square, and a diamond with four triangles round it")
+        XCTAssertEqual(Set(people.prefix(4).map { $0.tangram.cell! }).count, 4, "one triangle in each corner")
+    }
+
+    func testFitTogetherPutsDiamondsSideBySideBeforeASquareThatCannotShareTheirRows() {
+        var people = [
+            Person(name: "Herb", tangram: TangramPiece(shape: .square, cell: 2)),
+            Person(name: "Pili", tangram: TangramPiece(shape: .triangle, quarterTurns: 2, cell: 4)),
+            Person(name: "One", tangram: TangramPiece(shape: .square, isTilted: true, cell: 0)),
+            Person(name: "Wehena", tangram: TangramPiece(shape: .triangle, quarterTurns: 1, cell: 9)),
+            Person(name: "Three", tangram: TangramPiece(shape: .triangle, quarterTurns: 3, cell: 10)),
+            Person(name: "Kirby", tangram: TangramPiece(shape: .square, isTilted: true, cell: 5)),
+        ]
+        XCTAssertEqual(applyPacking(&people), 3)
+        XCTAssertEqual(Set([people[2].tangram.cell!, people[5].tangram.cell!]), [0, 2], "diamonds share the top two rows")
+        XCTAssertEqual(people[0].tangram.cell, 8, "the square sits alone in the last row")
+    }
+
+    func testFitTogetherIsSnugEveryTimeButVaries() {
+        let pieces = [TangramPiece(shape: .square, isTilted: true), TangramPiece(shape: .square),
+                      TangramPiece(shape: .largeTriangle)] + (0..<5).map { TangramPiece(shape: .triangle, quarterTurns: $0) }
+        let people = pieces.enumerated().map { Person(name: "P\($0)", tangram: $1) }
+        var arrangements = Set<[Int]>()
+        var rows = Set<Int>()
+        for seed: UInt64 in 1...12 {
+            var packed = people
+            rows.insert(applyPacking(&packed, seed: seed))
+            arrangements.insert(packed.map { $0.tangram.cell! * 4 + (($0.tangram.quarterTurns % 4) + 4) % 4 })
+        }
+        XCTAssertEqual(rows.count, 1, "every press is as snug as the best found")
+        XCTAssertGreaterThan(arrangements.count, 1, "but presses don't all look the same")
+    }
+
+    func testFitTogetherPicksSomethingNewWhenItCan() {
+        var people = (0..<3).map { Person(name: "T\($0)", tangram: TangramPiece(shape: .triangle, quarterTurns: $0)) }
+        _ = applyPacking(&people)
+        for seed: UInt64 in 2...6 {
+            var again = people
+            _ = applyPacking(&again, seed: seed)
+            XCTAssertNotEqual(again.map(\.tangram), people.map(\.tangram), "seed \(seed)")
+        }
+    }
+
+    func testFitTogetherHandlesEveryShape() {
+        var people = TangramPiece.Shape.allCases.flatMap { shape in
+            [false, true].map { tilted in
+                Person(name: shape.title, tangram: TangramPiece(shape: shape, quarterTurns: 3, isTilted: tilted))
+            }
+        }
+        people += (0..<7).map { Person(name: "T\($0)", tangram: TangramPiece(shape: .triangle, quarterTurns: $0)) }
+        let rows = applyPacking(&people)
+        let area = people.reduce(0) { $0 + TangramLayout.footprint(of: $1.tangram, at: 0)!.count }
+        XCTAssertLessThanOrEqual(rows, area / 16 + 3, "close to the fewest rows the pieces could fill")
+    }
+
     func testPersonWithoutPieceGetsOneFromItsSeedAndRoundTrips() throws {
         let json = #"{"id":"6D1A4F7E-1C0B-4E8B-9D6A-1234567890AB","name":"Ada","imageSection":7}"#.data(using: .utf8)!
         var person = try JSONDecoder().decode(Person.self, from: json)
@@ -83,6 +172,20 @@ final class TangramTests: XCTestCase {
 
         let odd = #"{"shape":"hexagon","cell":-2}"#.data(using: .utf8)!
         XCTAssertEqual(try JSONDecoder().decode(TangramPiece.self, from: odd), TangramPiece(shape: .triangle))
+    }
+}
+
+/// SplitMix64, so packing tests are repeatable.
+struct SeededGenerator: RandomNumberGenerator {
+    var state: UInt64
+    init(seed: UInt64) { state = seed }
+
+    mutating func next() -> UInt64 {
+        state &+= 0x9E37_79B9_7F4A_7C15
+        var z = state
+        z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
+        z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
+        return z ^ (z >> 31)
     }
 }
 

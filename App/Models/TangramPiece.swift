@@ -156,6 +156,83 @@ enum TangramLayout {
         }
     }
 
+    /// Everyone's pieces packed as tightly as possible from the top-left, in
+    /// one of many snug arrangements picked at random. Shapes, sizes and
+    /// tilts are kept; triangles may turn so they pair up and fill the
+    /// corners around diamonds. Many placement orders and turn preferences
+    /// are tried; of those using the fewest rows and leaving the fewest gaps
+    /// before the last piece, one that looks different from how the pieces
+    /// sit now is chosen when there is one.
+    static func packed(_ people: [Person], using generator: inout some RandomNumberGenerator) -> [UUID: TangramPiece] {
+        guard !people.isEmpty else { return [:] }
+        let biggestFirst = people.indices.sorted {
+            let (a, b) = (area(people[$0].tangram), area(people[$1].tangram))
+            return a != b ? a > b : $0 < $1
+        }
+        var orders = [biggestFirst, Array(people.indices)]
+        for _ in 0..<(people.count <= 40 ? 60 : 8) {
+            orders.append(people.indices.shuffled(using: &generator))
+        }
+
+        var best: (score: (Int, Int), arrangements: [[UUID: TangramPiece]])?
+        for order in orders {
+            let firstTurn = Int.random(in: 0..<4, using: &generator)
+            let attempt = pack(people, in: order, firstTurn: firstTurn)
+            if best == nil || attempt.score < best!.score {
+                best = (attempt.score, [attempt.pieces])
+            } else if attempt.score == best!.score {
+                best!.arrangements.append(attempt.pieces)
+            }
+        }
+        let current = arrangement(people.map { ($0.id, $0.tangram) })
+        let candidates = best!.arrangements
+        let fresh = candidates.filter { arrangement($0.map { ($0, $1) }) != current }
+        return (fresh.isEmpty ? candidates : fresh).randomElement(using: &generator)!
+    }
+
+    /// First fit in `order`: each piece takes the earliest anchor where one
+    /// of its turns fits, trying turns from `firstTurn`. Scored by rows used,
+    /// then by the last quarter covered (fewer gaps before it).
+    private static func pack(_ people: [Person], in order: [Int],
+                             firstTurn: Int) -> (score: (Int, Int), pieces: [UUID: TangramPiece]) {
+        var taken = Set<Int>()
+        var pieces: [UUID: TangramPiece] = [:]
+        for index in order {
+            let base = people[index].tangram
+            let turns = base.shape.isTriangle ? 4 : 1
+            var anchor = 0
+            placing: while true {
+                for turn in 0..<turns {
+                    var piece = base
+                    piece.quarterTurns += (firstTurn + turn) % turns
+                    if let quarters = footprint(of: piece, at: anchor), taken.isDisjoint(with: quarters) {
+                        piece.cell = anchor
+                        pieces[people[index].id] = piece
+                        taken.formUnion(quarters)
+                        break placing
+                    }
+                }
+                anchor += 1
+            }
+        }
+        let last = taken.max() ?? 0
+        return ((last / 4 / columns + 1, last), pieces)
+    }
+
+    /// What each person's piece covers, for telling arrangements apart by
+    /// how they look.
+    private static func arrangement(_ pieces: [(UUID, TangramPiece)]) -> [UUID: Set<Int>] {
+        Dictionary(pieces.map { id, piece in (id, piece.cell.flatMap { footprint(of: piece, at: $0) } ?? []) },
+                   uniquingKeysWith: { first, _ in first })
+    }
+
+    /// Quarters a piece covers, wherever it sits.
+    private static func area(_ piece: TangramPiece) -> Int {
+        var origin = piece
+        origin.cell = nil
+        return footprint(of: origin, at: 0)?.count ?? 0
+    }
+
     /// Whether `point` is inside the convex `polygon` (either winding).
     private static func contains(_ polygon: [TangramPiece.Point], _ point: TangramPiece.Point) -> Bool {
         var sign = 0.0
