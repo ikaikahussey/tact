@@ -73,7 +73,7 @@ struct PeopleGridContent: View {
         .background(Color.tactBackground)
         .overlay(alignment: .bottomTrailing) {
             if store.people.count > 1 {
-                CanvasActionButton(title: "Bring Together", systemImage: "arrow.down.right.and.arrow.up.left",
+                CanvasActionButton(title: "Bring Together", systemImage: "square.grid.3x3.topleft.filled",
                                    hint: "Closes the gaps between tiles, keeping their order.",
                                    isEnabled: !TileLayout.isCompact(store.people)) {
                     withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
