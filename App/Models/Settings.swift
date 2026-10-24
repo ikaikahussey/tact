@@ -7,12 +7,13 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
     case colors
     case flashcards
     case art
+    case tangram
 
     static let storageKey = "peopleLayout"
 
     /// Layouts offered in the People menu. Random Colors and Flashcards are
     /// kept for stored preferences but hidden until they are ready to ship.
-    static let available: [PeopleLayout] = [.list, .grid]
+    static let available: [PeopleLayout] = [.list, .grid, .tangram]
 
     /// The layout to show: the old Art Puzzle layout opens the Tiles canvas,
     /// other hidden layouts fall back to the list.
@@ -30,6 +31,7 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
         case .colors:     return "Random Colors"
         case .flashcards: return "Flashcards"
         case .art:        return "Art Puzzle"
+        case .tangram:    return "Tangram"
         }
     }
 
@@ -40,6 +42,7 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
         case .colors:     return "paintpalette"
         case .flashcards: return "rectangle.stack"
         case .art:        return "photo.on.rectangle"
+        case .tangram:    return "square.split.diagonal.2x2"
         }
     }
 

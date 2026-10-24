@@ -36,8 +36,9 @@ Tact keeps notes about the people in your life. Everything stays on your phone.
 Please try:
 • Add a few people, give some a photo, and link one to a contact card.
 • Write notes from the Notes tab and from a person's screen. Link a note to more than one person.
-• Switch the People view (tap the "People" header) between List and Tiles. Each person is a tile.
+• Switch the People view (tap the "People" header) between List, Tiles and Tangram. Each person is a tile.
 • In Tiles, tap a tile to open the person. Touch and hold a tile to pick its shape (triangle, square, large triangle, large square or circle), colour or turn, or drag it anywhere. Try making a picture.
+• In Tangram, triangles fit together along cell diagonals and squares can turn 45° into diamonds. Drop a triangle next to another piece and it turns to fit.
 • Group Notes by person (tap the "Notes" header).
 • Edit a note: change its date, add or remove people, then delete it.
 • Force-quit and reopen: everything should still be there.

@@ -116,56 +116,82 @@ final class TactStore: ObservableObject {
         var updated = people
         change(&updated[index].tile)
         if updated[index].tile.span != people[index].tile.span {
-            let cellOf = Dictionary(uniqueKeysWithValues: TileLayout.cells(for: people).map { ($1, $0) })
-            if let cell = cellOf[id] {
-                updated = Self.pinning(updated, moving: id, to: cell, cellOf: cellOf, vacated: nil)
+            let anchors = TileLayout.anchors(for: people)
+            if let cell = anchors[id] {
+                let anchor = TileLayout.fitting(cell, span: updated[index].tile.span)
+                updated = Self.pinningTile(updated, moving: id, to: anchor, anchors: anchors, vacated: nil)
             }
         }
         people = updated
     }
 
     /// Moves a person's tile to a cell on the canvas, swapping with whoever
-    /// is there.
+    /// is there. A tile that would run off the edge moves left to fit.
     func moveTile(personID id: UUID, toCell target: Int) {
-        guard target >= 0 else { return }
-        let cellOf = Dictionary(uniqueKeysWithValues: TileLayout.cells(for: people).map { ($1, $0) })
-        guard let source = cellOf[id], source != target else { return }
-        people = Self.pinning(people, moving: id, to: target, cellOf: cellOf, vacated: source)
+        guard target >= 0, let person = person(id: id) else { return }
+        let anchors = TileLayout.anchors(for: people)
+        let anchor = TileLayout.fitting(target, span: person.tile.span)
+        guard let source = anchors[id], source != anchor else { return }
+        people = Self.pinningTile(people, moving: id, to: anchor, anchors: anchors, vacated: source)
     }
 
-    /// Pins everyone to their current cell (so filling gaps doesn't shuffle
-    /// unplaced tiles around) and puts `id` at `target`, moved left if it
-    /// would run off the edge. Tiles it now covers move to `vacated` when
-    /// they fit there, and otherwise to the first gap they fit in.
-    private static func pinning(_ people: [Person], moving id: UUID, to target: Int,
-                                cellOf: [UUID: Int], vacated: Int?) -> [Person] {
-        guard let moverIndex = people.firstIndex(where: { $0.id == id }) else { return people }
+    private static func pinningTile(_ people: [Person], moving id: UUID, to anchor: Int,
+                                    anchors: [UUID: Int], vacated: Int?) -> [Person] {
+        GridPlacement.pinning(people, moving: id, to: anchor, anchors: anchors, vacated: vacated,
+                              cell: \.tile.cell, footprint: TileLayout.footprint(of:at:))
+    }
+
+    // MARK: Tangram
+
+    /// Changes a person's Tangram piece. A piece that now overlaps others
+    /// pushes them aside.
+    func updateTangram(forPersonID id: UUID, _ change: (inout TangramPiece) -> Void) {
+        guard let index = people.firstIndex(where: { $0.id == id }) else { return }
+        let anchors = TangramLayout.anchors(for: people)
         var updated = people
-        let anchor = TileLayout.fitting(target, span: updated[moverIndex].tile.span)
-        let moverCells = Set(TileLayout.covered(anchor: anchor, span: updated[moverIndex].tile.span) ?? [anchor])
-        updated[moverIndex].tile.cell = anchor
-        var taken = moverCells
-        var displaced: [Int] = []
-        for index in updated.indices where index != moverIndex {
-            let cell = cellOf[updated[index].id]
-            updated[index].tile.cell = cell
-            let cells = cell.flatMap { TileLayout.covered(anchor: $0, span: updated[index].tile.span) } ?? []
-            if moverCells.isDisjoint(with: cells) {
-                taken.formUnion(cells)
-            } else {
-                displaced.append(index)
-            }
+        change(&updated[index].tangram)
+        if let cell = anchors[id] {
+            let anchor = TangramLayout.fitting(cell, size: updated[index].tangram.blockSize)
+            updated = Self.pinningTangram(updated, moving: id, to: anchor, anchors: anchors, vacated: nil)
         }
-        for index in displaced {
-            if let vacated, let cells = TileLayout.covered(anchor: vacated, span: updated[index].tile.span),
-               taken.isDisjoint(with: cells) {
-                updated[index].tile.cell = vacated
-                taken.formUnion(cells)
-            } else {
-                updated[index].tile.cell = nil
-            }
+        people = updated
+    }
+
+    /// Moves a person's piece so its block starts at `target`. If it would
+    /// overlap another piece there but a turn makes it fit, it turns to fit;
+    /// otherwise the pieces in the way move to its old spot or the first gap.
+    func moveTangram(personID id: UUID, toCell target: Int) {
+        guard target >= 0, let index = people.firstIndex(where: { $0.id == id }) else { return }
+        let anchors = TangramLayout.anchors(for: people)
+        guard let source = anchors[id] else { return }
+        var piece = people[index].tangram
+        let anchor = TangramLayout.fitting(target, size: piece.blockSize)
+        guard anchor != source else { return }
+
+        let others = people.reduce(into: Set<Int>()) { taken, other in
+            guard other.id != id, let cell = anchors[other.id],
+                  let quarters = TangramLayout.footprint(of: other.tangram, at: cell) else { return }
+            taken.formUnion(quarters)
         }
-        return updated
+        if piece.shape.isTriangle,
+           let turns = (0..<4).first(where: { turn in
+               var turned = piece
+               turned.quarterTurns += turn
+               return TangramLayout.footprint(of: turned, at: anchor)?.isDisjoint(with: others) == true
+           }) {
+            piece.quarterTurns += turns
+        }
+        var updated = people
+        updated[index].tangram = piece
+        people = Self.pinningTangram(updated, moving: id, to: anchor, anchors: anchors, vacated: source)
+    }
+
+    private static func pinningTangram(_ people: [Person], moving id: UUID, to anchor: Int,
+                                       anchors: [UUID: Int], vacated: Int?) -> [Person] {
+        GridPlacement.pinning(people, moving: id, to: anchor, anchors: anchors, vacated: vacated,
+                              cell: \.tangram.cell) { person, cell in
+            TangramLayout.footprint(of: person.tangram, at: cell)
+        }
     }
 
     func linkContact(toPersonID id: UUID, identifier: String, snapshot: ContactSnapshot) {

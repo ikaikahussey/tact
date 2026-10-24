@@ -125,30 +125,14 @@ enum TileLayout {
     /// (the first to claim a cell wins); everyone else fills the lowest cells
     /// where they fit, in list order. Empty cells are gaps.
     static func cells(for people: [Person]) -> [Int: UUID] {
-        var layout: [Int: UUID] = [:]
-        var taken = Set<Int>()
-        var unplaced: [Person] = []
-        for person in people {
-            if let cell = person.tile.cell,
-               let cells = covered(anchor: cell, span: person.tile.span),
-               taken.isDisjoint(with: cells) {
-                layout[cell] = person.id
-                taken.formUnion(cells)
-            } else {
-                unplaced.append(person)
-            }
-        }
-        for person in unplaced {
-            var next = 0
-            while true {
-                if let cells = covered(anchor: next, span: person.tile.span), taken.isDisjoint(with: cells) {
-                    layout[next] = person.id
-                    taken.formUnion(cells)
-                    break
-                }
-                next += 1
-            }
-        }
-        return layout
+        Dictionary(uniqueKeysWithValues: anchors(for: people).map { ($1, $0) })
+    }
+
+    static func anchors(for people: [Person]) -> [UUID: Int] {
+        GridPlacement.anchors(for: people, cell: \.tile.cell, footprint: footprint(of:at:))
+    }
+
+    static func footprint(of person: Person, at anchor: Int) -> Set<Int>? {
+        covered(anchor: anchor, span: person.tile.span).map(Set.init)
     }
 }

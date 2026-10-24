@@ -45,6 +45,8 @@ struct PeopleTabView: View {
                     PeopleListContent()
                 case .grid, .art, .colors:
                     PeopleGridContent()
+                case .tangram:
+                    TangramGridContent()
                 case .flashcards:
                     FlashcardView()
                 }
