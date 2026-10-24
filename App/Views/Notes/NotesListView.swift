@@ -149,9 +149,8 @@ struct NoteRow: View {
     @EnvironmentObject private var store: TactStore
     let note: Note
 
-    private var personNames: String? {
-        let names = store.names(forPersonIDs: note.personIds)
-        return names.isEmpty ? nil : names.joined(separator: ", ")
+    private var people: [Person] {
+        note.personIds.compactMap { store.person(id: $0) }
     }
 
     var body: some View {
@@ -159,8 +158,18 @@ struct NoteRow: View {
             NoteDetailView(noteID: note.id)
         } label: {
             VStack(alignment: .leading, spacing: 4) {
-                if let personNames {
-                    Text(personNames).font(.caption).foregroundStyle(.secondary)
+                if !people.isEmpty {
+                    FlowLayout(spacing: 10) {
+                        ForEach(people) { person in
+                            HStack(spacing: 4) {
+                                PersonAvatar(person: person, size: 16)
+                                Text(person.name)
+                            }
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityElement(children: .combine)
                 }
                 Text(note.text).foregroundStyle(.primary).lineLimit(6)
                 Text(note.date, style: .date).font(.caption).foregroundStyle(.secondary)

@@ -40,6 +40,14 @@ struct PeopleTabView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 header
+                    .overlay(alignment: .trailing) {
+                        if layout.resolved == .list && !store.people.isEmpty {
+                            OutlineToggle()
+                                .padding(.trailing, 20)
+                                .padding(.top, 4)
+                                .padding(.bottom, 8)
+                        }
+                    }
                 switch layout.resolved {
                 case .list:
                     PeopleListContent()
