@@ -51,8 +51,10 @@ struct PeopleTabView: View {
                 switch layout.resolved {
                 case .list:
                     PeopleListContent()
-                case .grid, .art, .colors:
+                case .grid, .colors:
                     PeopleGridContent()
+                case .art:
+                    ArtPuzzleView()
                 case .tangram:
                     TangramGridContent()
                 case .flashcards:
@@ -80,11 +82,6 @@ struct PeopleTabView: View {
             }
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
-            }
-
-            .onAppear {
-                // The Art Puzzle layout is gone; open the Tiles canvas instead.
-                if layout == .art { layout = .grid }
             }
         }
     }

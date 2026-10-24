@@ -180,7 +180,7 @@ final class PersistenceController {
             result.people = (try? decoder.decode([Person].self, from: peopleData)) ?? []
             if let legacy = try? decoder.decode([LegacyPersonSettings].self, from: peopleData) {
                 let all = legacy.compactMap(\.gameSettings)
-                result.settings = all.first ?? GameTypeSettings()
+                result.settings = all.first(where: { $0.artSettings.imageData != nil }) ?? all.first ?? GameTypeSettings()
             }
         }
         if let notesData {

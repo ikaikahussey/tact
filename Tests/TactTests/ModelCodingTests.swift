@@ -52,7 +52,7 @@ final class ModelCodingTests: XCTestCase {
         let json = #"{"randomColorSettings":{"palette":"Not A Palette"},"peopleSettings":{}}"#.data(using: .utf8)!
         let settings = try JSONDecoder().decode(GameTypeSettings.self, from: json)
         XCTAssertEqual(settings.randomColorSettings.palette, .vibrant)
-        XCTAssertEqual(settings.artSettings, ArtGameSettings())
+        XCTAssertNil(settings.artSettings.imageData)
     }
 
     func testDataFingerprintDistinguishesContent() {

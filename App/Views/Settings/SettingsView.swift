@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Export and about information.
+/// Puzzle picture, export, backup and about information.
 struct SettingsView: View {
     @EnvironmentObject private var store: TactStore
     @Environment(\.dismiss) private var dismiss
@@ -8,6 +8,15 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("Puzzle") {
+                    NavigationLink {
+                        ArtSettingsView()
+                    } label: {
+                        LabeledContent("Puzzle Picture",
+                                       value: store.settings.artSettings.imageData == nil ? "Default" : "Your Photo")
+                    }
+                }
+
                 Section {
                     ShareLink(item: store.outline()) {
                         Label("Export Outline", systemImage: "square.and.arrow.up")

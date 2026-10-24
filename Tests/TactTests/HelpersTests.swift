@@ -34,6 +34,29 @@ final class HelpersTests: XCTestCase {
         }
     }
 
+    func testArtGridGeometry() {
+        XCTAssertEqual(ArtImageCache.rows(forTileCount: 1), 1)
+        XCTAssertEqual(ArtImageCache.rows(forTileCount: 4), 1)
+        XCTAssertEqual(ArtImageCache.rows(forTileCount: 5), 2)
+        XCTAssertEqual(ArtImageCache.rows(forTileCount: 16), 4)
+
+        let wide = ArtImageCache.cropRect(for: CGSize(width: 400, height: 100), tileCount: 16)
+        XCTAssertEqual(wide, CGRect(x: 150, y: 0, width: 100, height: 100))
+        let tall = ArtImageCache.cropRect(for: CGSize(width: 100, height: 400), tileCount: 8)
+        XCTAssertEqual(tall, CGRect(x: 0, y: 175, width: 100, height: 50))
+    }
+
+    func testArtTilesAreProducedForEveryIndexAndNotBeyond() {
+        let data = TestSupport.jpeg(width: 200, height: 120)
+        let cache = ArtImageCache()
+        for index in 0..<6 {
+            XCTAssertNotNil(cache.tile(for: data, index: index, tileCount: 6), "tile \(index)")
+        }
+        XCTAssertNil(cache.tile(for: data, index: 8, tileCount: 6))
+        XCTAssertNil(cache.tile(for: data, index: -1, tileCount: 6))
+        XCTAssertNil(cache.tile(for: data, index: 0, tileCount: 0))
+    }
+
     func testStorableJPEGDownscalesLargeImages() throws {
         let big = TestSupport.jpeg(width: 3000, height: 1500)
         let stored = try XCTUnwrap(ImageProcessing.storableJPEG(from: big))
@@ -56,13 +79,21 @@ final class HelpersTests: XCTestCase {
         XCTAssertEqual(cache.image(for: data)?.size.width, 1000)
     }
 
+    func testDefaultPuzzleImageIsBundled() throws {
+        let data = PuzzleDefaultImage.data
+        XCTAssertFalse(data.isEmpty)
+        let image = try XCTUnwrap(UIImage(data: data))
+        XCTAssertLessThanOrEqual(max(image.size.width, image.size.height), ImageProcessing.maxStoredDimension)
+        XCTAssertNotNil(ArtImageCache().tile(for: data, index: ArtPuzzle.pieceCount - 1, tileCount: ArtPuzzle.pieceCount))
+    }
+
     func testHiddenLayoutsResolveToList() {
         XCTAssertEqual(PeopleLayout.colors.resolved, .list)
         XCTAssertEqual(PeopleLayout.flashcards.resolved, .list)
-        XCTAssertEqual(PeopleLayout.art.resolved, .grid)
+        XCTAssertEqual(PeopleLayout.art.resolved, .art)
         XCTAssertFalse(PeopleLayout.available.contains(.colors))
-        XCTAssertFalse(PeopleLayout.available.contains(.art))
-        XCTAssertEqual(PeopleLayout.grid.title, "Tiles")
+        XCTAssertEqual(PeopleLayout.available, [.list, .grid, .tangram, .art])
+        XCTAssertEqual(PeopleLayout.art.title, "Puzzle")
     }
 
     func testBirthdayFormatting() {

@@ -13,14 +13,10 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
 
     /// Layouts offered in the People menu. Random Colors and Flashcards are
     /// kept for stored preferences but hidden until they are ready to ship.
-    static let available: [PeopleLayout] = [.list, .grid, .tangram]
+    static let available: [PeopleLayout] = [.list, .grid, .tangram, .art]
 
-    /// The layout to show: the old Art Puzzle layout opens the Tiles canvas,
-    /// other hidden layouts fall back to the list.
-    var resolved: PeopleLayout {
-        if self == .art { return .grid }
-        return Self.available.contains(self) ? self : .list
-    }
+    /// The layout to show: hidden layouts fall back to the list.
+    var resolved: PeopleLayout { Self.available.contains(self) ? self : .list }
 
     var id: String { rawValue }
 
@@ -30,7 +26,7 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
         case .grid:       return "Tiles"
         case .colors:     return "Random Colors"
         case .flashcards: return "Flashcards"
-        case .art:        return "Art Puzzle"
+        case .art:        return "Puzzle"
         case .tangram:    return "Tangram"
         }
     }
@@ -77,9 +73,21 @@ struct RandomColorGameSettings: Codable, Equatable {
     }
 }
 
-/// Settings for the retired Art Puzzle. Kept so older settings files still
-/// decode (unknown keys, such as the old puzzle photo, are ignored).
-struct ArtGameSettings: Codable, Equatable {}
+struct ArtGameSettings: Codable, Equatable {
+    /// JPEG data of the photo sliced into puzzle tiles. One copy for the whole app.
+    var imageData: Data?
+
+    init(imageData: Data? = nil) {
+        self.imageData = imageData
+    }
+
+    private enum CodingKeys: String, CodingKey { case imageData }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        imageData = (try? container.decodeIfPresent(Data.self, forKey: .imageData)) ?? nil
+    }
+}
 
 /// App-wide settings for the game-style layouts.
 struct GameTypeSettings: Codable, Equatable {

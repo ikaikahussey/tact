@@ -65,6 +65,7 @@ final class PersistenceTests: XCTestCase {
         XCTAssertNotNil(loaded.people[0].photoData)
         XCTAssertEqual(loaded.notes.map(\.text), ["Legacy note"])
         XCTAssertEqual(loaded.settings.randomColorSettings.palette, .neon)
+        XCTAssertEqual(loaded.settings.artSettings.imageData, artPhoto)
 
         // Migrated once: the legacy keys are gone and the files are the source of truth now.
         XCTAssertNil(defaults.data(forKey: PersistenceController.legacyPeopleKey))
