@@ -104,6 +104,13 @@ final class HelpersTests: XCTestCase {
         XCTAssertTrue(PeopleGridContent.canFlipToGames(peopleCount: ArtPuzzle.pieceCount))
     }
 
+    func testPeopleNeededForGamesCountsDownToZero() {
+        XCTAssertEqual(PeopleGridContent.peopleNeededForGames(peopleCount: 0), ArtPuzzle.pieceCount)
+        XCTAssertEqual(PeopleGridContent.peopleNeededForGames(peopleCount: 1), ArtPuzzle.pieceCount - 1)
+        XCTAssertEqual(PeopleGridContent.peopleNeededForGames(peopleCount: ArtPuzzle.pieceCount), 0)
+        XCTAssertEqual(PeopleGridContent.peopleNeededForGames(peopleCount: ArtPuzzle.pieceCount + 5), 0)
+    }
+
     func testGamesOnTheBackOfTiles() {
         XCTAssertEqual(TileGame.all.map(\.id), ["woodblock", "tangram"])
         XCTAssertEqual(Set(TileGame.all.map(\.id)).count, TileGame.all.count, "ids are unique")

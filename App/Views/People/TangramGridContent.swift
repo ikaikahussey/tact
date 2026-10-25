@@ -167,14 +167,14 @@ struct TangramGridContent: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(person.name), \(TilePalette.name(person.tile.colorIndex)) \(Self.description(piece))")
-            .accessibilityHint("Opens \(person.name). Touch and hold to change the shape, colour or turn, or to move the piece.")
+            .accessibilityHint("Opens \(person.name). Touch and hold to change the shape, color or turn, or to move the piece.")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction(named: "Change shape") {
                 let shapes = TangramPiece.Shape.allCases
                 let next = shapes[(shapes.firstIndex(of: piece.shape)! + 1) % shapes.count]
                 store.updateTangram(forPersonID: person.id) { $0.shape = next }
             }
-            .accessibilityAction(named: "Change colour") {
+            .accessibilityAction(named: "Change color") {
                 let order = TilePalette.menuOrder
                 let next = order[((order.firstIndex(of: person.tile.colorIndex) ?? 0) + 1) % order.count]
                 store.updateTile(forPersonID: person.id) { $0.colorIndex = next }

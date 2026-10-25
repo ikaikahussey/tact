@@ -6,7 +6,7 @@
 2. **Register the app.** In [App Store Connect](https://appstoreconnect.apple.com) > Apps > "+" > New App:
    iOS, name "Tact", bundle ID `app.bitrig.ikaikahussey.tact` (register it under Certificates, Identifiers & Profiles if it is not offered), SKU `app.bitrig.ikaikahussey.tact` (already created, Apple ID 6759739594).
    If you want a different bundle ID, change `PRODUCT_BUNDLE_IDENTIFIER` in both targets of `Tact.xcodeproj` first.
-3. **Privacy policy URL.** Required before external testers can be added, because the app asks for Contacts access. A short page saying the app stores data on the device and in the user's own iCloud account, and sends nothing to the developer, is enough.
+3. **Privacy policy URL** (and, for the App Store, a support URL). Required before external testers can be added. Set `TactLinks.privacyPolicy` in `App/Support/TactLinks.swift` to the same address. A short page saying the app stores data on the device and in the user's own iCloud account, and sends nothing to the developer, is enough.
 
 ## Each upload
 
@@ -59,7 +59,15 @@ Tact is a personal notes app. No account is needed. "Link Contact" on a person o
 system contact picker, which needs no Contacts permission; the chosen card's name, phone,
 email and address are copied into the app's local storage. The Contacts usage string covers
 an optional refresh of those details, which only happens if access has been granted.
-The privacy policy is linked from Settings > About. Data is backed up to the user's own iCloud account (iCloud Drive app
+The privacy policy is linked from Settings > About.
+
+To see the games: on the People tab (Tiles), add 16 people with the + button, then tap the
+round puzzle-piece button at the bottom right; every tile turns over to the Woodblock Puzzle,
+and the selector at the bottom left switches to Tangram. A first-launch card explains this, and
+a "N more to unlock games" label counts down until then.
+
+The default puzzle picture is a 1-bit rendering of a public-domain Japanese woodblock print
+from Rawpixel's public-domain collection (CC0). Data is backed up to the user's own iCloud account (iCloud Drive app
 container) so it survives reinstalling; nothing is sent to the developer.
 ```
 

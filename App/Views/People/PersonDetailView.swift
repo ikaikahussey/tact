@@ -5,6 +5,7 @@ import Contacts
 struct PersonDetailView: View {
     @EnvironmentObject private var store: TactStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let personID: UUID
 
     @State private var showingAddNote = false
@@ -198,24 +199,34 @@ struct PersonDetailView: View {
     @ViewBuilder
     private func contactSection(for person: Person) -> some View {
         if person.hasLinkedContact {
-            HStack(spacing: 12) {
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.tact(.title3))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(person.contact?.name ?? "Linked Contact")
-                    if let phone = person.contact?.phones.first {
-                        Text(phone).font(.tact(.caption)).foregroundStyle(.secondary)
+            // At accessibility text sizes the buttons move under the name so
+            // it is not squeezed into a column.
+            let stacked = dynamicTypeSize.isAccessibilitySize
+            let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+                                 : AnyLayout(HStackLayout(spacing: 12))
+            layout {
+                HStack(spacing: 12) {
+                    Image(systemName: "person.crop.circle.fill")
+                        .font(.tact(.title3))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(person.contact?.name ?? "Linked Contact")
+                        if let phone = person.contact?.phones.first {
+                            Text(phone).font(.tact(.caption)).foregroundStyle(.secondary)
+                        }
                     }
+                    .layoutPriority(1)
                 }
-                Spacer()
-                Button { showContactInfo(for: person) } label: {
-                    Image(systemName: "info.circle").font(.tact(.title3))
+                if !stacked { Spacer() }
+                HStack(spacing: 16) {
+                    Button { showContactInfo(for: person) } label: {
+                        Image(systemName: "info.circle").font(.tact(.title3))
+                    }
+                    .accessibilityLabel("Contact Info")
+                    Button { store.unlinkContact(fromPersonID: personID) } label: {
+                        Image(systemName: "xmark.circle.fill").font(.tact(.title3)).foregroundStyle(.secondary)
+                    }
+                    .accessibilityLabel("Unlink Contact")
                 }
-                .accessibilityLabel("Contact Info")
-                Button { store.unlinkContact(fromPersonID: personID) } label: {
-                    Image(systemName: "xmark.circle.fill").font(.tact(.title3)).foregroundStyle(.secondary)
-                }
-                .accessibilityLabel("Unlink Contact")
             }
             .buttonStyle(.plain)
             .padding(.vertical, 12)

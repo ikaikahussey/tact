@@ -33,7 +33,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Colors")
                 } footer: {
-                    Text("Changes the colours of everyone's tiles and the app's buttons.")
+                    Text("Changes the colors of everyone's tiles and the app's buttons.")
                 }
 
                 Section("Puzzles") {
