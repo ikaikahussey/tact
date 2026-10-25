@@ -4,6 +4,7 @@ import SwiftUI
 /// the list, and hosts the shared "Add Person" and settings actions.
 struct PeopleTabView: View {
     @EnvironmentObject private var store: TactStore
+    @Environment(\.appPalette) private var palette
     @AppStorage(PeopleLayout.storageKey) private var layout: PeopleLayout = .standard
     @AppStorage(PeopleGridContent.showingGamesKey) private var tilesShowingGames = false
     @AppStorage(TileGame.storageKey) private var tilesGameID = TileGame.all[0].id
@@ -56,7 +57,7 @@ struct PeopleTabView: View {
         } label: {
             Image(systemName: option.systemImage)
                 .font(.tact(.body).weight(.semibold))
-                .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
+                .foregroundStyle(isSelected ? AnyShapeStyle(palette.onAccent) : AnyShapeStyle(.secondary))
                 .frame(width: 36, height: 36)
                 .background(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.tactTileGray.opacity(0.5)),
                             in: Circle())

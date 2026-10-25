@@ -8,6 +8,7 @@ struct CanvasActionButton: View {
     let hint: String
     var isEnabled = true
     let action: () -> Void
+    @Environment(\.appPalette) private var palette
 
     var body: some View {
         Button {
@@ -16,7 +17,7 @@ struct CanvasActionButton: View {
         } label: {
             Image(systemName: systemImage)
                 .font(.tact(.body).weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.onAccent)
                 .frame(width: 44, height: 44)
                 .background(.tint, in: Circle())
                 .shadow(color: .black.opacity(0.18), radius: 6, y: 3)

@@ -8,6 +8,7 @@ import SwiftUI
 /// back (`TileGame`), and a selector picks which one is played.
 struct PeopleGridContent: View {
     @EnvironmentObject private var store: TactStore
+    @Environment(\.appPalette) private var palette
     @AppStorage(Self.showingGamesKey) private var showingGames = false
     @AppStorage(TileGame.storageKey) private var selectedGameID = TileGame.all[0].id
     @State private var openPersonID: UUID?
@@ -117,7 +118,7 @@ struct PeopleGridContent: View {
                 } label: {
                     Image(systemName: game.systemImage)
                         .font(.tact(.body).weight(.semibold))
-                        .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
+                        .foregroundStyle(isSelected ? AnyShapeStyle(palette.onAccent) : AnyShapeStyle(.secondary))
                         .frame(width: 36, height: 36)
                         .background(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.tactTileGray.opacity(0.5)),
                                     in: Circle())

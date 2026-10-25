@@ -69,6 +69,7 @@ struct PeopleListContent: View {
 /// notes. Lives on the People header line so the toolbar stays uncluttered.
 struct OutlineToggle: View {
     @AppStorage(PeopleListContent.showsNotesKey) private var showsNotes = false
+    @Environment(\.appPalette) private var palette
 
     var body: some View {
         Button {
@@ -76,7 +77,7 @@ struct OutlineToggle: View {
         } label: {
             Image(systemName: "list.bullet.indent")
                 .font(.tact(.subheadline).weight(.semibold))
-                .foregroundStyle(showsNotes ? Color.white : Color.secondary)
+                .foregroundStyle(showsNotes ? palette.onAccent : Color.secondary)
                 .frame(width: 32, height: 32)
                 .background(showsNotes ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.tactTileGray), in: Circle())
         }

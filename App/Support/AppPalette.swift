@@ -31,11 +31,19 @@ enum AppPalette: String, CaseIterable, Identifiable {
     /// Buttons, selections and the tab bar. Dark enough for white symbols on top.
     var accent: Color {
         switch self {
-        case .classic: .accentColor
+        // Named directly: `.tint(.accentColor)` falls back to system blue.
+        case .classic: Color("AccentColor")
         case .pastel:  Color(red: 0.45, green: 0.38, blue: 0.72)
         case .earthy:  Color(red: 0.62, green: 0.36, blue: 0.22)
         case .jewel:   Color(red: 0.05, green: 0.45, blue: 0.47)
         }
+    }
+
+    /// Symbols and text drawn on the accent. Classic's accent is black in light
+    /// mode and white in dark mode, so what sits on it flips the other way;
+    /// the other accents are dark enough for white in both.
+    var onAccent: Color {
+        self == .classic ? Color(uiColor: .systemBackground) : .white
     }
 
     /// Tile colour `index`, made from the classic colour of the same hue.
