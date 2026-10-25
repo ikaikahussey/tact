@@ -60,9 +60,11 @@ struct SettingsView: View {
                 }
 
                 Section("About") {
+                    TactLogo(height: 28)
+                        .padding(.vertical, 4)
                     LabeledContent("Version", value: Bundle.main.displayVersion)
                     Text("Tact keeps your data on this device and, when iCloud is on, in your own iCloud account. Nothing is sent anywhere else unless you export it.")
-                        .font(.footnote)
+                        .font(.tact(.footnote))
                         .foregroundStyle(.secondary)
                 }
             }

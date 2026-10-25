@@ -67,7 +67,7 @@ struct WoodblockPuzzleGame: View {
             }
             if game.moveCount == 0 || game.isSolved {
                 Text("Drag the pieces into the empty space to rebuild the picture.")
-                    .font(.footnote)
+                    .font(.tact(.footnote))
                     .foregroundStyle(.secondary)
             }
         }

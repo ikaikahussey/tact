@@ -131,7 +131,7 @@ struct NoteDetailView: View {
                 showingDatePicker = true
             } label: {
                 Label(note.date.formatted(date: .abbreviated, time: .omitted), systemImage: "calendar")
-                    .font(.subheadline)
+                    .font(.tact(.subheadline))
             }
             .buttonStyle(.bordered)
             .accessibilityLabel("Date, \(note.date.formatted(date: .long, time: .omitted))")
@@ -139,7 +139,7 @@ struct NoteDetailView: View {
 
             if note.wasEdited {
                 Text("Edited \(note.modifiedDate, style: .relative) ago")
-                    .font(.footnote)
+                    .font(.tact(.footnote))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -150,7 +150,7 @@ struct NoteDetailView: View {
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.caption).foregroundStyle(.secondary).textCase(.uppercase)
+                .font(.tact(.caption)).foregroundStyle(.secondary).textCase(.uppercase)
             content()
         }
     }

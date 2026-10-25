@@ -78,13 +78,13 @@ struct FlashcardView: View {
                 .overlay(
                     VStack(spacing: 16) {
                         Text(person.name)
-                            .font(.system(size: 32, weight: .bold))
+                            .font(.tactBold(size: 32))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
                         let count = store.noteCount(for: person.id)
                         if count > 0 {
                             Text("\(count) \(count == 1 ? "note" : "notes")")
-                                .font(.subheadline)
+                                .font(.tact(.subheadline))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -95,7 +95,7 @@ struct FlashcardView: View {
     private var controls: some View {
         VStack(spacing: 20) {
             Text(isFlipped ? " " : "Tap to reveal")
-                .font(.subheadline)
+                .font(.tact(.subheadline))
                 .foregroundStyle(.secondary)
             HStack(spacing: 40) {
                 Button { step(-1) } label: {
@@ -105,7 +105,7 @@ struct FlashcardView: View {
                 .accessibilityLabel("Previous")
 
                 Text("\(safeIndex + 1) / \(people.count)")
-                    .font(.headline)
+                    .font(.tact(.headline))
                     .foregroundStyle(.secondary)
                     .frame(minWidth: 80)
 

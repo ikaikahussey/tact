@@ -20,16 +20,15 @@ extension Bundle {
     }
 }
 
-/// Shows "Tact" as the small title in the top bar of every tab. The tab's own
-/// large header is drawn in the content by `TabHeader`.
+/// Shows the Tact logo as the small title in the top bar of every tab. The
+/// tab's own large header is drawn in the content by `TabHeader`.
 struct AppTitleBar: ViewModifier {
     func body(content: Content) -> some View {
         content
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("Tact")
-                        .font(.headline)
+                    TactLogo(height: 16)
                         .accessibilityAddTraits(.isHeader)
                 }
             }
@@ -53,7 +52,7 @@ struct TabHeader<Accessory: View>: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(title)
-                .font(.largeTitle.bold())
+                .font(.tact(.largeTitle).bold())
                 .accessibilityAddTraits(.isHeader)
             accessory()
             Spacer(minLength: 0)

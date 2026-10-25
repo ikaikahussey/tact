@@ -75,7 +75,7 @@ struct OutlineToggle: View {
             withAnimation(.snappy) { showsNotes.toggle() }
         } label: {
             Image(systemName: "list.bullet.indent")
-                .font(.subheadline.weight(.semibold))
+                .font(.tact(.subheadline).weight(.semibold))
                 .foregroundStyle(showsNotes ? Color.white : Color.secondary)
                 .frame(width: 32, height: 32)
                 .background(showsNotes ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.tactTileGray), in: Circle())
@@ -98,13 +98,13 @@ struct PersonRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(person.name)
                 if let contactName = person.contact?.name, contactName != person.name {
-                    Text(contactName).font(.caption).foregroundStyle(.secondary)
+                    Text(contactName).font(.tact(.caption)).foregroundStyle(.secondary)
                 }
             }
             Spacer()
             if noteCount > 0 {
                 Text("\(noteCount)")
-                    .font(.caption)
+                    .font(.tact(.caption))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -115,7 +115,7 @@ struct PersonRow: View {
             if let addNote {
                 Button(action: addNote) {
                     Image(systemName: "plus")
-                        .font(.body.weight(.semibold))
+                        .font(.tact(.body).weight(.semibold))
                         .frame(width: 32, height: 32)
                         .contentShape(Rectangle())
                 }

@@ -16,7 +16,7 @@ struct NotesListView: View {
         } label: {
             TabHeader("Notes") {
                 Image(systemName: "chevron.down.circle.fill")
-                    .font(.title3)
+                    .font(.tact(.title3))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(.secondary)
             }
@@ -167,12 +167,12 @@ struct NoteRow: View {
                             }
                         }
                     }
-                    .font(.caption)
+                    .font(.tact(.caption))
                     .foregroundStyle(.secondary)
                     .accessibilityElement(children: .combine)
                 }
                 Text(note.text).foregroundStyle(.primary).lineLimit(6)
-                Text(note.date, style: .date).font(.caption).foregroundStyle(.secondary)
+                Text(note.date, style: .date).font(.tact(.caption)).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
@@ -215,7 +215,7 @@ struct NewNoteSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                     VStack(alignment: .leading, spacing: 10) {
                         Text("People")
-                            .font(.caption).foregroundStyle(.secondary).textCase(.uppercase)
+                            .font(.tact(.caption)).foregroundStyle(.secondary).textCase(.uppercase)
                         PersonChipRow(selectedPersonIds: $selectedPersonIds, onAdd: { showingAddPerson = true })
                     }
                 }

@@ -116,7 +116,7 @@ struct PeopleGridContent: View {
                     selectedGameID = game.id
                 } label: {
                     Image(systemName: game.systemImage)
-                        .font(.body.weight(.semibold))
+                        .font(.tact(.body).weight(.semibold))
                         .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
                         .frame(width: 36, height: 36)
                         .background(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.tactTileGray.opacity(0.5)),
