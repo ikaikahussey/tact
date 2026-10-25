@@ -29,7 +29,7 @@ struct PersonDetailView: View {
     private func content(for person: Person) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                if let image = person.fullPhoto {
+                if person.showsPhoto, let image = person.fullPhoto {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
@@ -43,7 +43,7 @@ struct PersonDetailView: View {
                 } else {
                     ZStack {
                         TileShades(colorIndex: person.tile.colorIndex).pale
-                        TileArtView(art: person.tile, pattern: TilePattern(seed: person.colorSeed), side: 150)
+                        TileArtView(art: person.tile, pattern: person.tilePattern, side: 150)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 220)
@@ -55,6 +55,7 @@ struct PersonDetailView: View {
                     .accessibilityAddTraits(.isButton)
                     .accessibilityHint("Adds a photo")
                 }
+                tileChooser(for: person)
                 contactSection(for: person)
                 Divider()
                 notesSection(for: person)
@@ -134,6 +135,73 @@ struct PersonDetailView: View {
         } message: {
             Text("This contact is no longer available in Contacts.")
         }
+    }
+
+    // MARK: Tile
+
+    /// A row of choices for what the person's tile shows: their photo or one
+    /// of the patterns, in their colour.
+    private func tileChooser(for person: Person) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Tile").font(.headline)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    tileChoice(isSelected: person.showsPhoto) {
+                        if person.photoData == nil {
+                            showingPhotoPicker = true
+                        } else {
+                            store.updateTile(forPersonID: personID) { $0.showsPhoto = true }
+                        }
+                    } label: {
+                        if let image = person.thumbnail(maxPixelSize: 256) {
+                            Image(uiImage: image).resizable().scaledToFill()
+                        } else {
+                            ZStack {
+                                Color.tactTileGray.opacity(0.5)
+                                Image(systemName: "photo.badge.plus")
+                                    .font(.title3)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .accessibilityLabel(person.photoData == nil ? "Add Photo" : "Photo")
+
+                    ForEach(TilePattern.allCases, id: \.self) { pattern in
+                        tileChoice(isSelected: !person.showsPhoto && person.tilePattern == pattern) {
+                            store.updateTile(forPersonID: personID) {
+                                $0.pattern = pattern.rawValue
+                                $0.showsPhoto = false
+                            }
+                        } label: {
+                            TilePatternView(pattern: pattern, colorIndex: person.tile.colorIndex)
+                                .rotationEffect(.degrees(Double(person.tile.quarterTurns) * 90))
+                        }
+                        .accessibilityLabel(pattern.title)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private func tileChoice(isSelected: Bool, action: @escaping () -> Void,
+                            @ViewBuilder label: () -> some View) -> some View {
+        Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            action()
+        } label: {
+            label()
+                .frame(width: 52, height: 52)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .padding(3)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 11)
+                        .strokeBorder(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear), lineWidth: 2.5)
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     // MARK: Contact
@@ -241,6 +309,7 @@ struct PersonDetailView: View {
               let jpeg = await Task.detached(priority: .userInitiated, operation: { ImageProcessing.storableJPEG(from: data) }).value
         else { return }
         store.updatePhoto(forPersonID: personID, data: jpeg)
+        store.updateTile(forPersonID: personID) { $0.showsPhoto = true }
     }
 
     private func linkContactTapped() {

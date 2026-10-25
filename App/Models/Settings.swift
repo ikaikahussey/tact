@@ -11,16 +11,19 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
 
     static let storageKey = "peopleLayout"
 
-    /// Layouts offered next to the People header. Random Colors and Flashcards are
-    /// kept for stored preferences but hidden until they are ready to ship.
-    /// The Puzzle is the flip side of Tiles, so `art` is no longer listed.
+    /// Layouts offered next to the People header. Random Colors and Flashcards
+    /// are kept for stored preferences but hidden until they are ready to ship.
+    /// The Puzzle is the flip side of Tiles, so `art` is not listed.
     static let available: [PeopleLayout] = [.grid, .list, .tangram]
 
+    /// What the People tab shows until the user picks something else.
+    static let standard: PeopleLayout = .grid
+
     /// The layout to show: the Puzzle opens as Tiles (turned over), and other
-    /// hidden layouts fall back to the list.
+    /// hidden layouts fall back to Tiles.
     var resolved: PeopleLayout {
         if self == .art { return .grid }
-        return Self.available.contains(self) ? self : .list
+        return Self.available.contains(self) ? self : Self.standard
     }
 
     var id: String { rawValue }
@@ -31,7 +34,7 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
         case .grid:       return "Tiles"
         case .colors:     return "Random Colors"
         case .flashcards: return "Flashcards"
-        case .art:        return "Puzzle"
+        case .art:        return "Puzzles"
         case .tangram:    return "Tangram"
         }
     }
@@ -42,7 +45,7 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
         case .grid:       return "square.grid.3x3"
         case .colors:     return "paintpalette"
         case .flashcards: return "rectangle.stack"
-        case .art:        return "photo.on.rectangle"
+        case .art:        return "puzzlepiece"
         case .tangram:    return "square.split.diagonal.2x2"
         }
     }

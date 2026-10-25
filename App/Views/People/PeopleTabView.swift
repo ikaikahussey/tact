@@ -4,7 +4,7 @@ import SwiftUI
 /// the shared "Add Person" and settings actions.
 struct PeopleTabView: View {
     @EnvironmentObject private var store: TactStore
-    @AppStorage(PeopleLayout.storageKey) private var layout: PeopleLayout = .list
+    @AppStorage(PeopleLayout.storageKey) private var layout: PeopleLayout = .standard
     @AppStorage(PeopleGridContent.showingPuzzleKey) private var tilesShowingPuzzle = false
     @State private var showingLayouts = false
     @State private var showingAddPerson = false

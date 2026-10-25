@@ -1,14 +1,42 @@
 import SwiftUI
 
-/// Puzzle picture, export, backup and about information.
+/// Colour palette, puzzle picture, export, backup and about information.
 struct SettingsView: View {
     @EnvironmentObject private var store: TactStore
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(AppPalette.storageKey) private var palette: AppPalette = .classic
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Puzzle") {
+                Section {
+                    ForEach(AppPalette.allCases) { option in
+                        Button { palette = option } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(option.title).foregroundStyle(.primary)
+                                    PaletteStrip(palette: option)
+                                }
+                                Spacer()
+                                if option == palette {
+                                    Image(systemName: "checkmark")
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(option.accent)
+                                }
+                            }
+                            .padding(.vertical, 2)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(option == palette ? .isSelected : [])
+                    }
+                } header: {
+                    Text("Colors")
+                } footer: {
+                    Text("Changes the colours of everyone's tiles and the app's buttons.")
+                }
+
+                Section("Puzzles") {
                     NavigationLink {
                         ArtSettingsView()
                     } label: {

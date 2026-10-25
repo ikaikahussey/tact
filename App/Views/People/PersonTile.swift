@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// The colours a tile can be. Mid-tone and saturated so they read on light
-/// and dark backgrounds alike. New colours go at the end so saved indexes
-/// keep their colour.
+/// The colours a tile can be, in the Classic palette. Mid-tone and saturated
+/// so they read on light and dark backgrounds alike; other palettes are made
+/// from these (`AppPalette`). New colours go at the end so saved indexes keep
+/// their colour.
 enum TilePalette {
     static let colors: [Color] = [
         Color(red: 0.91, green: 0.33, blue: 0.24),  // coral
@@ -25,8 +26,8 @@ enum TilePalette {
     /// Menu order: the rainbow, then the neutrals.
     static let menuOrder = [8, 0, 1, 2, 3, 4, 9, 5, 6, 7, 10, 11]
 
-    static func color(_ index: Int) -> Color {
-        colors[((index % colors.count) + colors.count) % colors.count]
+    static func color(_ index: Int, in palette: AppPalette = .current) -> Color {
+        palette.tileColor(((index % colors.count) + colors.count) % colors.count)
     }
 
     static func name(_ index: Int) -> String {
@@ -60,7 +61,7 @@ struct TileArtView: View {
     }
 }
 
-/// A person's square on the Tiles canvas: their pattern with their name.
+/// A person's square on the Tiles canvas: their photo or pattern with their name.
 struct PersonTile: View {
     let person: Person
     let size: CGFloat
@@ -68,7 +69,14 @@ struct PersonTile: View {
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             Color.tactCardBackground
-            TileArtView(art: person.tile, pattern: TilePattern(seed: person.colorSeed), side: size)
+            if person.showsPhoto, let image = person.thumbnail(maxPixelSize: 512) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+            } else {
+                TileArtView(art: person.tile, pattern: person.tilePattern, side: size)
+            }
             Text(person.name)
                 .font(.system(size: max(10, size * 0.12), weight: .semibold, design: .rounded))
                 .lineLimit(1)
@@ -84,19 +92,19 @@ struct PersonTile: View {
 }
 
 /// Circular avatar used in lists and chips: the photo, or the person's tile
-/// pattern when there is none.
+/// pattern when there is none or they chose the pattern.
 struct PersonAvatar: View {
     let person: Person
     var size: CGFloat = 40
 
     var body: some View {
         Group {
-            if let image = person.thumbnail(maxPixelSize: 256) {
+            if person.showsPhoto, let image = person.thumbnail(maxPixelSize: 256) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
             } else {
-                TilePatternView(pattern: TilePattern(seed: person.colorSeed), colorIndex: person.tile.colorIndex)
+                TilePatternView(pattern: person.tilePattern, colorIndex: person.tile.colorIndex)
                     .rotationEffect(.degrees(Double(person.tile.quarterTurns) * 90))
             }
         }

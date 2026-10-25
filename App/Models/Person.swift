@@ -38,6 +38,9 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
 
     var hasLinkedContact: Bool { contactIdentifier != nil }
 
+    /// Whether the person's tile and avatar show their photo rather than a pattern.
+    var showsPhoto: Bool { tile.showsPhoto && photoData != nil }
+
     // The on-disk keys are kept compatible with data written by earlier versions,
     // which stored the colour seed as `imageSection` and ignored unknown keys.
     enum CodingKeys: String, CodingKey {
