@@ -138,6 +138,38 @@ final class TangramTests: XCTestCase {
         return people.map { $0.tangram.position!.y + $0.tangram.bounds.max.y }.max()!
     }
 
+    func testPackedPiecesLieOnTheLatticeEdgeToEdge() {
+        var people = [TangramPiece(shape: .hexagon), TangramPiece(shape: .trapezoid), TangramPiece(shape: .diamond)]
+            .enumerated().map { Person(name: "P\($0)", tangram: $1) }
+            + (0..<5).map { Person(name: "T\($0)", tangram: TangramPiece(shape: .triangle)) }
+        _ = applyPacking(&people)
+        var covered = Set<Int>()
+        for person in people {
+            let triangles = TangramLayout.latticeTriangles(of: person.tangram, at: person.tangram.position!)
+            XCTAssertNotNil(triangles, "\(person.name) sits on the lattice")
+            XCTAssertEqual(triangles?.count, person.tangram.area, "\(person.name) covers exactly its triangles")
+            XCTAssertTrue(covered.isDisjoint(with: triangles ?? []))
+            covered.formUnion(triangles ?? [])
+        }
+        // 6 + 3 + 2 + 5 = 16 triangles; a row across four cells holds 7, so
+        // they fit in three rows with no piece pushed down by a gap.
+        let bottom = people.map { $0.tangram.position!.y + $0.tangram.bounds.max.y }.max()!
+        XCTAssertLessThanOrEqual(bottom, TangramPiece.triangleHeight * 3 + 1e-6)
+    }
+
+    func testLatticeTrianglesCountAndRejectOffLatticePieces() {
+        let h = TangramPiece.triangleHeight
+        let up = TangramPiece(shape: .triangle)
+        // Row 0 vertices sit on whole numbers, row 1 on halves.
+        XCTAssertEqual(TangramLayout.latticeTriangles(of: up, at: Point(x: 1, y: 2 * h / 3))?.count, 1)
+        XCTAssertNil(TangramLayout.latticeTriangles(of: up, at: Point(x: 0.5, y: 2 * h / 3)), "apex between vertices")
+        XCTAssertNil(TangramLayout.latticeTriangles(of: up, at: Point(x: 1, y: 0.1)), "corner above the canvas")
+        let hexagon = TangramPiece(shape: .hexagon)
+        XCTAssertEqual(TangramLayout.latticeTriangles(of: hexagon, at: Point(x: 1.5, y: h))?.count, 6)
+        XCTAssertEqual(TangramLayout.latticeTriangles(of: TangramPiece(shape: .trapezoid), at: Point(x: 1.5, y: h / 2))?.count, 3)
+        XCTAssertEqual(TangramLayout.latticeTriangles(of: TangramPiece(shape: .diamond), at: Point(x: 1.75, y: h / 2))?.count, 2)
+    }
+
     func testFitTogetherFitsTrianglesIntoARow() {
         var people = (0..<5).map { Person(name: "T\($0)", tangram: TangramPiece(shape: .triangle, position: Point(x: 2, y: Double($0) * 2 + 1))) }
         let bottom = applyPacking(&people)

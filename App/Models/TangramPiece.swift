@@ -203,8 +203,9 @@ enum TangramLayout {
     /// Width of the canvas in cells; pieces stay within it.
     static let columns = 4
     static let width = Double(columns)
-    /// Gap kept between pieces when they are pushed apart.
-    static let clearance = 0.02
+    /// Gap kept between pieces when they are pushed apart: none, so blocks
+    /// can sit edge to edge like a real tangram.
+    static let clearance = 0.0
 
     // MARK: Placement
 
@@ -247,12 +248,12 @@ enum TangramLayout {
                           let push = separation(pieces[a]!, at: ca, from: pieces[b]!, at: cb) else { continue }
                     moved = true
                     if a == fixed {
-                        centres[b] = clamped(cb - push, for: pieces[b]!)
+                        centres[b] = nudged(cb, by: push * -1, for: pieces[b]!)
                     } else if b == fixed {
-                        centres[a] = clamped(ca + push, for: pieces[a]!)
+                        centres[a] = nudged(ca, by: push, for: pieces[a]!)
                     } else {
-                        centres[a] = clamped(ca + push * 0.5, for: pieces[a]!)
-                        centres[b] = clamped(cb - push * 0.5, for: pieces[b]!)
+                        centres[a] = nudged(ca, by: push * 0.5, for: pieces[a]!)
+                        centres[b] = nudged(cb, by: push * -0.5, for: pieces[b]!)
                     }
                 }
             }
@@ -260,10 +261,26 @@ enum TangramLayout {
         }
     }
 
+    /// Moves a piece by `push`, kept inside the canvas. A piece stopped by a
+    /// wall slides down instead, as far as it was meant to go, so a pile
+    /// against an edge always finds room below.
+    private static func nudged(_ centre: Point, by push: Point, for piece: TangramPiece) -> Point {
+        let target = centre + push
+        var result = clamped(target, for: piece)
+        if abs(result.x - target.x) > 1e-9 || abs(result.y - target.y) > 1e-9 {
+            result.y = max(result.y, centre.y + push.length)
+        }
+        return result
+    }
+
     /// Keeps a piece inside the canvas width and below its top edge.
     static func clamped(_ centre: Point, for piece: TangramPiece) -> Point {
         let box = piece.bounds
-        return Point(x: min(max(centre.x, -box.min.x), width - box.max.x), y: max(centre.y, -box.min.y))
+        var result = centre
+        if centre.x + box.min.x < -1e-9 { result.x = -box.min.x }
+        if centre.x + box.max.x > width + 1e-9 { result.x = width - box.max.x }
+        if centre.y + box.min.y < -1e-9 { result.y = -box.min.y }
+        return result
     }
 
     /// The first spot, scanning left to right then down, where `piece` does
@@ -289,7 +306,6 @@ enum TangramLayout {
 
     /// How far `a` must move to stop overlapping `b`, by the separating-axis
     /// test on the two convex outlines, or `nil` when they are already apart.
-    /// A small clearance is kept so pushed pieces don't touch.
     static func separation(_ a: TangramPiece, at ca: Point, from b: TangramPiece, at cb: Point) -> Point? {
         let (boxA, boxB) = (a.bounds, b.bounds)
         if ca.x + boxA.min.x > cb.x + boxB.max.x + clearance || cb.x + boxB.min.x > ca.x + boxA.max.x + clearance
@@ -344,11 +360,54 @@ enum TangramLayout {
 
     // MARK: Fit Together
 
-    /// Everyone's pieces packed snugly from the top-left on the triangular
-    /// lattice, in one of several tight arrangements picked at random. Shapes
-    /// and colours are kept; pieces may turn to fit. Of the orders tried, one
-    /// whose lowest piece is highest wins, preferring one that looks different
-    /// from how the pieces sit now.
+    /// Vertices of the triangular lattice sit on rows `triangleHeight`
+    /// apart, every other row shifted by half an edge.
+    static func latticeVertex(row: Int, index: Int) -> Point {
+        Point(x: Double(index) + (row % 2 == 0 ? 0 : 0.5), y: Double(row) * TangramPiece.triangleHeight)
+    }
+
+    /// Keys of the unit lattice triangles a piece covers when centred at
+    /// `centre`, or `nil` when it does not lie on the lattice inside the
+    /// canvas. A triangle counts as covered when its centroid is inside.
+    static func latticeTriangles(of piece: TangramPiece, at centre: Point) -> Set<Int>? {
+        let h = TangramPiece.triangleHeight
+        let corners = piece.corners(at: centre)
+        for corner in corners {
+            guard corner.x >= -1e-6, corner.x <= width + 1e-6, corner.y >= -1e-6 else { return nil }
+            let row = corner.y / h
+            guard abs(row - row.rounded()) < 1e-6 else { return nil }
+            let shifted = corner.x - (Int(row.rounded()) % 2 == 0 ? 0 : 0.5)
+            guard abs(shifted - shifted.rounded()) < 1e-6 else { return nil }
+        }
+        let box = piece.bounds
+        let firstBand = max(0, Int(((centre.y + box.min.y) / h).rounded(.down)))
+        let lastBand = Int(((centre.y + box.max.y) / h).rounded(.up))
+        var covered = Set<Int>()
+        for band in firstBand..<max(firstBand, lastBand) {
+            let top = Double(band) * h
+            for half in Int((centre.x + box.min.x) * 2).advanced(by: -2)...Int((centre.x + box.max.x) * 2).advanced(by: 2) {
+                let x = Double(half) / 2
+                // Pointing up: apex on a vertex of row `band`, so its centroid
+                // shares that row's offset; pointing down: apex on the row below.
+                for pointsUp in [true, false] {
+                    let apexRow = pointsUp ? band : band + 1
+                    guard (half % 2 == 0) == (apexRow % 2 == 0) else { continue }
+                    let centroid = Point(x: x, y: top + (pointsUp ? 2 * h / 3 : h / 3))
+                    guard centroid.x > 0, centroid.x < width,
+                          self.piece(piece, at: centre, contains: centroid) else { continue }
+                    covered.insert((band * 64 + half + 8) * 2 + (pointsUp ? 1 : 0))
+                }
+            }
+        }
+        return covered
+    }
+
+    /// Everyone's pieces packed edge to edge on the triangular lattice from
+    /// the top-left, in one of several tight arrangements picked at random.
+    /// Shapes and colours are kept; pieces may turn to fit. Of the orders
+    /// tried, the one whose lowest piece is highest wins (then the one with
+    /// its pieces highest overall), preferring an arrangement that looks
+    /// different from how the pieces sit now.
     static func packed(_ people: [Person], using generator: inout some RandomNumberGenerator) -> [UUID: TangramPiece] {
         guard !people.isEmpty else { return [:] }
         let biggestFirst = people.indices.sorted {
@@ -356,16 +415,16 @@ enum TangramLayout {
             return a != b ? a > b : $0 < $1
         }
         var orders = [biggestFirst, Array(people.indices)]
-        for _ in 0..<(people.count <= 24 ? 10 : 3) {
+        for _ in 0..<(people.count <= 24 ? 14 : 4) {
             orders.append(people.indices.shuffled(using: &generator))
         }
-        var best: (bottom: Double, arrangements: [[UUID: TangramPiece]])?
+        var best: (score: (Int, Int), arrangements: [[UUID: TangramPiece]])?
         for order in orders {
             let firstTurn = Int.random(in: 0..<6, using: &generator)
             let attempt = pack(people, in: order, firstTurn: firstTurn)
-            if best == nil || attempt.bottom < best!.bottom - 1e-6 {
-                best = (attempt.bottom, [attempt.pieces])
-            } else if abs(attempt.bottom - best!.bottom) <= 1e-6 {
+            if best == nil || attempt.score < best!.score {
+                best = (attempt.score, [attempt.pieces])
+            } else if attempt.score == best!.score {
                 best!.arrangements.append(attempt.pieces)
             }
         }
@@ -375,47 +434,43 @@ enum TangramLayout {
         return (fresh.isEmpty ? candidates : fresh).randomElement(using: &generator)!
     }
 
-    /// First fit in `order` on a half-edge lattice: each piece takes the
-    /// first spot where one of its turns fits without touching the others.
+    /// First fit in `order`: each piece's first corner is tried on every
+    /// lattice vertex, row by row from the top-left, in each of its turns
+    /// from `firstTurn`, and it takes the first spot whose lattice triangles
+    /// are all free. Scored by the lowest row touched, then by the sum of
+    /// the rows the pieces' tops sit on (both in lattice rows, so ties are exact).
     private static func pack(_ people: [Person], in order: [Int],
-                             firstTurn: Int) -> (bottom: Double, pieces: [UUID: TangramPiece]) {
-        let stepX = TangramPiece.edge / 4
-        let stepY = TangramPiece.triangleHeight / 3
-        var placed: [(TangramPiece, Point)] = []
+                             firstTurn: Int) -> (score: (Int, Int), pieces: [UUID: TangramPiece]) {
+        let h = TangramPiece.triangleHeight
+        var taken = Set<Int>()
         var pieces: [UUID: TangramPiece] = [:]
-        var bottom = 0.0
+        var bottomRow = 0
+        var rowSum = 0
         for index in order {
             let base = people[index].tangram
-            let turns = base.shape.symmetry
-            var found: (TangramPiece, Point)?
             var row = 0
-            search: while true {
-                let y = Double(row) * stepY
-                var column = 0
-                while true {
-                    let x = Double(column) * stepX
-                    if x > width { break }
-                    for turn in 0..<turns {
+            placing: while true {
+                let count = row % 2 == 0 ? columns + 1 : columns
+                for vertex in 0..<count {
+                    let anchor = latticeVertex(row: row, index: vertex)
+                    for turn in 0..<base.shape.symmetry {
                         var piece = base
                         piece.sixths = (firstTurn + turn) % 6
-                        let box = piece.bounds
-                        let centre = Point(x: x - box.min.x, y: y - box.min.y)
-                        guard centre.x + box.max.x <= width + 1e-9 else { continue }
-                        if !placed.contains(where: { separation(piece, at: centre, from: $0.0, at: $0.1) != nil }) {
-                            found = (piece, centre)
-                            break search
-                        }
+                        let centre = anchor - piece.corners[0]
+                        guard let triangles = latticeTriangles(of: piece, at: centre),
+                              !triangles.isEmpty, taken.isDisjoint(with: triangles) else { continue }
+                        piece.position = centre
+                        pieces[people[index].id] = piece
+                        taken.formUnion(triangles)
+                        bottomRow = max(bottomRow, Int(((centre.y + piece.bounds.max.y) / h).rounded()))
+                        rowSum += Int(((centre.y + piece.bounds.min.y) / h).rounded())
+                        break placing
                     }
-                    column += 1
                 }
                 row += 1
             }
-            var (piece, centre) = found!
-            piece.position = centre
-            pieces[people[index].id] = piece
-            placed.append((piece, centre))
-            bottom = max(bottom, centre.y + piece.bounds.max.y)
         }
-        return (bottom, pieces)
+        return ((bottomRow, rowSum), pieces)
     }
 }
+
