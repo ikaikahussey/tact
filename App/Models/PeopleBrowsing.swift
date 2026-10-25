@@ -1,66 +1,33 @@
 import Foundation
 
-/// The two root tabs. Both show the same people and notes; only the layout
-/// differs. Notes is the People list, offered as its own tab.
-enum RootTab: String, CaseIterable {
-    case people, notes
-
-    static let storageKey = "selectedTab"
-
-    var title: String {
-        switch self {
-        case .people: return "People"
-        case .notes:  return "Notes"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .people: return "person.2.fill"
-        case .notes:  return "note.text"
-        }
-    }
-
-    /// The layout this tab shows: People follows the remembered choice, Notes
-    /// is always the list.
-    func layout(remembered: PeopleLayout) -> PeopleLayout {
-        switch self {
-        case .people: return remembered.resolved
-        case .notes:  return .list
-        }
-    }
-}
-
 /// The icons on the right of the header, in order.
 enum HeaderAction: CaseIterable {
-    case search, layoutToggle, add, edit, settings
+    case search, layoutToggle, games, add, edit, settings
 
     var systemImage: String {
         switch self {
         case .search:       return "magnifyingglass"
         case .layoutToggle: return "square.grid.2x2"
+        case .games:        return "puzzlepiece"
         case .add:          return "plus"
         case .edit:         return "pencil"
         case .settings:     return "gearshape"
         }
     }
 
-    /// The actions a root screen offers: Edit only in list mode, and the
-    /// layout toggle only on the People tab (Notes is always the list).
-    static func actions(for layout: PeopleLayout, tab: RootTab) -> [HeaderAction] {
-        allCases.filter { action in
-            switch action {
-            case .edit:         return layout == .list
-            case .layoutToggle: return tab == .people
-            default:            return true
-            }
-        }
+    /// The actions the root screen offers: Edit only in list mode.
+    static func actions(for layout: PeopleLayout) -> [HeaderAction] {
+        allCases.filter { $0 != .edit || layout == .list }
     }
 }
 
 extension PeopleLayout {
     /// The other of the two offered layouts.
     var toggled: PeopleLayout { resolved == .grid ? .list : .grid }
+
+    /// The name in the header: the list of people with their notes is the
+    /// Notes view.
+    var viewTitle: String { resolved == .list ? "Notes" : "People" }
 
     /// Reads the remembered layout the way `@AppStorage` stores it.
     static func remembered(in defaults: UserDefaults) -> PeopleLayout {
@@ -117,9 +84,7 @@ struct PersonSection: Identifiable, Equatable {
     var id: UUID { person.id }
 }
 
-/// What the grid draws: the tiles that match the search, each at its cell,
-/// and the Games tile in the first free cell after everyone. The Games tile
-/// stays while a search filters the people.
+/// What the grid draws: the tiles that match the search, each at its cell.
 struct PeopleGridItems: Equatable {
     struct Tile: Equatable {
         let cell: Int
@@ -127,7 +92,6 @@ struct PeopleGridItems: Equatable {
     }
 
     let tiles: [Tile]
-    let gamesCell: Int
 
     init(people: [Person], notes: [Note], query: String) {
         let layout = TileLayout.cells(for: people)
@@ -138,9 +102,8 @@ struct PeopleGridItems: Equatable {
             return Tile(cell: cell, person: person)
         }
         .sorted { $0.cell < $1.cell }
-        gamesCell = (layout.keys.max() ?? -1) + 1
     }
 
     /// Every cell something sits in, for sizing the canvas.
-    var occupiedCells: [Int] { tiles.map(\.cell) + [gamesCell] }
+    var occupiedCells: [Int] { tiles.map(\.cell) }
 }

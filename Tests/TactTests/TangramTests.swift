@@ -276,4 +276,16 @@ extension TactStoreTests {
         XCTAssertEqual(big.position, .init(x: 1, y: 1), "the changed piece stays put")
         XCTAssertNil(TangramLayout.separation(big, at: big.position!, from: small, at: small.position!))
     }
+
+    func testTurningByStepsWrapsEitherWay() {
+        var piece = TangramPiece(shape: .trapezoid, sixths: 5)
+        piece.turn(by: 1)
+        XCTAssertEqual(piece.sixths, 0)
+        piece.turn(by: -1)
+        XCTAssertEqual(piece.sixths, 5)
+        piece.turn(by: -7)
+        XCTAssertEqual(piece.sixths, 4)
+        piece.rotate()
+        XCTAssertEqual(piece.sixths, 5)
+    }
 }

@@ -4,7 +4,8 @@ import SwiftUI
 /// and hexagons) lying loose on a table four cells wide. Pieces are not
 /// snapped to a grid: drag one anywhere and the pieces in its way are pushed
 /// along like wooden blocks. Tap a piece to open the person; touch and hold
-/// to change its shape, colour or turn. Fit Together packs every piece in
+/// to change its shape, colour or turn, or turn it with two fingers. Fit
+/// Together packs every piece in
 /// snugly, a different way each time. Reached from the Games screen.
 struct TangramGridContent: View {
     @EnvironmentObject private var store: TactStore
@@ -12,6 +13,8 @@ struct TangramGridContent: View {
     let context: TileGameContext
     /// The piece being dragged and where the finger took hold of it.
     @State private var dragging: (id: UUID, grip: CGSize)?
+    /// The piece being turned with two fingers and the sixths applied so far.
+    @State private var rotating: (id: UUID, applied: Int)?
     /// Fit Together is working out an arrangement (it runs off the main thread).
     @State private var isPacking = false
 
@@ -99,6 +102,7 @@ struct TangramGridContent: View {
         )
         let drag = DragGesture(minimumDistance: 3, coordinateSpace: .named("tangram"))
             .onChanged { value in
+                guard rotating == nil else { return }
                 if dragging?.id != person.id {
                     let grip = CGSize(width: value.startLocation.x - CGFloat(centre.x) * cellSize,
                                       height: value.startLocation.y - CGFloat(centre.y) * cellSize)
@@ -113,6 +117,23 @@ struct TangramGridContent: View {
             .onEnded { _ in
                 dragging = nil
             }
+        // Two fingers turn the piece a sixth of a turn at a time.
+        let rotation = RotationGesture(minimumAngleDelta: .degrees(8))
+            .onChanged { angle in
+                // The angle can be NaN while the fingers sit on one point.
+                guard piece.canRotate, angle.degrees.isFinite else { return }
+                if rotating?.id != person.id {
+                    rotating = (person.id, 0)
+                    dragging = nil
+                }
+                let steps = Int((angle.degrees / 60).rounded())
+                let delta = steps - (rotating?.applied ?? 0)
+                guard delta != 0 else { return }
+                UISelectionFeedbackGenerator().selectionChanged()
+                store.updateTangram(forPersonID: person.id) { $0.turn(by: delta) }
+                rotating = (person.id, steps)
+            }
+            .onEnded { _ in rotating = nil }
         return TangramPieceView(person: person, side: cellSize)
             .frame(width: size.width, height: size.height)
             .contentShape(outline)
@@ -120,6 +141,7 @@ struct TangramGridContent: View {
             .shadow(color: .black.opacity(dragging?.id == person.id ? 0.25 : 0), radius: 8, y: 4)
             .scaleEffect(dragging?.id == person.id ? 1.06 : 1)
             .onTapGesture { pushRoute(.person(person.id)) }
+            .simultaneousGesture(rotation)
             .highPriorityGesture(drag)
             .contextMenu {
                 Picker("Shape", selection: shape) {
@@ -156,7 +178,7 @@ struct TangramGridContent: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(person.name), \(TilePalette.name(piece.resolvedColorIndex)) \(piece.shape.title.lowercased())")
-            .accessibilityHint("Opens \(person.name). Touch and hold to change the shape, color or turn, or drag to move the piece.")
+            .accessibilityHint("Opens \(person.name). Touch and hold to change the shape, color or turn, drag to move the piece, or turn it with two fingers.")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction(named: "Change shape") {
                 let shapes = TangramPiece.Shape.allCases
