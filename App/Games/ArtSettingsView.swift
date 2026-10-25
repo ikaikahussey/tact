@@ -27,7 +27,7 @@ struct ArtSettingsView: View {
                 Text(customImageData == nil ? "Default Picture" : "Your Photo")
             } footer: {
                 Text(customImageData == nil
-                     ? "The picture is cut into a \(ArtPuzzle.columns)×\(ArtPuzzle.rows) grid. One piece is left out so the others can slide. The default picture is a public-domain Japanese woodblock print, via Rawpixel (CC0)."
+                     ? "The picture is cut into a \(ArtPuzzle.columns)×\(ArtPuzzle.rows) grid. One piece is left out so the others can slide. The default picture is the Tact tiles."
                      : "The picture is cut into a \(ArtPuzzle.columns)×\(ArtPuzzle.rows) grid. One piece is left out so the others can slide.")
             }
 

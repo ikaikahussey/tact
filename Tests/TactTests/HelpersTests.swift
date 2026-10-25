@@ -79,12 +79,20 @@ final class HelpersTests: XCTestCase {
         XCTAssertEqual(cache.image(for: data)?.size.width, 1000)
     }
 
-    func testDefaultPuzzleImageIsBundled() throws {
-        let data = PuzzleDefaultImage.data
+    func testDefaultPuzzleImageIsTheTactTiles() throws {
+        let data = TactTilesImage.data(for: .classic)
         XCTAssertFalse(data.isEmpty)
         let image = try XCTUnwrap(UIImage(data: data))
+        XCTAssertEqual(image.size.width, TactTilesImage.side)
+        XCTAssertEqual(image.size.height, TactTilesImage.side)
         XCTAssertLessThanOrEqual(max(image.size.width, image.size.height), ImageProcessing.maxStoredDimension)
         XCTAssertNotNil(ArtImageCache().tile(for: data, index: ArtPuzzle.pieceCount - 1, tileCount: ArtPuzzle.pieceCount))
+        XCTAssertTrue(TactTilesImage.data(for: .classic) == data, "rendered once per palette")
+
+        let letters = TactTilesImage.letterTiles()
+        XCTAssertEqual(letters.count, 4)
+        XCTAssertEqual(letters.map(\.count).reduce(0, +), TactLogoGrid.tiles.count, "every logo tile is in a letter")
+        XCTAssertTrue(letters.allSatisfy { $0.allSatisfy { (0..<3).contains($0.column) } })
     }
 
     func testHiddenLayoutsResolveToTiles() {
@@ -98,27 +106,12 @@ final class HelpersTests: XCTestCase {
         XCTAssertEqual(PeopleLayout.art.title, "Puzzles")
     }
 
-    func testGamesNeedATileForEveryPuzzlePiece() {
-        XCTAssertFalse(PeopleGridContent.canFlipToGames(peopleCount: 0))
-        XCTAssertFalse(PeopleGridContent.canFlipToGames(peopleCount: ArtPuzzle.pieceCount - 1))
-        XCTAssertTrue(PeopleGridContent.canFlipToGames(peopleCount: ArtPuzzle.pieceCount))
-    }
-
-    func testPeopleNeededForGamesCountsDownToZero() {
-        XCTAssertEqual(PeopleGridContent.peopleNeededForGames(peopleCount: 0), ArtPuzzle.pieceCount)
-        XCTAssertEqual(PeopleGridContent.peopleNeededForGames(peopleCount: 1), ArtPuzzle.pieceCount - 1)
-        XCTAssertEqual(PeopleGridContent.peopleNeededForGames(peopleCount: ArtPuzzle.pieceCount), 0)
-        XCTAssertEqual(PeopleGridContent.peopleNeededForGames(peopleCount: ArtPuzzle.pieceCount + 5), 0)
-    }
-
-    func testGamesOnTheBackOfTiles() {
-        XCTAssertEqual(TileGame.all.map(\.id), ["woodblock", "tangram"])
-        XCTAssertEqual(Set(TileGame.all.map(\.id)).count, TileGame.all.count, "ids are unique")
-        XCTAssertEqual(TileGame.named("tangram").id, "tangram")
-        XCTAssertEqual(TileGame.named("gone").id, "woodblock", "an unknown game falls back to the first")
-        XCTAssertEqual(PeopleLayout.art.formerGame?.id, "woodblock")
-        XCTAssertEqual(PeopleLayout.tangram.formerGame?.id, "tangram")
-        XCTAssertNil(PeopleLayout.list.formerGame)
+    func testGamesAreListedForTheGamesScreen() {
+        XCTAssertEqual(TileGame.all.map(\.id), ["tangram", "woodblock"])
+        XCTAssertEqual(TileGame.all.map(\.title), ["Tangram", "Sliding Puzzle"])
+        XCTAssertEqual(TileGame.all.map(\.route), [.tangram, .slidingPuzzle(.standard)])
+        XCTAssertEqual(Route.games.title, "Games")
+        XCTAssertEqual(Route.slidingPuzzle(.person(UUID())).title, "Sliding Puzzle")
     }
 
     func testBirthdayFormatting() {

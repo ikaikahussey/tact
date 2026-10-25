@@ -1,53 +1,107 @@
 import SwiftUI
 
-/// The People list. The outline button by the People header
-/// (`OutlineToggle`) slides each person's notes in beneath them, newest
-/// first, with a chevron to hide one person's notes. Outside outline mode
-/// people can be reordered and deleted.
+/// The People list, which is also the Notes tab: one section per person,
+/// headed by their name and note count, with their notes beneath, newest
+/// first. A search keeps the people and notes that match. Edit shows one
+/// row per person for reordering and deleting; notes can be swiped away.
 struct PeopleListContent: View {
-    static let showsNotesKey = "peopleListShowsNotes"
+    let query: String
+    @Binding var editMode: EditMode
 
     @EnvironmentObject private var store: TactStore
-    @AppStorage(showsNotesKey) private var showsNotes = false
-    @State private var collapsed: Set<UUID> = []
+    @Environment(\.pushRoute) private var pushRoute
     @State private var addingNoteFor: Person?
+
+    private var sections: [PersonSection] {
+        PeopleSearch.sections(people: store.people, notes: store.notes, query: query)
+    }
 
     var body: some View {
         List {
-            ForEach(store.people) { person in
-                let isExpanded = !collapsed.contains(person.id)
-                PersonOutlineRow(person: person, noteCount: store.noteCount(for: person.id),
-                                 showsChevron: showsNotes, isExpanded: isExpanded,
-                                 toggle: { withAnimation(.snappy) { toggle(person.id) } },
-                                 addNote: { addingNoteFor = person })
-                if showsNotes && isExpanded {
-                    ForEach(store.notes(for: person.id)) { note in
-                        NoteOutlineRow(note: note, personID: person.id)
+            if editMode.isEditing {
+                peopleRows
+            } else {
+                ForEach(sections) { section in
+                    Section {
+                        ForEach(section.notes) { note in
+                            NoteOutlineRow(note: note, personID: section.person.id)
+                        }
+                        .onDelete { offsets in
+                            offsets.map { section.notes[$0].id }.forEach { store.deleteNote(id: $0) }
+                        }
+                    } header: {
+                        sectionHeader(section)
                     }
                 }
             }
-            // Each person is one row only outside outline mode.
-            .onDelete(perform: showsNotes ? nil : delete)
-            .onMove(perform: showsNotes ? nil : move)
         }
         .listStyle(.insetGrouped)
-        .animation(.snappy, value: showsNotes)
+        .animation(.snappy, value: editMode)
         .overlay {
             if store.people.isEmpty {
                 ContentUnavailableView {
                     Label("No People Yet", systemImage: "person.2")
                 } description: {
-                    Text("Tap + to add someone, then keep notes about them.")
+                    Text("Tap + to write a note, or switch to the grid to add someone.")
                 }
-            }
-        }
-        .toolbar {
-            if !store.people.isEmpty && !showsNotes {
-                ToolbarItem(placement: .topBarTrailing) { EditButton() }
+            } else if sections.isEmpty {
+                ContentUnavailableView.search(text: query)
             }
         }
         .sheet(item: $addingNoteFor) { person in
             AddNoteView(personID: person.id)
+        }
+    }
+
+    /// The person's name and note count; the line opens the person and the
+    /// + starts a note about them. (A link in a section header would swallow
+    /// the button's taps, so the push is done by hand.)
+    private func sectionHeader(_ section: PersonSection) -> some View {
+        Button {
+            pushRoute(.person(section.person.id))
+        } label: {
+            HStack(spacing: 10) {
+                PersonAvatar(person: section.person, size: 28)
+                // Section headers dim their text; the name is a row, so it stays dark.
+                Text(section.person.name)
+                    .font(.tact(.headline))
+                    .foregroundStyle(Color(uiColor: .label))
+                Spacer()
+                Text("\(section.notes.count)")
+                    .font(.tact(.subheadline))
+                    .foregroundStyle(Color(uiColor: .secondaryLabel))
+                    .accessibilityLabel("\(section.notes.count) notes")
+                Button { addingNoteFor = section.person } label: {
+                    Image(systemName: "plus")
+                        .font(.tact(.subheadline).weight(.semibold))
+                        .foregroundStyle(Color(uiColor: .label))
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Add a note about \(section.person.name)")
+                Image(systemName: "chevron.right")
+                    .font(.tact(.caption).weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .textCase(nil)
+        .accessibilityElement(children: .contain)
+        .accessibilityHint("Opens \(section.person.name)")
+    }
+
+    /// Edit mode: everyone as one row, to drag into order or delete.
+    private var peopleRows: some View {
+        Section {
+            ForEach(store.people) { person in
+                PersonRow(person: person, noteCount: store.noteCount(for: person.id))
+            }
+            .onDelete(perform: delete)
+            .onMove(perform: move)
+        } header: {
+            Text("People").textCase(nil)
         }
     }
 
@@ -59,39 +113,11 @@ struct PeopleListContent: View {
     private func move(_ source: IndexSet, _ destination: Int) {
         store.movePeople(fromOffsets: source, toOffset: destination)
     }
-
-    private func toggle(_ id: UUID) {
-        if collapsed.contains(id) { collapsed.remove(id) } else { collapsed.insert(id) }
-    }
-}
-
-/// A small round button that opens or closes the People list's outline of
-/// notes. Lives on the People header line so the toolbar stays uncluttered.
-struct OutlineToggle: View {
-    @AppStorage(PeopleListContent.showsNotesKey) private var showsNotes = false
-    @Environment(\.appPalette) private var palette
-
-    var body: some View {
-        Button {
-            withAnimation(.snappy) { showsNotes.toggle() }
-        } label: {
-            Image(systemName: "list.bullet.indent")
-                .font(.tact(.subheadline).weight(.semibold))
-                .foregroundStyle(showsNotes ? palette.onAccent : Color.secondary)
-                .frame(width: 32, height: 32)
-                .background(showsNotes ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.tactTileGray), in: Circle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(showsNotes ? "Hide Notes" : "Show Notes")
-        .accessibilityHint("Shows or hides each person's notes beneath them")
-    }
 }
 
 struct PersonRow: View {
     let person: Person
     let noteCount: Int
-    /// When set, a + button on the row starts a note about the person.
-    var addNote: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -112,16 +138,6 @@ struct PersonRow: View {
                     .background(Color.tactTileGray)
                     .clipShape(Capsule())
                     .accessibilityLabel("\(noteCount) notes")
-            }
-            if let addNote {
-                Button(action: addNote) {
-                    Image(systemName: "plus")
-                        .font(.tact(.body).weight(.semibold))
-                        .frame(width: 32, height: 32)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel("Add a note about \(person.name)")
             }
         }
     }

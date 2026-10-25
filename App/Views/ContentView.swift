@@ -1,24 +1,16 @@
 import SwiftUI
 
 struct ContentView: View {
-    enum Tab: String { case people, notes, search }
-
-    @AppStorage("selectedTab") private var selectedTab: Tab = .people
+    @AppStorage(RootTab.storageKey) private var selectedTab: RootTab = .people
     @AppStorage(AppPalette.storageKey) private var palette: AppPalette = .classic
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            PeopleTabView()
-                .tabItem { Label("People", systemImage: "person.2.fill") }
-                .tag(Tab.people)
-
-            NotesListView()
-                .tabItem { Label("Notes", systemImage: "note.text") }
-                .tag(Tab.notes)
-
-            SearchView()
-                .tabItem { Label("Search", systemImage: "magnifyingglass") }
-                .tag(Tab.search)
+            ForEach(RootTab.allCases, id: \.self) { tab in
+                PeopleRootView(tab: tab)
+                    .tabItem { Label(tab.title, systemImage: tab.systemImage) }
+                    .tag(tab)
+            }
         }
         .font(.tact(.body))
         .tint(palette.accent)

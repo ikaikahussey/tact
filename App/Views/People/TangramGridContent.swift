@@ -5,12 +5,11 @@ import SwiftUI
 /// snapped to a grid: drag one anywhere and the pieces in its way are pushed
 /// along like wooden blocks. Tap a piece to open the person; touch and hold
 /// to change its shape, colour or turn. Fit Together packs every piece in
-/// snugly, a different way each time. It is played on the back of Tiles
-/// (`TileGame.tangram`): the pieces turn into view as the tiles turn over.
+/// snugly, a different way each time. Reached from the Games screen.
 struct TangramGridContent: View {
     @EnvironmentObject private var store: TactStore
+    @Environment(\.pushRoute) private var pushRoute
     let context: TileGameContext
-    @State private var openPersonID: UUID?
     /// The piece being dragged and where the finger took hold of it.
     @State private var dragging: (id: UUID, grip: CGSize)?
     /// Fit Together is working out an arrangement (it runs off the main thread).
@@ -32,16 +31,11 @@ struct TangramGridContent: View {
                 ZStack(alignment: .topLeading) {
                     TriangularLattice(cellSize: cellSize)
                         .frame(width: cellSize * CGFloat(columns), height: height)
-                        .opacity(context.isShowing ? 1 : 0)
-                        .animation(.easeInOut(duration: 0.4).delay(context.flipDelay(0)), value: context.isShowing)
                         .accessibilityHidden(true)
 
                     ForEach(placed, id: \.person.id) { centre, person in
-                        let cell = Int(centre.y) * columns + min(columns - 1, max(0, Int(centre.x)))
                         let offset = person.tangram.boundsOffset
                         piece(for: person, centre: centre, cellSize: cellSize)
-                            .modifier(TileFlipFace(side: .back, showingBack: context.isShowing,
-                                                   delay: context.flipDelay(cell)))
                             .position(x: (centre.x + offset.x) * cellSize, y: (centre.y + offset.y) * cellSize)
                             .zIndex(dragging?.id == person.id ? 1 : 0)
                     }
@@ -55,16 +49,10 @@ struct TangramGridContent: View {
             .scrollDisabled(dragging != nil)
         }
         .overlay(alignment: .bottomTrailing) {
-            if context.isShowing && store.people.count > 1 {
+            if store.people.count > 1 {
                 fitControls
                     .padding(16)
-                    .padding(.trailing, context.trailingControlInset)
-                    .transition(.opacity)
             }
-        }
-        .animation(.easeInOut(duration: 0.2), value: context.isShowing)
-        .navigationDestination(item: $openPersonID) { id in
-            PersonDetailView(personID: id)
         }
     }
 
@@ -131,7 +119,7 @@ struct TangramGridContent: View {
             .contentShape(.contextMenuPreview, outline)
             .shadow(color: .black.opacity(dragging?.id == person.id ? 0.25 : 0), radius: 8, y: 4)
             .scaleEffect(dragging?.id == person.id ? 1.06 : 1)
-            .onTapGesture { openPersonID = person.id }
+            .onTapGesture { pushRoute(.person(person.id)) }
             .highPriorityGesture(drag)
             .contextMenu {
                 Picker("Shape", selection: shape) {

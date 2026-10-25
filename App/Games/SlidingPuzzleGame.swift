@@ -1,46 +1,42 @@
 import SwiftUI
 
-/// The woodblock picture puzzle as a game on the back of Tiles: the sliding
-/// board over the top four rows, the move count under it, and buttons to
-/// choose the picture or start again.
-struct WoodblockPuzzleGame: View {
+/// The Sliding Puzzle screen: the board over the top four rows, the move
+/// count under it, and buttons to start again or, for the standard picture,
+/// choose a photo. A puzzle opened from a person uses their photo.
+struct SlidingPuzzleGame: View {
     @EnvironmentObject private var store: TactStore
     let context: TileGameContext
+    let source: PuzzleImageSource
     @State private var game = PuzzleGame()
     @State private var showingSettings = false
 
+    private var imageData: Data { store.puzzleImageData(for: source) }
+
     var body: some View {
         ZStack(alignment: .topLeading) {
-            PuzzleBoard(game: game, pitch: context.pitch, pieceSize: context.cellSize,
-                        isShowing: context.isShowing, flipDelay: context.flipDelay)
+            PuzzleBoard(game: game, imageData: imageData, pitch: context.pitch, pieceSize: context.cellSize)
 
             status
                 .frame(width: context.size.width - 32, alignment: .leading)
                 .offset(x: 16, y: CGFloat(ArtPuzzle.rows) * context.pitch + 12)
-                .opacity(context.isShowing ? 1 : 0)
-                .animation(.easeInOut(duration: 0.2).delay(context.isShowing ? 0.35 : 0), value: context.isShowing)
-                .accessibilityHidden(!context.isShowing)
         }
         .frame(width: context.size.width, height: context.size.height, alignment: .topLeading)
         .overlay(alignment: .bottomTrailing) {
-            if context.isShowing {
-                HStack(spacing: 12) {
+            HStack(spacing: 12) {
+                if source == .standard {
                     CanvasActionButton(title: "Choose Photo", systemImage: "photo",
                                        hint: "Picks the picture for the puzzle.") {
                         showingSettings = true
                     }
-                    CanvasActionButton(title: "New Game", systemImage: "shuffle",
-                                       hint: "Scrambles the puzzle and starts again.") {
-                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { game.newGame() }
-                    }
                 }
-                .padding(16)
-                .padding(.trailing, context.trailingControlInset)
-                .transition(.opacity)
+                CanvasActionButton(title: "New Game", systemImage: "shuffle",
+                                   hint: "Scrambles the puzzle and starts again.") {
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { game.newGame() }
+                }
             }
+            .padding(16)
         }
-        .animation(.easeInOut(duration: 0.2), value: context.isShowing)
-        .onChange(of: store.settings.artSettings.imageData) { _, _ in
+        .onChange(of: imageData) { _, _ in
             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { game.newGame() }
         }
         .sheet(isPresented: $showingSettings) {

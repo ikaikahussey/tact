@@ -1,0 +1,146 @@
+import Foundation
+
+/// The two root tabs. Both show the same people and notes; only the layout
+/// differs. Notes is the People list, offered as its own tab.
+enum RootTab: String, CaseIterable {
+    case people, notes
+
+    static let storageKey = "selectedTab"
+
+    var title: String {
+        switch self {
+        case .people: return "People"
+        case .notes:  return "Notes"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .people: return "person.2.fill"
+        case .notes:  return "note.text"
+        }
+    }
+
+    /// The layout this tab shows: People follows the remembered choice, Notes
+    /// is always the list.
+    func layout(remembered: PeopleLayout) -> PeopleLayout {
+        switch self {
+        case .people: return remembered.resolved
+        case .notes:  return .list
+        }
+    }
+}
+
+/// The icons on the right of the header, in order.
+enum HeaderAction: CaseIterable {
+    case search, layoutToggle, add, edit, settings
+
+    var systemImage: String {
+        switch self {
+        case .search:       return "magnifyingglass"
+        case .layoutToggle: return "square.grid.2x2"
+        case .add:          return "plus"
+        case .edit:         return "pencil"
+        case .settings:     return "gearshape"
+        }
+    }
+
+    /// The actions a root screen offers: Edit only in list mode, and the
+    /// layout toggle only on the People tab (Notes is always the list).
+    static func actions(for layout: PeopleLayout, tab: RootTab) -> [HeaderAction] {
+        allCases.filter { action in
+            switch action {
+            case .edit:         return layout == .list
+            case .layoutToggle: return tab == .people
+            default:            return true
+            }
+        }
+    }
+}
+
+extension PeopleLayout {
+    /// The other of the two offered layouts.
+    var toggled: PeopleLayout { resolved == .grid ? .list : .grid }
+
+    /// Reads the remembered layout the way `@AppStorage` stores it.
+    static func remembered(in defaults: UserDefaults) -> PeopleLayout {
+        defaults.string(forKey: storageKey).flatMap(PeopleLayout.init(rawValue:))?.resolved ?? standard
+    }
+
+    func remember(in defaults: UserDefaults) {
+        defaults.set(rawValue, forKey: Self.storageKey)
+    }
+}
+
+/// Filters people and notes by the header search field. A person matches
+/// when their name (or linked contact's name) or any of their notes contains
+/// the query.
+enum PeopleSearch {
+    static func normalized(_ query: String) -> String {
+        query.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func nameMatches(_ person: Person, query: String) -> Bool {
+        person.name.localizedCaseInsensitiveContains(query)
+            || (person.contact?.name.localizedCaseInsensitiveContains(query) ?? false)
+    }
+
+    /// People shown in the grid for `query`; everyone when it is empty.
+    static func people(_ people: [Person], notes: [Note], query rawQuery: String) -> [Person] {
+        let query = normalized(rawQuery)
+        guard !query.isEmpty else { return people }
+        return people.filter { person in
+            nameMatches(person, query: query)
+                || notes.contains { $0.isLinked(to: person.id) && $0.text.localizedCaseInsensitiveContains(query) }
+        }
+    }
+
+    /// One section per person for the list: their notes newest first. With a
+    /// query, people whose name matches keep all their notes; otherwise only
+    /// the matching notes are shown, and people with none are left out.
+    static func sections(people: [Person], notes: [Note], query rawQuery: String) -> [PersonSection] {
+        let query = normalized(rawQuery)
+        return people.compactMap { person in
+            let own = notes.filter { $0.isLinked(to: person.id) }.sorted { $0.date > $1.date }
+            if query.isEmpty || nameMatches(person, query: query) {
+                return PersonSection(person: person, notes: own)
+            }
+            let matching = own.filter { $0.text.localizedCaseInsensitiveContains(query) }
+            return matching.isEmpty ? nil : PersonSection(person: person, notes: matching)
+        }
+    }
+}
+
+struct PersonSection: Identifiable, Equatable {
+    let person: Person
+    let notes: [Note]
+    var id: UUID { person.id }
+}
+
+/// What the grid draws: the tiles that match the search, each at its cell,
+/// and the Games tile in the first free cell after everyone. The Games tile
+/// stays while a search filters the people.
+struct PeopleGridItems: Equatable {
+    struct Tile: Equatable {
+        let cell: Int
+        let person: Person
+    }
+
+    let tiles: [Tile]
+    let gamesCell: Int
+
+    init(people: [Person], notes: [Note], query: String) {
+        let layout = TileLayout.cells(for: people)
+        let shown = Set(PeopleSearch.people(people, notes: notes, query: query).map(\.id))
+        let byID = Dictionary(people.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        tiles = layout.compactMap { cell, id in
+            guard shown.contains(id), let person = byID[id] else { return nil }
+            return Tile(cell: cell, person: person)
+        }
+        .sorted { $0.cell < $1.cell }
+        gamesCell = (layout.keys.max() ?? -1) + 1
+    }
+
+    /// Every cell something sits in, for sizing the canvas.
+    var occupiedCells: [Int] { tiles.map(\.cell) + [gamesCell] }
+}

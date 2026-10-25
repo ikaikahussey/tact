@@ -1,6 +1,6 @@
 import Foundation
 
-/// How the People tab presents the list of people.
+/// How the People tab shows everyone: the grid of tiles or the list.
 enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
     case list
     case grid
@@ -11,10 +11,10 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
 
     static let storageKey = "peopleLayout"
 
-    /// Layouts offered next to the People header. Random Colors and Flashcards
-    /// are kept for stored preferences but hidden until they are ready to ship.
-    /// The woodblock puzzle and Tangram are games on the back of Tiles
-    /// (`TileGame`), so `art` and `tangram` are not listed.
+    /// Layouts the header toggles between. Random Colors and Flashcards are
+    /// kept for stored preferences but hidden until they are ready to ship.
+    /// The puzzle and Tangram are games (`TileGame`), reached from the Games
+    /// tile, so `art` and `tangram` are not listed.
     static let available: [PeopleLayout] = [.grid, .list]
 
     /// What the People tab shows until the user picks something else.
@@ -22,15 +22,6 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
 
     /// The layout to show: hidden layouts fall back to Tiles.
     var resolved: PeopleLayout { Self.available.contains(self) ? self : Self.standard }
-
-    /// The game on the back of Tiles that this layout used to be, if any.
-    var formerGame: TileGame? {
-        switch self {
-        case .art:     return .woodblock
-        case .tangram: return .tangram
-        default:       return nil
-        }
-    }
 
     var id: String { rawValue }
 
@@ -55,9 +46,6 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
         case .tangram:    return "square.split.diagonal.2x2"
         }
     }
-
-    /// Layouts that show people as tappable squares in a 4-column grid.
-    var isGrid: Bool { self == .grid || self == .colors }
 }
 
 enum ColorPalette: String, Codable, CaseIterable, Identifiable {
@@ -118,29 +106,5 @@ struct GameTypeSettings: Codable, Equatable {
             ?? RandomColorGameSettings()
         artSettings = (try? container.decodeIfPresent(ArtGameSettings.self, forKey: .artSettings)) ?? nil
             ?? ArtGameSettings()
-    }
-}
-
-/// How the Notes tab arranges notes.
-enum NotesGrouping: String, CaseIterable, Identifiable, Codable {
-    case recent
-    case person
-
-    static let storageKey = "notesGrouping"
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .recent: return "Most Recent"
-        case .person: return "By Person"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .recent: return "clock"
-        case .person: return "person.2"
-        }
     }
 }
