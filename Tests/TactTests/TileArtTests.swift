@@ -60,6 +60,24 @@ final class TileArtTests: XCTestCase {
         XCTAssertFalse(Person(name: "Bo").showsPhoto, "no photo, nothing to show")
     }
 
+    func testSymbolsOnTheAccentStandOutInLightAndDark() {
+        func luminance(_ color: UIColor) -> CGFloat {
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            color.getRed(&r, green: &g, blue: &b, alpha: &a)
+            func linear(_ c: CGFloat) -> CGFloat { c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4) }
+            return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+        }
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let traits = UITraitCollection(userInterfaceStyle: style)
+            for palette in AppPalette.allCases {
+                let accent = luminance(UIColor(palette.accent).resolvedColor(with: traits))
+                let symbol = luminance(UIColor(palette.onAccent).resolvedColor(with: traits))
+                let contrast = (max(accent, symbol) + 0.05) / (min(accent, symbol) + 0.05)
+                XCTAssertGreaterThan(contrast, 3, "\(palette) in \(style == .dark ? "dark" : "light") mode")
+            }
+        }
+    }
+
     func testEveryPaletteHasEveryTileColour() {
         for palette in AppPalette.allCases {
             for index in 0..<TileArt.colorCount {

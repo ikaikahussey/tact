@@ -45,6 +45,7 @@ struct PersonChipRow: View {
 struct PersonChip: View {
     let person: Person
     let isSelected: Bool
+    @Environment(\.appPalette) private var palette
 
     var body: some View {
         HStack(spacing: 6) {
@@ -60,7 +61,7 @@ struct PersonChip: View {
         .padding(.leading, 4)
         .padding(.trailing, 12)
         .padding(.vertical, 4)
-        .foregroundStyle(isSelected ? Color(uiColor: .systemBackground) : .primary)
+        .foregroundStyle(isSelected ? palette.onAccent : .primary)
         .background(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.tactCardBackground), in: Capsule())
         .overlay(Capsule().strokeBorder(Color.primary.opacity(isSelected ? 0 : 0.12)))
         .animation(.easeInOut(duration: 0.15), value: isSelected)
