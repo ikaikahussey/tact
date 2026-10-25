@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Tact">
+  <title>Tact</title>
+  <!-- Tact app icon: the mark centred on white at 70 percent of the height, matching Icon.png. Tile colours follow the page theme through CSS custom properties named after each colour, with the Tact palette as fallback. -->
+  <style>
+    .coral{fill:var(--coral,#e8543d)}
+    .green{fill:var(--green,#42a86b)}
+    .teal{fill:var(--teal,#1c9e99)}
+    .blue{fill:var(--blue,#3b78d4)}
+    .violet{fill:var(--violet,#7a5cd6)}
+    .pink{fill:var(--pink,#de599c)}
+    .brown{fill:var(--brown,#9e6e4a)}
+  </style>
+  <rect x="0" y="0" width="1024" height="1024" fill="#ffffff"/>
+  <rect class="coral" x="253.952" y="164.352" width="157.696" height="157.696"/>
+  <rect class="green" x="433.152" y="164.352" width="157.696" height="157.696"/>
+  <rect class="pink" x="612.352" y="164.352" width="157.696" height="157.696"/>
+  <rect class="blue" x="433.152" y="343.552" width="157.696" height="157.696"/>
+  <rect class="brown" x="433.152" y="522.752" width="157.696" height="157.696"/>
+  <rect class="violet" x="433.152" y="701.952" width="157.696" height="157.696"/>
+</svg>

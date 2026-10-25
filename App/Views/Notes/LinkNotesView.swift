@@ -34,10 +34,10 @@ struct LinkNotesView: View {
                                             Text("· \(names.joined(separator: ", "))").lineLimit(1)
                                         }
                                     }
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .font(.tact(.caption)).foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                Image(systemName: "plus.circle.fill").font(.title3)
+                                Image(systemName: "plus.circle.fill").font(.tact(.title3))
                             }
                         }
                         .accessibilityHint("Links this note")

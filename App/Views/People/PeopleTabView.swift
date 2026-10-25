@@ -20,7 +20,7 @@ struct PeopleTabView: View {
                     withAnimation(.snappy) { showingLayouts.toggle() }
                 } label: {
                     Image(systemName: "chevron.right")
-                        .font(.title3.weight(.semibold))
+                        .font(.tact(.title3).weight(.semibold))
                         .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(showingLayouts ? 180 : 0))
                         .frame(width: 28, height: 36)
@@ -55,7 +55,7 @@ struct PeopleTabView: View {
             }
         } label: {
             Image(systemName: option.systemImage)
-                .font(.body.weight(.semibold))
+                .font(.tact(.body).weight(.semibold))
                 .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
                 .frame(width: 36, height: 36)
                 .background(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.tactTileGray.opacity(0.5)),

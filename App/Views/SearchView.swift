@@ -65,10 +65,10 @@ struct SearchView: View {
                                         VStack(alignment: .leading, spacing: 4) {
                                             let names = store.names(forPersonIDs: note.personIds)
                                             if !names.isEmpty {
-                                                Text(names.joined(separator: ", ")).font(.caption).foregroundStyle(.secondary)
+                                                Text(names.joined(separator: ", ")).font(.tact(.caption)).foregroundStyle(.secondary)
                                             }
                                             Text(note.text).lineLimit(3)
-                                            Text(note.date, style: .date).font(.caption).foregroundStyle(.secondary)
+                                            Text(note.date, style: .date).font(.tact(.caption)).foregroundStyle(.secondary)
                                         }
                                     }
                                 }

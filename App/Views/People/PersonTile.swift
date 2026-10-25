@@ -78,7 +78,7 @@ struct PersonTile: View {
                 TileArtView(art: person.tile, pattern: person.tilePattern, side: size)
             }
             Text(person.name)
-                .font(.system(size: max(10, size * 0.12), weight: .semibold, design: .rounded))
+                .font(.tactBold(size: max(10, size * 0.12)))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .padding(.horizontal, 6)

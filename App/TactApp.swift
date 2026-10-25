@@ -5,6 +5,10 @@ struct TactApp: App {
     @StateObject private var store = TactStore(backup: CloudBackup.iCloud)
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        TactType.applyNavigationBarAppearance()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

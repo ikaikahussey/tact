@@ -11,7 +11,7 @@ struct LinkedContactInfoView: View {
         NavigationStack {
             List {
                 Section {
-                    Text(contact.name).font(.title2).fontWeight(.semibold)
+                    Text(contact.name).font(.tact(.title2)).fontWeight(.semibold)
                     if let organization = contact.organization {
                         LabeledContent("Organization", value: organization)
                     }

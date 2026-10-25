@@ -238,7 +238,7 @@ struct TangramPieceView: View {
             outline.fill(TilePalette.color(person.tile.colorIndex, in: palette))
             outline.stroke(Color.tactBackground, lineWidth: 1)
             Text(person.name)
-                .font(.system(size: max(9, unit * 0.11), weight: .semibold, design: .rounded))
+                .font(.tactBold(size: max(9, unit * 0.11)))
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .padding(.horizontal, 5)

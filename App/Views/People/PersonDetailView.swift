@@ -143,7 +143,7 @@ struct PersonDetailView: View {
     /// of the patterns, in their colour.
     private func tileChooser(for person: Person) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Tile").font(.headline)
+            Text("Tile").font(.tact(.headline))
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     tileChoice(isSelected: person.showsPhoto) {
@@ -159,7 +159,7 @@ struct PersonDetailView: View {
                             ZStack {
                                 Color.tactTileGray.opacity(0.5)
                                 Image(systemName: "photo.badge.plus")
-                                    .font(.title3)
+                                    .font(.tact(.title3))
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -211,20 +211,20 @@ struct PersonDetailView: View {
         if person.hasLinkedContact {
             HStack(spacing: 12) {
                 Image(systemName: "person.crop.circle.fill")
-                    .font(.title3)
+                    .font(.tact(.title3))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(person.contact?.name ?? "Linked Contact")
                     if let phone = person.contact?.phones.first {
-                        Text(phone).font(.caption).foregroundStyle(.secondary)
+                        Text(phone).font(.tact(.caption)).foregroundStyle(.secondary)
                     }
                 }
                 Spacer()
                 Button { showContactInfo(for: person) } label: {
-                    Image(systemName: "info.circle").font(.title3)
+                    Image(systemName: "info.circle").font(.tact(.title3))
                 }
                 .accessibilityLabel("Contact Info")
                 Button { store.unlinkContact(fromPersonID: personID) } label: {
-                    Image(systemName: "xmark.circle.fill").font(.title3).foregroundStyle(.secondary)
+                    Image(systemName: "xmark.circle.fill").font(.tact(.title3)).foregroundStyle(.secondary)
                 }
                 .accessibilityLabel("Unlink Contact")
             }
@@ -233,7 +233,7 @@ struct PersonDetailView: View {
         } else {
             Button(action: linkContactTapped) {
                 HStack(spacing: 12) {
-                    Image(systemName: "person.crop.circle.badge.plus").font(.title3)
+                    Image(systemName: "person.crop.circle.badge.plus").font(.tact(.title3))
                     Text("Link Contact")
                     Spacer()
                 }
@@ -250,14 +250,14 @@ struct PersonDetailView: View {
     private func notesSection(for person: Person) -> some View {
         let personNotes = store.notes(for: personID)
         HStack {
-            Text("Notes").font(.headline)
+            Text("Notes").font(.tact(.headline))
             Spacer()
             Button { showingAddNote = true } label: {
-                Image(systemName: "plus").font(.subheadline)
+                Image(systemName: "plus").font(.tact(.subheadline))
             }
             .accessibilityLabel("Add Note")
             Button { showingLinkNotes = true } label: {
-                Image(systemName: "link").font(.subheadline)
+                Image(systemName: "link").font(.tact(.subheadline))
             }
             .accessibilityLabel("Link Existing Note")
         }
@@ -277,10 +277,10 @@ struct PersonDetailView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(note.text).foregroundStyle(.primary).lineLimit(2)
-                                Text(note.date, style: .date).font(.caption).foregroundStyle(.secondary)
+                                Text(note.date, style: .date).font(.tact(.caption)).foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+                            Image(systemName: "chevron.right").font(.tact(.caption)).foregroundStyle(.secondary)
                         }
                         .padding(.vertical, 12)
                         .contentShape(Rectangle())

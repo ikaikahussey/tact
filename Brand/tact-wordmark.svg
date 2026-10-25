@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 40" role="img" aria-label="Tact">
+  <title>Tact</title>
+  <!-- Tact wordmark: TACT in 10 unit tiles on a 15 by 4 grid. Tile colours follow the page theme through CSS custom properties named after each colour, with the Tact palette as fallback. -->
+  <style>
+    .coral{fill:var(--coral,#e8543d)}
+    .green{fill:var(--green,#42a86b)}
+    .teal{fill:var(--teal,#1c9e99)}
+    .blue{fill:var(--blue,#3b78d4)}
+    .violet{fill:var(--violet,#7a5cd6)}
+    .pink{fill:var(--pink,#de599c)}
+    .brown{fill:var(--brown,#9e6e4a)}
+  </style>
+  <rect class="coral" x="0.6" y="0.6" width="8.8" height="8.8"/>
+  <rect class="green" x="10.6" y="0.6" width="8.8" height="8.8"/>
+  <rect class="pink" x="20.6" y="0.6" width="8.8" height="8.8"/>
+  <rect class="green" x="40.6" y="0.6" width="8.8" height="8.8"/>
+  <rect class="pink" x="50.6" y="0.6" width="8.8" height="8.8"/>
+  <rect class="green" x="60.6" y="0.6" width="8.8" height="8.8"/>
+  <rect class="pink" x="80.6" y="0.6" width="8.8" height="8.8"/>
+  <rect class="violet" x="90.6" y="0.6" width="8.8" height="8.8"/>
+  <rect class="coral" x="100.6" y="0.6" width="8.8" height="8.8"/>
+  <rect class="teal" x="120.6" y="0.6" width="8.8" height="8.8"/>
+  <rect class="brown" x="130.6" y="0.6" width="8.8" height="8.8"/>
+  <rect class="teal" x="140.6" y="0.6" width="8.8" height="8.8"/>
+  <rect class="blue" x="10.6" y="10.6" width="8.8" height="8.8"/>
+  <rect class="blue" x="40.6" y="10.6" width="8.8" height="8.8"/>
+  <rect class="blue" x="60.6" y="10.6" width="8.8" height="8.8"/>
+  <rect class="green" x="80.6" y="10.6" width="8.8" height="8.8"/>
+  <rect class="violet" x="130.6" y="10.6" width="8.8" height="8.8"/>
+  <rect class="brown" x="10.6" y="20.6" width="8.8" height="8.8"/>
+  <rect class="brown" x="40.6" y="20.6" width="8.8" height="8.8"/>
+  <rect class="coral" x="50.6" y="20.6" width="8.8" height="8.8"/>
+  <rect class="brown" x="60.6" y="20.6" width="8.8" height="8.8"/>
+  <rect class="blue" x="80.6" y="20.6" width="8.8" height="8.8"/>
+  <rect class="pink" x="130.6" y="20.6" width="8.8" height="8.8"/>
+  <rect class="violet" x="10.6" y="30.6" width="8.8" height="8.8"/>
+  <rect class="violet" x="40.6" y="30.6" width="8.8" height="8.8"/>
+  <rect class="violet" x="60.6" y="30.6" width="8.8" height="8.8"/>
+  <rect class="brown" x="80.6" y="30.6" width="8.8" height="8.8"/>
+  <rect class="pink" x="90.6" y="30.6" width="8.8" height="8.8"/>
+  <rect class="green" x="100.6" y="30.6" width="8.8" height="8.8"/>
+  <rect class="green" x="130.6" y="30.6" width="8.8" height="8.8"/>
+</svg>

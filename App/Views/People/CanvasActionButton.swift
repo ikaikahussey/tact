@@ -15,7 +15,7 @@ struct CanvasActionButton: View {
             action()
         } label: {
             Image(systemName: systemImage)
-                .font(.body.weight(.semibold))
+                .font(.tact(.body).weight(.semibold))
                 .foregroundStyle(.white)
                 .frame(width: 44, height: 44)
                 .background(.tint, in: Circle())

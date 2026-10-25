@@ -20,6 +20,7 @@ struct ContentView: View {
                 .tabItem { Label("Search", systemImage: "magnifyingglass") }
                 .tag(Tab.search)
         }
+        .font(.tact(.body))
         .tint(palette.accent)
         .environment(\.appPalette, palette)
     }

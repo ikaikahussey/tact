@@ -30,7 +30,7 @@ struct PersonOutlineRow: View {
     private var chevron: some View {
             Button(action: toggle) {
                 Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
+                    .font(.tact(.footnote).weight(.semibold))
                     .foregroundStyle(.secondary)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .frame(width: 24, height: 36)
@@ -59,7 +59,7 @@ struct NoteOutlineRow: View {
         } label: {
             VStack(alignment: .leading, spacing: 3) {
                 Text(note.text)
-                    .font(.subheadline)
+                    .font(.tact(.subheadline))
                     .lineLimit(3)
                 HStack(spacing: 6) {
                     Text(note.date, style: .date)
@@ -68,7 +68,7 @@ struct NoteOutlineRow: View {
                         Text(others).lineLimit(1)
                     }
                 }
-                .font(.caption)
+                .font(.tact(.caption))
                 .foregroundStyle(.secondary)
             }
             .padding(.leading, PersonOutlineRow.indent)

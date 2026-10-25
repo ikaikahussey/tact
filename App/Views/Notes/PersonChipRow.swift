@@ -31,7 +31,7 @@ struct PersonChipRow: View {
             }
             Button(action: onAdd) {
                 Label("Add", systemImage: "plus")
-                    .font(.subheadline)
+                    .font(.tact(.subheadline))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
                     .overlay(Capsule().strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4, 3])).foregroundStyle(.secondary))
@@ -50,11 +50,11 @@ struct PersonChip: View {
         HStack(spacing: 6) {
             PersonAvatar(person: person, size: 22)
             Text(person.name)
-                .font(.subheadline)
+                .font(.tact(.subheadline))
                 .lineLimit(1)
             if isSelected {
                 Image(systemName: "checkmark")
-                    .font(.caption.weight(.bold))
+                    .font(.tact(.caption).weight(.bold))
             }
         }
         .padding(.leading, 4)
