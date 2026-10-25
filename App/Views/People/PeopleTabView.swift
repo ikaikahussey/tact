@@ -1,11 +1,12 @@
 import SwiftUI
 
-/// The People tab. Switches between Tiles, the list and Tangram, and hosts
-/// the shared "Add Person" and settings actions.
+/// The People tab. Switches between Tiles (with its games on the back) and
+/// the list, and hosts the shared "Add Person" and settings actions.
 struct PeopleTabView: View {
     @EnvironmentObject private var store: TactStore
     @AppStorage(PeopleLayout.storageKey) private var layout: PeopleLayout = .standard
-    @AppStorage(PeopleGridContent.showingPuzzleKey) private var tilesShowingPuzzle = false
+    @AppStorage(PeopleGridContent.showingGamesKey) private var tilesShowingGames = false
+    @AppStorage(TileGame.storageKey) private var tilesGameID = TileGame.all[0].id
     @State private var showingLayouts = false
     @State private var showingAddPerson = false
     @State private var showingSettings = false
@@ -79,19 +80,19 @@ struct PeopleTabView: View {
                 switch layout.resolved {
                 case .list:
                     PeopleListContent()
-                case .grid, .colors, .art:
+                case .grid, .colors, .art, .tangram:
                     PeopleGridContent()
-                case .tangram:
-                    TangramGridContent()
                 case .flashcards:
                     FlashcardView()
                 }
             }
             .background(Color.tactBackground)
             .onAppear {
-                // The Puzzle used to be its own layout; it is now the back of Tiles.
-                if layout == .art {
-                    tilesShowingPuzzle = true
+                // The puzzle and Tangram used to be layouts; they are now games
+                // on the back of Tiles.
+                if let game = layout.formerGame {
+                    tilesShowingGames = true
+                    tilesGameID = game.id
                     layout = .grid
                 }
             }

@@ -13,17 +13,23 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
 
     /// Layouts offered next to the People header. Random Colors and Flashcards
     /// are kept for stored preferences but hidden until they are ready to ship.
-    /// The Puzzle is the flip side of Tiles, so `art` is not listed.
-    static let available: [PeopleLayout] = [.grid, .list, .tangram]
+    /// The woodblock puzzle and Tangram are games on the back of Tiles
+    /// (`TileGame`), so `art` and `tangram` are not listed.
+    static let available: [PeopleLayout] = [.grid, .list]
 
     /// What the People tab shows until the user picks something else.
     static let standard: PeopleLayout = .grid
 
-    /// The layout to show: the Puzzle opens as Tiles (turned over), and other
-    /// hidden layouts fall back to Tiles.
-    var resolved: PeopleLayout {
-        if self == .art { return .grid }
-        return Self.available.contains(self) ? self : Self.standard
+    /// The layout to show: hidden layouts fall back to Tiles.
+    var resolved: PeopleLayout { Self.available.contains(self) ? self : Self.standard }
+
+    /// The game on the back of Tiles that this layout used to be, if any.
+    var formerGame: TileGame? {
+        switch self {
+        case .art:     return .woodblock
+        case .tangram: return .tangram
+        default:       return nil
+        }
     }
 
     var id: String { rawValue }
