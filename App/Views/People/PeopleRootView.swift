@@ -1,11 +1,9 @@
 import SwiftUI
 
-/// The root of each tab: the people as a grid of tiles or as a list with
-/// their notes, under the shared header. The People tab remembers which;
-/// the Notes tab is the list. Everything else is pushed from here.
+/// The root screen: the people as a grid of tiles (People) or as a list
+/// with their notes (Notes), under the shared header, which remembers the
+/// choice. Everything else is pushed from here.
 struct PeopleRootView: View {
-    let tab: RootTab
-
     @EnvironmentObject private var store: TactStore
     @AppStorage(PeopleLayout.storageKey) private var rememberedLayout: PeopleLayout = .standard
     @State private var path = NavigationPath()
@@ -17,7 +15,7 @@ struct PeopleRootView: View {
     @State private var showingSettings = false
     @State private var newPersonName = ""
 
-    private var layout: PeopleLayout { tab.layout(remembered: rememberedLayout) }
+    private var layout: PeopleLayout { rememberedLayout.resolved }
     private var query: String { isSearching ? searchText : "" }
 
     var body: some View {
@@ -53,9 +51,9 @@ struct PeopleRootView: View {
     }
 
     private var header: some View {
-        TactHeader(title: tab.title, searchText: $searchText, isSearching: $isSearching,
+        TactHeader(title: layout.viewTitle, searchText: $searchText, isSearching: $isSearching,
                    onLogoTap: popToRoot) {
-            ForEach(HeaderAction.actions(for: layout, tab: tab), id: \.self) { action in
+            ForEach(HeaderAction.actions(for: layout), id: \.self) { action in
                 button(for: action)
             }
         }
@@ -80,6 +78,10 @@ struct PeopleRootView: View {
                 UISelectionFeedbackGenerator().selectionChanged()
                 withAnimation(.snappy) { rememberedLayout = layout.toggled }
             }
+        case .games:
+            HeaderIconButton(title: "Games", systemImage: action.systemImage) {
+                path.append(Route.games)
+            }
         case .add:
             HeaderIconButton(title: layout == .grid ? "Add Person" : "New Note", systemImage: action.systemImage) {
                 if layout == .grid { showingAddPerson = true } else { showingAddNote = true }
@@ -99,7 +101,7 @@ struct PeopleRootView: View {
 
     private func popToRoot() {
         path = NavigationPath()
-        if tab == .people { withAnimation(.snappy) { rememberedLayout = .grid } }
+        withAnimation(.snappy) { rememberedLayout = .grid }
     }
 
     @ViewBuilder

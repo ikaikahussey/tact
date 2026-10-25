@@ -47,15 +47,12 @@ final class PeopleBrowsingTests: XCTestCase {
         XCTAssertEqual(PeopleLayout.remembered(in: defaults), .grid, "a hidden layout falls back to the grid")
     }
 
-    // MARK: Tabs
+    // MARK: View names
 
-    func testNotesTabIsTheListModeOfPeople() {
-        XCTAssertEqual(RootTab.notes.layout(remembered: .grid), .list)
-        XCTAssertEqual(RootTab.notes.layout(remembered: .list), .list)
-        XCTAssertEqual(RootTab.people.layout(remembered: .grid), .grid)
-        XCTAssertEqual(RootTab.people.layout(remembered: .list), .list)
-        XCTAssertEqual(RootTab.allCases, [.people, .notes], "two tabs, no Games or Search tab")
-        XCTAssertEqual(RootTab.notes.title, "Notes")
+    func testListModeIsTheNotesView() {
+        XCTAssertEqual(PeopleLayout.grid.viewTitle, "People")
+        XCTAssertEqual(PeopleLayout.list.viewTitle, "Notes")
+        XCTAssertEqual(PeopleLayout.flashcards.viewTitle, "People", "hidden layouts show as the grid")
     }
 
     // MARK: Sections
@@ -78,15 +75,10 @@ final class PeopleBrowsingTests: XCTestCase {
     // MARK: Header icons
 
     func testEditIconOnlyInListMode() {
-        XCTAssertEqual(HeaderAction.actions(for: .grid, tab: .people), [.search, .layoutToggle, .add, .settings])
-        XCTAssertEqual(HeaderAction.actions(for: .list, tab: .people), [.search, .layoutToggle, .add, .edit, .settings])
-        XCTAssertFalse(HeaderAction.actions(for: .grid, tab: .people).contains(.edit))
-        XCTAssertTrue(HeaderAction.actions(for: .list, tab: .people).contains(.edit))
-        XCTAssertEqual(HeaderAction.actions(for: .grid, tab: .people).count, 4)
-    }
-
-    func testNotesTabHasNoLayoutToggle() {
-        XCTAssertEqual(HeaderAction.actions(for: .list, tab: .notes), [.search, .add, .edit, .settings])
+        XCTAssertEqual(HeaderAction.actions(for: .grid), [.search, .layoutToggle, .games, .add, .settings])
+        XCTAssertEqual(HeaderAction.actions(for: .list), [.search, .layoutToggle, .games, .add, .edit, .settings])
+        XCTAssertFalse(HeaderAction.actions(for: .grid).contains(.edit))
+        XCTAssertTrue(HeaderAction.actions(for: .list).contains(.edit))
     }
 
     // MARK: Search
@@ -117,28 +109,19 @@ final class PeopleBrowsingTests: XCTestCase {
         XCTAssertEqual(PeopleSearch.people(store.people, notes: store.notes, query: "augusta").map(\.id), [ada.id])
     }
 
-    // MARK: Games tile
+    // MARK: Grid
 
-    func testGamesTileSitsAfterEveryoneAndSurvivesTheSearch() {
+    func testGridKeepsCellsWhileSearching() {
         let all = PeopleGridItems(people: store.people, notes: store.notes, query: "")
         XCTAssertEqual(all.tiles.map(\.person.id), [ada.id, grace.id])
-        XCTAssertEqual(all.gamesCell, 2, "the first cell after the last tile")
+        XCTAssertEqual(all.occupiedCells, [0, 1])
 
         let filtered = PeopleGridItems(people: store.people, notes: store.notes, query: "grace")
         XCTAssertEqual(filtered.tiles.map(\.person.id), [grace.id])
         XCTAssertEqual(filtered.tiles.map(\.cell), [1], "tiles keep their cells")
-        XCTAssertEqual(filtered.gamesCell, 2, "the Games tile stays where it was")
 
         let none = PeopleGridItems(people: store.people, notes: store.notes, query: "nobody")
         XCTAssertEqual(none.tiles, [])
-        XCTAssertEqual(none.gamesCell, 2)
-        XCTAssertEqual(none.occupiedCells, [2], "the canvas still has the Games tile to size around")
-    }
-
-    func testGamesTileFollowsTheLowestTile() {
-        store.moveTile(personID: grace.id, toCell: 9)
-        let items = PeopleGridItems(people: store.people, notes: store.notes, query: "")
-        XCTAssertEqual(items.gamesCell, 10)
-        XCTAssertEqual(PeopleGridItems(people: [], notes: [], query: "").gamesCell, 0, "with no one, the Games tile is first")
+        XCTAssertEqual(none.occupiedCells, [])
     }
 }

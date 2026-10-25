@@ -99,7 +99,12 @@ struct TangramPiece: Codable, Equatable, Hashable {
     var canRotate: Bool { shape.symmetry > 1 }
 
     mutating func rotate() {
-        sixths = (sixths + 1) % 6
+        turn(by: 1)
+    }
+
+    /// Turns the piece `steps` sixths clockwise (anticlockwise when negative).
+    mutating func turn(by steps: Int) {
+        sixths = (((sixths + steps) % 6) + 6) % 6
     }
 
     /// Corners around the centre, in cells (y down), turned.

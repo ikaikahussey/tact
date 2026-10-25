@@ -35,19 +35,11 @@ Tact keeps notes about the people in your life. Everything stays on your phone.
 
 Please try:
 • Add a few people, give some a photo, and link one to a contact card.
-• Write notes from the Notes tab and from a person's screen. Link a note to more than one person.
-• Switch the People view (tap the arrow beside "People") between Tiles and List; Settings is the gear at the top left. In List, tap + on a person to add a note about them, and the small outline button beside the People header shows each person with their notes beneath them. Each person is a tile.
-• In Tiles (the view People opens on), each person is a tile showing their photo or a pattern; choose which under Tile on their screen. Tap a tile to open the person. Touch and hold a tile to pick its colour or turn it, or drag it anywhere. Try making a picture. The round grid button brings the tiles together again.
-• In Tiles, once you have 16 people, tap the round puzzle-piece button to flip every tile over to the games on the back. The selector at the bottom left switches between them; the grid button flips back.
-• Woodblock Puzzle: slide the pieces to rebuild the picture, and tap the photo button to use your own.
-• Tangram: each person is a pattern block (triangle, diamond, half hexagon or hexagon; touch and hold to change). Drag pieces anywhere; they push each other out of the way like wooden blocks. Tap the round shuffle button to fit everything together snugly; tap again for a different arrangement.
-• In Settings, try the Classic, Pastel, Earthy and Jewel colours: they recolour the tiles, Tangram pieces and buttons.
-• Group Notes by person (tap the "Notes" header).
-• Edit a note: change its date, add or remove people, then delete it.
-• Force-quit and reopen: everything should still be there.
-• With iCloud on, delete Tact, reinstall it from TestFlight and open it: your people and notes should come back within a minute (Settings shows "iCloud Backup: On").
-
-Tell us about anything confusing, slow, or that lost data. Use the TestFlight screenshot feedback if you can.
+• The header has one row: tap the Tact mark to come back to the grid, and use the icons for search, grid/list, games, add, edit (list only) and settings.
+• Tap the list icon: this is Notes, everyone with their notes beneath them, newest first. Tap + on a person to add a note about them, or + in the header for a new note linked to anyone. Edit reorders and deletes people.
+• Tap the search icon and type: the grid and the list both narrow to matching people and notes.
+• In the grid, each person is a tile showing their photo or a pattern; choose which under Tile on their screen. Tap a tile to open the person. Touch and hold a tile to pick its colour or turn it, or drag it anywhere. The round grid button brings the tiles together again.
+• Tap the puzzle-piece icon for Games. Tangram: tap a piece to open the person, touch and hold for its menu, drag to push the others, turn it with two fingers, and tap the shuffle button to fit everything together. Sliding Puzzle: slide the pieces to rebuild the Tact tiles, or choose your own photo. Open Puzzle from a person's screen to play with their photo.
 ```
 
 ## Beta App Review notes

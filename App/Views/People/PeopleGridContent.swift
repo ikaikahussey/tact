@@ -3,8 +3,7 @@ import SwiftUI
 /// The Tiles canvas: a four-column grid where each person is a square with
 /// their geometric pattern. Tap a tile to open the person; touch and hold to
 /// change its color or turn it, or drag it to any cell (gaps allowed).
-/// Bring Together closes the gaps. The Games tile sits in the first cell
-/// after everyone and stays put while a search hides tiles.
+/// Bring Together closes the gaps.
 struct PeopleGridContent: View {
     let query: String
 
@@ -84,14 +83,6 @@ struct PeopleGridContent: View {
                             .transition(.scale(scale: 0.8).combined(with: .opacity))
                     }
 
-                    NavigationLink(value: Route.games) {
-                        GamesTile(size: squareSize)
-                    }
-                    .buttonStyle(.plain)
-                    .offset(origin(items.gamesCell))
-                    .accessibilityLabel("Games")
-                    .accessibilityHint("Opens Tangram and the Sliding Puzzle")
-
                     if let dropTarget {
                         Rectangle()
                             .strokeBorder(.tint, lineWidth: 3)
@@ -164,31 +155,5 @@ struct PeopleGridContent: View {
         .accessibilityAction(named: "Rotate") {
             store.updateTile(forPersonID: person.id) { $0.rotate() }
         }
-    }
-}
-
-/// The tile that opens the games: the Tact mark's colours as a small grid
-/// of squares, so it reads as the app's own tile rather than a person's.
-struct GamesTile: View {
-    let size: CGFloat
-    @Environment(\.appPalette) private var palette
-
-    var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            Color.tactCardBackground
-            TactLogo(variant: .wordmark, height: size * 0.22, tileColor: { palette.tileColor($0) })
-                .frame(width: size, height: size)
-                .offset(y: -size * 0.06)
-            Text("Games")
-                .font(.tactBold(size: max(10, size * 0.12)))
-                .lineLimit(1)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(.thinMaterial, in: Capsule())
-                .padding(5)
-        }
-        .frame(width: size, height: size)
-        .clipped()
-        .accessibilityElement(children: .ignore)
     }
 }
