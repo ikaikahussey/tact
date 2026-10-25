@@ -4,6 +4,7 @@ import SwiftUI
 struct NoteDetailView: View {
     @EnvironmentObject private var store: TactStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.pushRoute) private var pushRoute
     let noteID: UUID
 
     @State private var text = ""
@@ -14,7 +15,6 @@ struct NoteDetailView: View {
     @State private var showingDatePicker = false
     @State private var draftDate = Date()
     @State private var newPersonName = ""
-    @State private var openPersonID: UUID?
     @FocusState private var editorFocused: Bool
 
     var body: some View {
@@ -33,7 +33,7 @@ struct NoteDetailView: View {
                 section("People") {
                     PersonChipRow(selectedPersonIds: $selectedPersonIds,
                                   onAdd: { showingAddPerson = true },
-                                  onOpen: { openPersonID = $0 })
+                                  onOpen: { pushRoute(.person($0)) })
                 }
                 Button(role: .destructive) { showingDeleteAlert = true } label: {
                     Label("Delete Note", systemImage: "trash")
@@ -50,9 +50,6 @@ struct NoteDetailView: View {
         .background(Color.tactBackground)
         .navigationTitle(store.title(for: note))
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(item: $openPersonID) { id in
-            PersonDetailView(personID: id)
-        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 ShareLink(item: text) {

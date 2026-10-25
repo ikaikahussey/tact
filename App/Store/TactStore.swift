@@ -300,9 +300,18 @@ final class TactStore: ObservableObject {
 
     // MARK: Puzzle
 
-    /// The user's chosen puzzle photo, or the bundled default picture.
+    /// The user's chosen puzzle photo, or the Tact tiles.
     var puzzleImageData: Data {
-        settings.artSettings.imageData ?? PuzzleDefaultImage.data
+        settings.artSettings.imageData ?? TactTilesImage.data
+    }
+
+    /// The picture for a puzzle: a person's photo when it is theirs and they
+    /// have one, otherwise the standard picture.
+    func puzzleImageData(for source: PuzzleImageSource) -> Data {
+        switch source {
+        case .standard:        return puzzleImageData
+        case .person(let id):  return person(id: id)?.photoData ?? puzzleImageData
+        }
     }
 
     // MARK: Export

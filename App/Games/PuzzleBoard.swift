@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// The state of one Puzzle game, kept while the Tiles view is open so that
-/// flipping back to the tiles and over again keeps your progress.
+/// The state of one Puzzle game, kept while its screen is open.
 @Observable
 final class PuzzleGame {
     private(set) var puzzle = ArtPuzzle.makePuzzle()
@@ -28,21 +27,17 @@ final class PuzzleGame {
     }
 }
 
-/// The sliding picture puzzle drawn on the back of the Tiles grid: the photo
-/// is cut into a 4×4 grid with one piece missing, scrambled, and restored by
+/// The sliding picture puzzle on the four-column grid: the picture is cut
+/// into a 4×4 grid with one piece missing, scrambled, and restored by
 /// dragging pieces into the empty space. Dragging a piece that cannot move
-/// gives a small bump instead. Each piece sits on a tile cell and turns over
-/// with it when the grid flips.
+/// gives a small bump instead.
 struct PuzzleBoard: View {
-    @EnvironmentObject private var store: TactStore
     let game: PuzzleGame
+    /// The picture being rebuilt.
+    let imageData: Data
     /// Distance from one cell to the next.
     let pitch: CGFloat
     let pieceSize: CGFloat
-    /// Whether the board is face up (the tiles are turned over).
-    let isShowing: Bool
-    /// Stagger for the flip, by cell.
-    let flipDelay: (Int) -> Double
 
     // Drag state. Offsets apply to `draggedTiles` along one axis.
     @State private var draggedTiles: Set<Int> = []
@@ -55,7 +50,6 @@ struct PuzzleBoard: View {
     private let columns = ArtPuzzle.columns
     private let commitAnimation = Animation.spring(response: 0.32, dampingFraction: 0.78)
 
-    private var imageData: Data { store.puzzleImageData }
     private var puzzle: SlidingPuzzle<Int> { game.puzzle }
 
     var body: some View {
@@ -63,7 +57,6 @@ struct PuzzleBoard: View {
             ForEach(puzzle.tiles, id: \.self) { tile in
                 if let slot = puzzle.slot(of: tile) {
                     pieceView(index: tile)
-                        .modifier(TileFlipFace(side: .back, showingBack: isShowing, delay: flipDelay(slot)))
                         .position(center(of: slot))
                         .offset(offset(for: tile))
                         .zIndex(draggedTiles.contains(tile) || bumpedTile == tile ? 1 : 0)
@@ -76,15 +69,12 @@ struct PuzzleBoard: View {
             if game.isSolved {
                 // Fill the empty space so the finished picture is whole.
                 pieceView(index: puzzle.tiles.count)
-                    .modifier(TileFlipFace(side: .back, showingBack: isShowing, delay: flipDelay(puzzle.blankIndex)))
                     .position(center(of: puzzle.blankIndex))
                     .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
         }
         .frame(width: pitch * CGFloat(columns), height: pitch * CGFloat(ArtPuzzle.rows), alignment: .topLeading)
         .animation(commitAnimation, value: game.isSolved)
-        .allowsHitTesting(isShowing)
-        .accessibilityHidden(!isShowing)
     }
 
     @ViewBuilder

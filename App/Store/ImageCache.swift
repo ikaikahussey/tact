@@ -129,16 +129,3 @@ final class ArtImageCache {
         tiles.removeAll()
     }
 }
-
-/// The picture the Puzzle uses until the user picks their own.
-enum PuzzleDefaultImage {
-    static let assetName = "PuzzleDefault"
-
-    static let data: Data = {
-        if let image = UIImage(named: assetName), let jpeg = ImageProcessing.storableJPEG(from: image) {
-            return jpeg
-        }
-        assertionFailure("Missing \(assetName) asset")
-        return Data()
-    }()
-}
