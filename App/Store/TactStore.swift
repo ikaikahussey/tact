@@ -167,47 +167,23 @@ final class TactStore: ObservableObject {
 
     // MARK: Tangram
 
-    /// Changes a person's Tangram piece. A piece that now overlaps others
-    /// pushes them aside.
+    /// Changes a person's Tangram piece. If the piece now overlaps others,
+    /// they are pushed aside; the changed piece stays where it is.
     func updateTangram(forPersonID id: UUID, _ change: (inout TangramPiece) -> Void) {
         guard let index = people.firstIndex(where: { $0.id == id }) else { return }
-        let anchors = TangramLayout.anchors(for: people)
-        var updated = people
+        var updated = Self.placingAll(people)
         change(&updated[index].tangram)
-        if let cell = anchors[id] {
-            let anchor = TangramLayout.fitting(cell, size: updated[index].tangram.blockSize)
-            updated = Self.pinningTangram(updated, moving: id, to: anchor, anchors: anchors, vacated: nil)
-        }
-        people = updated
+        people = Self.settled(updated, fixing: id)
     }
 
-    /// Moves a person's piece so its block starts at `target`. If it would
-    /// overlap another piece there but a turn makes it fit, it turns to fit;
-    /// otherwise the pieces in the way move to its old spot or the first gap.
-    func moveTangram(personID id: UUID, toCell target: Int) {
-        guard target >= 0, let index = people.firstIndex(where: { $0.id == id }) else { return }
-        let anchors = TangramLayout.anchors(for: people)
-        guard let source = anchors[id] else { return }
-        var piece = people[index].tangram
-        let anchor = TangramLayout.fitting(target, size: piece.blockSize)
-        guard anchor != source else { return }
-
-        let others = people.reduce(into: Set<Int>()) { taken, other in
-            guard other.id != id, let cell = anchors[other.id],
-                  let quarters = TangramLayout.footprint(of: other.tangram, at: cell) else { return }
-            taken.formUnion(quarters)
-        }
-        if piece.shape.isTriangle,
-           let turns = (0..<4).first(where: { turn in
-               var turned = piece
-               turned.quarterTurns += turn
-               return TangramLayout.footprint(of: turned, at: anchor)?.isDisjoint(with: others) == true
-           }) {
-            piece.quarterTurns += turns
-        }
-        var updated = people
-        updated[index].tangram = piece
-        people = Self.pinningTangram(updated, moving: id, to: anchor, anchors: anchors, vacated: source)
+    /// Puts a person's piece with its centre at `centre` (in canvas cells),
+    /// pushing aside whatever is in the way. Called repeatedly while a piece
+    /// is dragged, so the others move out of its path.
+    func moveTangram(personID id: UUID, to centre: TangramPiece.Point) {
+        guard let index = people.firstIndex(where: { $0.id == id }) else { return }
+        var updated = Self.placingAll(people)
+        updated[index].tangram.position = TangramLayout.clamped(centre, for: updated[index].tangram)
+        people = Self.settled(updated, fixing: id)
     }
 
     /// Replaces several people's pieces at once, as when fitting everything
@@ -220,12 +196,30 @@ final class TactStore: ObservableObject {
         people = updated
     }
 
-    private static func pinningTangram(_ people: [Person], moving id: UUID, to anchor: Int,
-                                       anchors: [UUID: Int], vacated: Int?) -> [Person] {
-        GridPlacement.pinning(people, moving: id, to: anchor, anchors: anchors, vacated: vacated,
-                              cell: \.tangram.cell) { person, cell in
-            TangramLayout.footprint(of: person.tangram, at: cell)
+    /// Everyone with the position the canvas currently shows them at.
+    private static func placingAll(_ people: [Person]) -> [Person] {
+        let positions = TangramLayout.positions(for: people)
+        var updated = people
+        for index in updated.indices {
+            updated[index].tangram.position = positions[updated[index].id]
         }
+        return updated
+    }
+
+    /// Pushes overlapping pieces apart, leaving `fixed` where it is.
+    private static func settled(_ people: [Person], fixing fixed: UUID) -> [Person] {
+        var centres: [UUID: TangramPiece.Point] = [:]
+        var pieces: [UUID: TangramPiece] = [:]
+        for person in people {
+            pieces[person.id] = person.tangram
+            centres[person.id] = person.tangram.position ?? TangramLayout.clamped(.init(x: 0, y: 0), for: person.tangram)
+        }
+        TangramLayout.settle(&centres, pieces: pieces, fixed: fixed)
+        var updated = people
+        for index in updated.indices {
+            updated[index].tangram.position = centres[updated[index].id]
+        }
+        return updated
     }
 
     func linkContact(toPersonID id: UUID, identifier: String, snapshot: ContactSnapshot) {

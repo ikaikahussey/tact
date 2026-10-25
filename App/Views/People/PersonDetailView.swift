@@ -5,6 +5,7 @@ import Contacts
 struct PersonDetailView: View {
     @EnvironmentObject private var store: TactStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let personID: UUID
 
     @State private var showingAddNote = false
@@ -14,7 +15,6 @@ struct PersonDetailView: View {
     @State private var showingContactPicker = false
     @State private var showingContactInfo = false
     @State private var showingEditSheet = false
-    @State private var showingAccessDeniedAlert = false
     @State private var showingContactMissingAlert = false
     @State private var pickedPhoto: PhotosPickerItem?
 
@@ -119,16 +119,6 @@ struct PersonDetailView: View {
         } message: {
             Text("Notes linked only to this person are deleted too. Notes shared with other people are kept.")
         }
-        .alert("Contacts Access Needed", isPresented: $showingAccessDeniedAlert) {
-            Button("Open Settings") {
-                if let url = URL(string: UIApplication.openSettingsURLString) {
-                    UIApplication.shared.open(url)
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Allow Tact to access Contacts in Settings to link this person to a contact.")
-        }
         .alert("Contact Not Found", isPresented: $showingContactMissingAlert) {
             Button("Unlink", role: .destructive) { store.unlinkContact(fromPersonID: personID) }
             Button("Keep", role: .cancel) {}
@@ -209,29 +199,39 @@ struct PersonDetailView: View {
     @ViewBuilder
     private func contactSection(for person: Person) -> some View {
         if person.hasLinkedContact {
-            HStack(spacing: 12) {
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.tact(.title3))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(person.contact?.name ?? "Linked Contact")
-                    if let phone = person.contact?.phones.first {
-                        Text(phone).font(.tact(.caption)).foregroundStyle(.secondary)
+            // At accessibility text sizes the buttons move under the name so
+            // it is not squeezed into a column.
+            let stacked = dynamicTypeSize.isAccessibilitySize
+            let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+                                 : AnyLayout(HStackLayout(spacing: 12))
+            layout {
+                HStack(spacing: 12) {
+                    Image(systemName: "person.crop.circle.fill")
+                        .font(.tact(.title3))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(person.contact?.name ?? "Linked Contact")
+                        if let phone = person.contact?.phones.first {
+                            Text(phone).font(.tact(.caption)).foregroundStyle(.secondary)
+                        }
                     }
+                    .layoutPriority(1)
                 }
-                Spacer()
-                Button { showContactInfo(for: person) } label: {
-                    Image(systemName: "info.circle").font(.tact(.title3))
+                if !stacked { Spacer() }
+                HStack(spacing: 16) {
+                    Button { showContactInfo(for: person) } label: {
+                        Image(systemName: "info.circle").font(.tact(.title3))
+                    }
+                    .accessibilityLabel("Contact Info")
+                    Button { store.unlinkContact(fromPersonID: personID) } label: {
+                        Image(systemName: "xmark.circle.fill").font(.tact(.title3)).foregroundStyle(.secondary)
+                    }
+                    .accessibilityLabel("Unlink Contact")
                 }
-                .accessibilityLabel("Contact Info")
-                Button { store.unlinkContact(fromPersonID: personID) } label: {
-                    Image(systemName: "xmark.circle.fill").font(.tact(.title3)).foregroundStyle(.secondary)
-                }
-                .accessibilityLabel("Unlink Contact")
             }
             .buttonStyle(.plain)
             .padding(.vertical, 12)
         } else {
-            Button(action: linkContactTapped) {
+            Button { showingContactPicker = true } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "person.crop.circle.badge.plus").font(.tact(.title3))
                     Text("Link Contact")
@@ -312,35 +312,31 @@ struct PersonDetailView: View {
         store.updateTile(forPersonID: personID) { $0.showsPhoto = true }
     }
 
-    private func linkContactTapped() {
-        switch CNContactStore.authorizationStatus(for: .contacts) {
-        case .notDetermined:
-            CNContactStore().requestAccess(for: .contacts) { granted, _ in
-                DispatchQueue.main.async {
-                    if granted { showingContactPicker = true } else { showingAccessDeniedAlert = true }
-                }
-            }
-        case .denied, .restricted:
-            showingAccessDeniedAlert = true
-        default:
-            showingContactPicker = true
+    /// Shows the saved contact details, refreshing them from Contacts first
+    /// when the app is allowed to read the store. The picker itself needs no
+    /// permission, so a person can be linked without ever granting access;
+    /// their details are then the snapshot taken when they were picked.
+    private func showContactInfo(for person: Person) {
+        guard let identifier = person.contactIdentifier else { return }
+        if Self.canReadContacts,
+           let contact = try? CNContactStore().unifiedContact(withIdentifier: identifier,
+                                                              keysToFetch: ContactSnapshot.fetchKeys) {
+            store.updateContact(forPersonID: personID, snapshot: ContactSnapshot(contact: contact))
+        }
+        if store.person(id: personID)?.contact != nil {
+            showingContactInfo = true
+        } else {
+            showingContactMissingAlert = true
         }
     }
 
-    /// Refreshes the cached details from Contacts when possible, then shows them.
-    private func showContactInfo(for person: Person) {
-        guard let identifier = person.contactIdentifier else { return }
-        do {
-            let contact = try CNContactStore().unifiedContact(withIdentifier: identifier,
-                                                              keysToFetch: ContactSnapshot.fetchKeys)
-            store.updateContact(forPersonID: personID, snapshot: ContactSnapshot(contact: contact))
-            showingContactInfo = true
-        } catch {
-            if person.contact != nil {
-                showingContactInfo = true
-            } else {
-                showingContactMissingAlert = true
-            }
+    /// Whether Contacts can be read directly (full or limited access).
+    private static var canReadContacts: Bool {
+        switch CNContactStore.authorizationStatus(for: .contacts) {
+        case .authorized: return true
+        default:
+            if #available(iOS 18, *), CNContactStore.authorizationStatus(for: .contacts) == .limited { return true }
+            return false
         }
     }
 }

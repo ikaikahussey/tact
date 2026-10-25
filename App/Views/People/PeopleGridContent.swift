@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The Tiles canvas: a four-column grid where each person is a square with
 /// their geometric pattern. Tap a tile to open the person; touch and hold to
-/// change its colour or turn it, or drag it to any cell (gaps allowed).
+/// change its color or turn it, or drag it to any cell (gaps allowed).
 /// Bring Together closes the gaps. Once there are enough people to cover the
 /// puzzle board, the flip button turns every tile over to the games on the
 /// back (`TileGame`), and a selector picks which one is played.
@@ -13,6 +13,10 @@ struct PeopleGridContent: View {
     @AppStorage(TileGame.storageKey) private var selectedGameID = TileGame.all[0].id
     @State private var openPersonID: UUID?
     @State private var dropTarget: Int?
+    @AppStorage(GamesIntroView.seenKey) private var hasSeenGamesIntro = false
+
+    /// Opens the Add Person prompt; the intro's "Add Someone" button uses it.
+    var onAddPerson: () -> Void = {}
 
     /// Whether the tiles are turned over. The key predates the other games.
     static let showingGamesKey = "tilesShowingPuzzle"
@@ -20,7 +24,12 @@ struct PeopleGridContent: View {
     /// The games are offered once there is a tile for every piece of the
     /// woodblock puzzle's board.
     static func canFlipToGames(peopleCount: Int) -> Bool {
-        peopleCount >= ArtPuzzle.pieceCount
+        peopleNeededForGames(peopleCount: peopleCount) == 0
+    }
+
+    /// How many more people it takes before the games are offered.
+    static func peopleNeededForGames(peopleCount: Int) -> Int {
+        max(0, ArtPuzzle.pieceCount - peopleCount)
     }
 
     /// Room the shared round buttons take at the bottom corners, so each
@@ -50,6 +59,17 @@ struct PeopleGridContent: View {
         .background(Color.tactBackground)
         .overlay(alignment: .bottomTrailing) {
             HStack(spacing: 12) {
+                if !showingGames && !store.people.isEmpty && !Self.canFlipToGames(peopleCount: store.people.count) {
+                    let needed = Self.peopleNeededForGames(peopleCount: store.people.count)
+                    Text("\(needed) more to unlock games")
+                        .font(.tact(.footnote).weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(.regularMaterial, in: Capsule())
+                        .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
+                        .accessibilityLabel("Add \(needed) more \(needed == 1 ? "person" : "people") to unlock the games on the back of the tiles")
+                }
                 if !showingGames && store.people.count > 1 {
                     CanvasActionButton(title: "Bring Together", systemImage: "square.grid.3x3.topleft.filled",
                                        hint: "Closes the gaps between tiles, keeping their order.",
@@ -80,10 +100,18 @@ struct PeopleGridContent: View {
         .animation(.snappy, value: showingGames)
         .overlay {
             if store.people.isEmpty && !showingGames {
-                ContentUnavailableView {
-                    Label("No People Yet", systemImage: "square.grid.2x2")
-                } description: {
-                    Text("Tap + to add someone. Each person becomes a patterned tile: tap it to open them, or touch and hold to change its colour.")
+                if !hasSeenGamesIntro {
+                    GamesIntroView { addSomeone in
+                        withAnimation(.snappy) { hasSeenGamesIntro = true }
+                        if addSomeone { onAddPerson() }
+                    }
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                } else {
+                    ContentUnavailableView {
+                        Label("No People Yet", systemImage: "square.grid.2x2")
+                    } description: {
+                        Text("Tap + to add someone. Each person becomes a patterned tile: tap it to open them, or touch and hold to change its color. Once there are \(ArtPuzzle.pieceCount), the tiles flip over to games.")
+                    }
                 }
             }
         }
@@ -247,9 +275,9 @@ struct PeopleGridContent: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(person.name), \(TilePalette.name(person.tile.colorIndex)) tile")
-            .accessibilityHint("Opens \(person.name). Touch and hold to change the colour, turn the tile, or move it.")
+            .accessibilityHint("Opens \(person.name). Touch and hold to change the color, turn the tile, or move it.")
             .accessibilityAddTraits(.isButton)
-            .accessibilityAction(named: "Change colour") {
+            .accessibilityAction(named: "Change color") {
                 let order = TilePalette.menuOrder
                 let next = order[((order.firstIndex(of: person.tile.colorIndex) ?? 0) + 1) % order.count]
                 store.updateTile(forPersonID: person.id) { $0.colorIndex = next }

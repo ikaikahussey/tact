@@ -86,3 +86,71 @@ enum TileLayout {
         anchor >= 0 ? [anchor] : nil
     }
 }
+/// Placement on the Tiles canvas: each person sits at
+/// an anchor cell and covers a set of grid units there.
+enum GridPlacement {
+    /// People keep the anchor they were placed at (the first to claim the
+    /// space wins); everyone else takes the lowest anchor where they fit, in
+    /// list order.
+    static func anchors(for people: [Person], cell: KeyPath<Person, Int?>,
+                        footprint: (Person, Int) -> Set<Int>?) -> [UUID: Int] {
+        var anchors: [UUID: Int] = [:]
+        var taken = Set<Int>()
+        var unplaced: [Person] = []
+        for person in people {
+            if let anchor = person[keyPath: cell], let units = footprint(person, anchor), taken.isDisjoint(with: units) {
+                anchors[person.id] = anchor
+                taken.formUnion(units)
+            } else {
+                unplaced.append(person)
+            }
+        }
+        for person in unplaced {
+            var next = 0
+            while true {
+                if let units = footprint(person, next), taken.isDisjoint(with: units) {
+                    anchors[person.id] = next
+                    taken.formUnion(units)
+                    break
+                }
+                next += 1
+            }
+        }
+        return anchors
+    }
+
+    /// Pins everyone to their current anchor (so filling gaps doesn't shuffle
+    /// unplaced people around) and puts `id` at `anchor`. People it now
+    /// overlaps move to `vacated` when they fit there, and otherwise to the
+    /// first spot they fit.
+    static func pinning(_ people: [Person], moving id: UUID, to anchor: Int, anchors: [UUID: Int], vacated: Int?,
+                        cell: WritableKeyPath<Person, Int?>,
+                        footprint: (Person, Int) -> Set<Int>?) -> [Person] {
+        guard let moverIndex = people.firstIndex(where: { $0.id == id }) else { return people }
+        var updated = people
+        let moverUnits = footprint(updated[moverIndex], anchor) ?? []
+        updated[moverIndex][keyPath: cell] = anchor
+        var taken = moverUnits
+        var displaced: [Int] = []
+        for index in updated.indices where index != moverIndex {
+            let current = anchors[updated[index].id]
+            updated[index][keyPath: cell] = current
+            let units = current.flatMap { footprint(updated[index], $0) } ?? []
+            if moverUnits.isDisjoint(with: units) {
+                taken.formUnion(units)
+            } else {
+                displaced.append(index)
+            }
+        }
+        for index in displaced {
+            if let vacated, let units = footprint(updated[index], vacated), taken.isDisjoint(with: units) {
+                updated[index][keyPath: cell] = vacated
+                taken.formUnion(units)
+            } else {
+                updated[index][keyPath: cell] = nil
+            }
+        }
+        return updated
+    }
+}
+

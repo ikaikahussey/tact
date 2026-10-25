@@ -33,7 +33,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Colors")
                 } footer: {
-                    Text("Changes the colours of everyone's tiles and the app's buttons.")
+                    Text("Changes the colors of everyone's tiles and the app's buttons.")
                 }
 
                 Section("Puzzles") {
@@ -63,6 +63,17 @@ struct SettingsView: View {
                     TactLogo(height: 28)
                         .padding(.vertical, 4)
                     LabeledContent("Version", value: Bundle.main.displayVersion)
+                    Link(destination: TactLinks.privacyPolicy) {
+                        HStack {
+                            Text("Privacy Policy")
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.tact(.footnote))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .foregroundStyle(.primary)
+                    .accessibilityHint("Opens in Safari")
                     Text("Tact keeps your data on this device and, when iCloud is on, in your own iCloud account. Nothing is sent anywhere else unless you export it.")
                         .font(.tact(.footnote))
                         .foregroundStyle(.secondary)

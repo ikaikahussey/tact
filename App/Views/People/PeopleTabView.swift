@@ -82,7 +82,7 @@ struct PeopleTabView: View {
                 case .list:
                     PeopleListContent()
                 case .grid, .colors, .art, .tangram:
-                    PeopleGridContent()
+                    PeopleGridContent(onAddPerson: { showingAddPerson = true })
                 case .flashcards:
                     FlashcardView()
                 }
