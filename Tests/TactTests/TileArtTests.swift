@@ -45,6 +45,30 @@ final class TileArtTests: XCTestCase {
         XCTAssertEqual(decoded.tile, person.tile)
     }
 
+    func testChosenPatternAndPhotoChoiceRoundTrip() throws {
+        var person = Person(name: "Ada", colorSeed: 7, photoData: Data([1, 2, 3]))
+        XCTAssertTrue(person.showsPhoto, "a photo shows on the tile by default")
+        XCTAssertEqual(person.tilePattern, TilePattern(seed: 7))
+
+        person.tile.pattern = TilePattern.diamond.rawValue
+        person.tile.showsPhoto = false
+        XCTAssertFalse(person.showsPhoto)
+        XCTAssertEqual(person.tilePattern, .diamond)
+
+        let decoded = try JSONDecoder().decode(Person.self, from: JSONEncoder().encode(person))
+        XCTAssertEqual(decoded.tile, person.tile)
+        XCTAssertFalse(Person(name: "Bo").showsPhoto, "no photo, nothing to show")
+    }
+
+    func testEveryPaletteHasEveryTileColour() {
+        for palette in AppPalette.allCases {
+            for index in 0..<TileArt.colorCount {
+                XCTAssertNotNil(UIColor(palette.tileColor(index)).cgColor, "\(palette) \(index)")
+            }
+        }
+        XCTAssertEqual(TilePalette.color(3, in: .classic), TilePalette.colors[3])
+    }
+
     func testLayoutKeepsPlacedTilesAndFillsGapsInOrder() {
         var a = Person(name: "A"), b = Person(name: "B"), c = Person(name: "C"), d = Person(name: "D")
         a.tile.cell = 5

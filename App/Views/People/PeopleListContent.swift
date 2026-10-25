@@ -78,7 +78,7 @@ struct OutlineToggle: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(showsNotes ? Color.white : Color.secondary)
                 .frame(width: 32, height: 32)
-                .background(showsNotes ? Color.accentColor : Color.tactTileGray, in: Circle())
+                .background(showsNotes ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.tactTileGray), in: Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(showsNotes ? "Hide Notes" : "Show Notes")

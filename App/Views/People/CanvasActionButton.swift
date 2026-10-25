@@ -18,7 +18,7 @@ struct CanvasActionButton: View {
                 .font(.body.weight(.semibold))
                 .foregroundStyle(.white)
                 .frame(width: 44, height: 44)
-                .background(Color.accentColor, in: Circle())
+                .background(.tint, in: Circle())
                 .shadow(color: .black.opacity(0.18), radius: 6, y: 3)
                 .opacity(isEnabled ? 1 : 0.35)
         }

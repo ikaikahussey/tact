@@ -4,6 +4,7 @@ struct ContentView: View {
     enum Tab: String { case people, notes, search }
 
     @AppStorage("selectedTab") private var selectedTab: Tab = .people
+    @AppStorage(AppPalette.storageKey) private var palette: AppPalette = .classic
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -19,5 +20,7 @@ struct ContentView: View {
                 .tabItem { Label("Search", systemImage: "magnifyingglass") }
                 .tag(Tab.search)
         }
+        .tint(palette.accent)
+        .environment(\.appPalette, palette)
     }
 }
