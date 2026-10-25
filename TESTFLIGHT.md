@@ -55,9 +55,11 @@ Tell us about anything confusing, slow, or that lost data. Use the TestFlight sc
 TestFlight external testing goes through a light review. Suggested notes for the reviewer:
 
 ```
-Tact is a personal notes app. No account is needed. Contacts access is optional and only used
-when the user taps "Link Contact" on a person; it copies name, phone, email and address into
-the app's local storage. Data is backed up to the user's own iCloud account (iCloud Drive app
+Tact is a personal notes app. No account is needed. "Link Contact" on a person opens the
+system contact picker, which needs no Contacts permission; the chosen card's name, phone,
+email and address are copied into the app's local storage. The Contacts usage string covers
+an optional refresh of those details, which only happens if access has been granted.
+The privacy policy is linked from Settings > About. Data is backed up to the user's own iCloud account (iCloud Drive app
 container) so it survives reinstalling; nothing is sent to the developer.
 ```
 
