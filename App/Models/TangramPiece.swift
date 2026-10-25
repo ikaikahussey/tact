@@ -1,240 +1,337 @@
 import Foundation
 
-/// A person's piece on the Tangram canvas. Unlike Tiles, pieces fit together
-/// along cell diagonals: each cell is split by both diagonals into four
-/// quarters, and a piece covers whichever quarters lie inside it. Two right
-/// triangles can share a cell, and a square turned 45° becomes a diamond
-/// whose sides run along the diagonals of a two-by-two block, so four
-/// triangles fill its corners. The colour is the person's tile colour.
+/// A person's piece on the Tangram canvas: one of the pattern-block shapes
+/// built from equilateral triangles. Pieces sit anywhere on the canvas, not
+/// on a grid, and when one is moved or turned into another they push each
+/// other aside like wooden pieces on a table. Each shape has its own colour
+/// unless the person picks another.
 struct TangramPiece: Codable, Equatable, Hashable {
     enum Shape: String, Codable, CaseIterable, Identifiable {
         case triangle
-        case square
-        case largeTriangle
-        case largeSquare
-        case circle
+        case diamond
+        case trapezoid
+        case hexagon
 
         var id: Self { self }
 
         var title: String {
             switch self {
-            case .triangle:      return "Triangle"
-            case .square:        return "Square"
-            case .largeTriangle: return "Large Triangle"
-            case .largeSquare:   return "Large Square"
-            case .circle:        return "Circle"
+            case .triangle:  return "Triangle"
+            case .diamond:   return "Diamond"
+            case .trapezoid: return "Half Hexagon"
+            case .hexagon:   return "Hexagon"
             }
         }
 
-        var isSquare: Bool { self == .square || self == .largeSquare }
-        var isTriangle: Bool { self == .triangle || self == .largeTriangle }
-    }
+        /// How many triangles the shape is made of.
+        var triangleCount: Int {
+            switch self {
+            case .triangle: return 1
+            case .diamond: return 2
+            case .trapezoid: return 3
+            case .hexagon: return 6
+            }
+        }
 
-    var shape: Shape
-    /// Clockwise quarter turns; only triangles look different when turned.
-    var quarterTurns: Int
-    /// Squares only: turned 45° into a diamond.
-    var isTilted: Bool
-    /// Top-left cell of the piece's block, row by row from the top-left.
-    /// `nil` until placed; such pieces take the first spot they fit.
-    var cell: Int?
+        /// The shape's own colour, as a `TilePalette` index: the classic
+        /// pattern-block colours.
+        var defaultColorIndex: Int {
+            switch self {
+            case .triangle:  return 3   // green
+            case .diamond:   return 5   // blue
+            case .trapezoid: return 8   // red
+            case .hexagon:   return 2   // yellow
+            }
+        }
 
-    init(shape: Shape, quarterTurns: Int = 0, isTilted: Bool = false, cell: Int? = nil) {
-        self.shape = shape
-        self.quarterTurns = quarterTurns
-        self.isTilted = isTilted
-        self.cell = cell
-    }
-
-    /// The starting piece for a person: a small triangle turned by their seed,
-    /// so a few people already pair up into squares.
-    init(seed rawSeed: Int) {
-        self.init(shape: .triangle, quarterTurns: abs(rawSeed) % 4)
-    }
-
-    /// Cells along each side of the square block the piece sits in.
-    var blockSize: Int {
-        switch shape {
-        case .triangle, .circle: return 1
-        case .square:            return isTilted ? 2 : 1
-        case .largeTriangle:     return 2
-        case .largeSquare:       return isTilted ? 4 : 2
+        /// Turns (in sixths) after which the shape looks the same again.
+        var symmetry: Int {
+            switch self {
+            case .triangle: return 2
+            case .diamond: return 3
+            case .trapezoid: return 6
+            case .hexagon: return 1
+            }
         }
     }
 
-    /// Corners of the piece in block units (y down), turned. A circle's
-    /// outline is its block; it is drawn round.
-    var polygon: [Point] {
-        let n = Double(blockSize)
-        let corners: [Point]
-        switch shape {
-        case .triangle, .largeTriangle:
-            corners = [Point(x: 0, y: 0), Point(x: 0, y: n), Point(x: n, y: n)]
-        case .square, .largeSquare:
-            corners = isTilted
-                ? [Point(x: n / 2, y: 0), Point(x: n, y: n / 2), Point(x: n / 2, y: n), Point(x: 0, y: n / 2)]
-                : Self.block(n)
-        case .circle:
-            corners = Self.block(n)
-        }
-        guard shape.isTriangle else { return corners }
-        let turns = ((quarterTurns % 4) + 4) % 4
-        return corners.map { corner in
-            (0..<turns).reduce(corner) { point, _ in Point(x: n - point.y, y: point.x) }
-        }
-    }
-
-    var canRotate: Bool { shape != .circle }
-
-    /// Triangles turn a quarter; squares tip between square and diamond.
-    mutating func rotate() {
-        if shape.isSquare {
-            isTilted.toggle()
-        } else {
-            quarterTurns += 1
-        }
-    }
-
-    struct Point: Equatable {
+    struct Point: Equatable, Hashable, Codable {
         var x: Double
         var y: Double
+
+        static func + (a: Point, b: Point) -> Point { Point(x: a.x + b.x, y: a.y + b.y) }
+        static func - (a: Point, b: Point) -> Point { Point(x: a.x - b.x, y: a.y - b.y) }
+        static func * (a: Point, s: Double) -> Point { Point(x: a.x * s, y: a.y * s) }
+        var length: Double { (x * x + y * y).squareRoot() }
+        func dot(_ other: Point) -> Double { x * other.x + y * other.y }
     }
 
-    private static func block(_ n: Double) -> [Point] {
-        [Point(x: 0, y: 0), Point(x: n, y: 0), Point(x: n, y: n), Point(x: 0, y: n)]
+    /// Length of a triangle's side, in canvas cells.
+    static let edge = 1.0
+    /// Height of one triangle.
+    static let triangleHeight = edge * 3.0.squareRoot() / 2
+
+    var shape: Shape
+    /// Clockwise turns of 60°.
+    var sixths: Int
+    /// Centre of the piece on the canvas, in cells from the top-left; `nil`
+    /// until placed, when it takes the first free spot.
+    var position: Point?
+    /// A colour chosen for this piece instead of the shape's own.
+    var colorIndex: Int?
+
+    init(shape: Shape, sixths: Int = 0, position: Point? = nil, colorIndex: Int? = nil) {
+        self.shape = shape
+        self.sixths = sixths
+        self.position = position
+        self.colorIndex = colorIndex
     }
 
-    private enum CodingKeys: String, CodingKey { case shape, quarterTurns, isTilted, cell }
+    /// The starting piece for a person: a triangle, pointing up or down by
+    /// their seed, so neighbours already fit together.
+    init(seed rawSeed: Int) {
+        self.init(shape: .triangle, sixths: abs(rawSeed) % 2)
+    }
 
+    /// The colour the piece is drawn in.
+    var resolvedColorIndex: Int { colorIndex ?? shape.defaultColorIndex }
+
+    var canRotate: Bool { shape.symmetry > 1 }
+
+    mutating func rotate() {
+        sixths = (sixths + 1) % 6
+    }
+
+    /// Corners around the centre, in cells (y down), turned.
+    var corners: [Point] {
+        let e = Self.edge
+        let h = Self.triangleHeight
+        let raw: [Point]
+        switch shape {
+        case .triangle:
+            // Point up, centred on its centroid.
+            raw = [Point(x: 0, y: -2 * h / 3), Point(x: e / 2, y: h / 3), Point(x: -e / 2, y: h / 3)]
+        case .diamond:
+            raw = [Point(x: -e * 0.75, y: -h / 2), Point(x: e * 0.25, y: -h / 2),
+                   Point(x: e * 0.75, y: h / 2), Point(x: -e * 0.25, y: h / 2)]
+        case .trapezoid:
+            raw = [Point(x: -e / 2, y: -h / 2), Point(x: e / 2, y: -h / 2),
+                   Point(x: e, y: h / 2), Point(x: -e, y: h / 2)]
+        case .hexagon:
+            raw = (0..<6).map { index in
+                let angle = Double(index) * .pi / 3
+                return Point(x: e * cos(angle), y: e * sin(angle))
+            }
+        }
+        let angle = Double(((sixths % 6) + 6) % 6) * .pi / 3
+        let (s, c) = (sin(angle), cos(angle))
+        return raw.map { Point(x: $0.x * c - $0.y * s, y: $0.x * s + $0.y * c) }
+    }
+
+    /// Corners on the canvas, for a piece centred at `centre`.
+    func corners(at centre: Point) -> [Point] {
+        corners.map { $0 + centre }
+    }
+
+    /// The turned piece's bounding box around its centre: the least and
+    /// greatest offsets of its corners.
+    var bounds: (min: Point, max: Point) {
+        let points = corners
+        return (Point(x: points.map(\.x).min() ?? 0, y: points.map(\.y).min() ?? 0),
+                Point(x: points.map(\.x).max() ?? 0, y: points.map(\.y).max() ?? 0))
+    }
+
+    /// Half the width and height of the turned piece's bounding box.
+    var halfExtent: Point {
+        let box = bounds
+        return (box.max - box.min) * 0.5
+    }
+
+    /// Where the bounding box's centre sits relative to the piece's centre.
+    var boundsOffset: Point {
+        let box = bounds
+        return (box.max + box.min) * 0.5
+    }
+
+    /// Area in triangles.
+    var area: Int { shape.triangleCount }
+
+    private enum CodingKeys: String, CodingKey { case shape, sixths, x, y, colorIndex }
+
+    /// Decoding is tolerant of earlier data: the square-lattice shapes map to
+    /// the nearest pattern block, and their grid cell is dropped so the piece
+    /// takes the first free spot.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        shape = (try? container.decodeIfPresent(Shape.self, forKey: .shape)) ?? nil ?? .triangle
-        quarterTurns = (try? container.decodeIfPresent(Int.self, forKey: .quarterTurns)) ?? nil ?? 0
-        isTilted = (try? container.decodeIfPresent(Bool.self, forKey: .isTilted)) ?? nil ?? false
-        let cell = (try? container.decodeIfPresent(Int.self, forKey: .cell)) ?? nil
-        self.cell = cell.flatMap { $0 >= 0 ? $0 : nil }
+        let rawShape = (try? container.decodeIfPresent(String.self, forKey: .shape)) ?? nil
+        shape = rawShape.flatMap(Shape.init(rawValue:)) ?? Self.legacyShape(rawShape) ?? .triangle
+        sixths = ((((try? container.decodeIfPresent(Int.self, forKey: .sixths)) ?? nil ?? 0) % 6) + 6) % 6
+        if let x = (try? container.decodeIfPresent(Double.self, forKey: .x)) ?? nil,
+           let y = (try? container.decodeIfPresent(Double.self, forKey: .y)) ?? nil,
+           x.isFinite, y.isFinite {
+            position = Point(x: x, y: y)
+        } else {
+            position = nil
+        }
+        colorIndex = (try? container.decodeIfPresent(Int.self, forKey: .colorIndex)) ?? nil
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(shape, forKey: .shape)
+        try container.encode(sixths, forKey: .sixths)
+        try container.encodeIfPresent(position?.x, forKey: .x)
+        try container.encodeIfPresent(position?.y, forKey: .y)
+        try container.encodeIfPresent(colorIndex, forKey: .colorIndex)
+    }
+
+    private static func legacyShape(_ raw: String?) -> Shape? {
+        switch raw {
+        case "square":                   return .diamond
+        case "largeTriangle":            return .trapezoid
+        case "largeSquare", "circle":    return .hexagon
+        default:                         return nil
+        }
     }
 }
 
-/// Where everyone's piece sits on the Tangram canvas.
+/// Where everyone's piece sits on the Tangram canvas, and how pieces make
+/// room for each other.
 enum TangramLayout {
+    typealias Point = TangramPiece.Point
+
+    /// Width of the canvas in cells; pieces stay within it.
     static let columns = 4
+    static let width = Double(columns)
+    /// Gap kept between pieces when they are pushed apart.
+    static let clearance = 0.02
 
-    /// Centres of a cell's four quarters (top, right, bottom, left) in cell units.
-    private static let quarterCentres: [TangramPiece.Point] = [
-        .init(x: 0.5, y: 1.0 / 6), .init(x: 5.0 / 6, y: 0.5), .init(x: 0.5, y: 5.0 / 6), .init(x: 1.0 / 6, y: 0.5),
-    ]
+    // MARK: Placement
 
-    /// The quarters a piece covers with its block's top-left at `anchor`, as
-    /// `cell * 4 + quarter`, or `nil` when it would run off the right edge.
-    static func footprint(of piece: TangramPiece, at anchor: Int) -> Set<Int>? {
-        let n = piece.blockSize
-        guard anchor >= 0, anchor % columns + n <= columns else { return nil }
-        let polygon = piece.polygon
-        var quarters = Set<Int>()
-        for row in 0..<n {
-            for column in 0..<n {
-                for (quarter, centre) in quarterCentres.enumerated() {
-                    let point = TangramPiece.Point(x: Double(column) + centre.x, y: Double(row) + centre.y)
-                    if contains(polygon, point) {
-                        quarters.insert((anchor + row * columns + column) * 4 + quarter)
+    /// Everyone's centre: placed pieces keep theirs, moved only as far as
+    /// needed to clear earlier ones; unplaced pieces take the first free spot
+    /// scanning from the top-left.
+    static func positions(for people: [Person]) -> [UUID: Point] {
+        var placed: [(id: UUID, piece: TangramPiece, centre: Point)] = []
+        var unplaced: [Person] = []
+        for person in people {
+            if let centre = person.tangram.position {
+                placed.append((person.id, person.tangram, clamped(centre, for: person.tangram)))
+            } else {
+                unplaced.append(person)
+            }
+        }
+        var centres = Dictionary(uniqueKeysWithValues: placed.map { ($0.id, $0.centre) })
+        settle(&centres, pieces: Dictionary(uniqueKeysWithValues: placed.map { ($0.id, $0.piece) }), fixed: nil)
+        for person in unplaced {
+            let others = centres.compactMap { id, centre in
+                people.first { $0.id == id }.map { ($0.tangram, centre) }
+            }
+            centres[person.id] = firstFreeSpot(for: person.tangram, avoiding: others)
+        }
+        return centres
+    }
+
+    /// Pushes overlapping pieces apart until none overlap, moving `fixed`
+    /// not at all. Each pass moves the pieces of each overlapping pair apart
+    /// along the shortest way out, so a pushed piece shoves the next one on.
+    static func settle(_ centres: inout [UUID: Point], pieces: [UUID: TangramPiece], fixed: UUID?,
+                       passes: Int = 60) {
+        let ids = pieces.keys.sorted { $0.uuidString < $1.uuidString }
+        guard ids.count > 1 else { return }
+        for _ in 0..<passes {
+            var moved = false
+            for (i, a) in ids.enumerated() {
+                for b in ids[(i + 1)...] {
+                    guard let ca = centres[a], let cb = centres[b],
+                          let push = separation(pieces[a]!, at: ca, from: pieces[b]!, at: cb) else { continue }
+                    moved = true
+                    if a == fixed {
+                        centres[b] = clamped(cb - push, for: pieces[b]!)
+                    } else if b == fixed {
+                        centres[a] = clamped(ca + push, for: pieces[a]!)
+                    } else {
+                        centres[a] = clamped(ca + push * 0.5, for: pieces[a]!)
+                        centres[b] = clamped(cb - push * 0.5, for: pieces[b]!)
                     }
                 }
             }
-        }
-        return quarters
-    }
-
-    /// `target`, moved left as far as needed for a block of `size` to fit.
-    static func fitting(_ target: Int, size: Int) -> Int {
-        target - max(0, target % columns + size - columns)
-    }
-
-    static func anchors(for people: [Person]) -> [UUID: Int] {
-        GridPlacement.anchors(for: people, cell: \.tangram.cell) { person, anchor in
-            footprint(of: person.tangram, at: anchor)
+            if !moved { return }
         }
     }
 
-    /// Everyone's pieces packed as tightly as possible from the top-left, in
-    /// one of many snug arrangements picked at random. Shapes, sizes and
-    /// tilts are kept; triangles may turn so they pair up and fill the
-    /// corners around diamonds. Many placement orders and turn preferences
-    /// are tried; of those using the fewest rows and leaving the fewest gaps
-    /// before the last piece, one that looks different from how the pieces
-    /// sit now is chosen when there is one.
-    static func packed(_ people: [Person], using generator: inout some RandomNumberGenerator) -> [UUID: TangramPiece] {
-        guard !people.isEmpty else { return [:] }
-        let biggestFirst = people.indices.sorted {
-            let (a, b) = (area(people[$0].tangram), area(people[$1].tangram))
-            return a != b ? a > b : $0 < $1
-        }
-        var orders = [biggestFirst, Array(people.indices)]
-        for _ in 0..<(people.count <= 40 ? 60 : 8) {
-            orders.append(people.indices.shuffled(using: &generator))
-        }
-
-        var best: (score: (Int, Int), arrangements: [[UUID: TangramPiece]])?
-        for order in orders {
-            let firstTurn = Int.random(in: 0..<4, using: &generator)
-            let attempt = pack(people, in: order, firstTurn: firstTurn)
-            if best == nil || attempt.score < best!.score {
-                best = (attempt.score, [attempt.pieces])
-            } else if attempt.score == best!.score {
-                best!.arrangements.append(attempt.pieces)
-            }
-        }
-        let current = arrangement(people.map { ($0.id, $0.tangram) })
-        let candidates = best!.arrangements
-        let fresh = candidates.filter { arrangement($0.map { ($0, $1) }) != current }
-        return (fresh.isEmpty ? candidates : fresh).randomElement(using: &generator)!
+    /// Keeps a piece inside the canvas width and below its top edge.
+    static func clamped(_ centre: Point, for piece: TangramPiece) -> Point {
+        let box = piece.bounds
+        return Point(x: min(max(centre.x, -box.min.x), width - box.max.x), y: max(centre.y, -box.min.y))
     }
 
-    /// First fit in `order`: each piece takes the earliest anchor where one
-    /// of its turns fits, trying turns from `firstTurn`. Scored by rows used,
-    /// then by the last quarter covered (fewer gaps before it).
-    private static func pack(_ people: [Person], in order: [Int],
-                             firstTurn: Int) -> (score: (Int, Int), pieces: [UUID: TangramPiece]) {
-        var taken = Set<Int>()
-        var pieces: [UUID: TangramPiece] = [:]
-        for index in order {
-            let base = people[index].tangram
-            let turns = base.shape.isTriangle ? 4 : 1
-            var anchor = 0
-            placing: while true {
-                for turn in 0..<turns {
-                    var piece = base
-                    piece.quarterTurns += (firstTurn + turn) % turns
-                    if let quarters = footprint(of: piece, at: anchor), taken.isDisjoint(with: quarters) {
-                        piece.cell = anchor
-                        pieces[people[index].id] = piece
-                        taken.formUnion(quarters)
-                        break placing
-                    }
+    /// The first spot, scanning left to right then down, where `piece` does
+    /// not touch any of `others`.
+    static func firstFreeSpot(for piece: TangramPiece, avoiding others: [(TangramPiece, Point)]) -> Point {
+        let step = TangramPiece.edge / 4
+        let box = piece.bounds
+        var y = -box.min.y
+        while true {
+            var x = -box.min.x
+            while x <= width - box.max.x + 1e-9 {
+                let centre = Point(x: x, y: y)
+                if !others.contains(where: { separation(piece, at: centre, from: $0.0, at: $0.1) != nil }) {
+                    return centre
                 }
-                anchor += 1
+                x += step
+            }
+            y += step
+        }
+    }
+
+    // MARK: Overlap
+
+    /// How far `a` must move to stop overlapping `b`, by the separating-axis
+    /// test on the two convex outlines, or `nil` when they are already apart.
+    /// A small clearance is kept so pushed pieces don't touch.
+    static func separation(_ a: TangramPiece, at ca: Point, from b: TangramPiece, at cb: Point) -> Point? {
+        let (boxA, boxB) = (a.bounds, b.bounds)
+        if ca.x + boxA.min.x > cb.x + boxB.max.x + clearance || cb.x + boxB.min.x > ca.x + boxA.max.x + clearance
+            || ca.y + boxA.min.y > cb.y + boxB.max.y + clearance || cb.y + boxB.min.y > ca.y + boxA.max.y + clearance {
+            return nil
+        }
+        let pa = a.corners(at: ca)
+        let pb = b.corners(at: cb)
+        var best: (depth: Double, axis: Point)?
+        for polygon in [pa, pb] {
+            for (index, p) in polygon.enumerated() {
+                let q = polygon[(index + 1) % polygon.count]
+                let edge = q - p
+                let length = edge.length
+                guard length > 0 else { continue }
+                let axis = Point(x: -edge.y / length, y: edge.x / length)
+                let (minA, maxA) = project(pa, onto: axis)
+                let (minB, maxB) = project(pb, onto: axis)
+                let depth = min(maxA, maxB) - max(minA, minB) + clearance
+                if depth <= 1e-6 { return nil }
+                if best == nil || depth < best!.depth { best = (depth, axis) }
             }
         }
-        let last = taken.max() ?? 0
-        return ((last / 4 / columns + 1, last), pieces)
+        guard let (depth, axis) = best else { return nil }
+        // Push a away from b along the axis.
+        let direction = (ca - cb).dot(axis) >= 0 ? 1.0 : -1.0
+        return axis * (depth * direction)
     }
 
-    /// What each person's piece covers, for telling arrangements apart by
-    /// how they look.
-    private static func arrangement(_ pieces: [(UUID, TangramPiece)]) -> [UUID: Set<Int>] {
-        Dictionary(pieces.map { id, piece in (id, piece.cell.flatMap { footprint(of: piece, at: $0) } ?? []) },
-                   uniquingKeysWith: { first, _ in first })
+    private static func project(_ points: [Point], onto axis: Point) -> (Double, Double) {
+        var low = Double.infinity, high = -Double.infinity
+        for point in points {
+            let d = point.dot(axis)
+            low = min(low, d)
+            high = max(high, d)
+        }
+        return (low, high)
     }
 
-    /// Quarters a piece covers, wherever it sits.
-    private static func area(_ piece: TangramPiece) -> Int {
-        var origin = piece
-        origin.cell = nil
-        return footprint(of: origin, at: 0)?.count ?? 0
-    }
-
-    /// Whether `point` is inside the convex `polygon` (either winding).
-    private static func contains(_ polygon: [TangramPiece.Point], _ point: TangramPiece.Point) -> Bool {
+    /// Whether `point` is inside the piece centred at `centre`.
+    static func piece(_ piece: TangramPiece, at centre: Point, contains point: Point) -> Bool {
+        let polygon = piece.corners(at: centre)
         var sign = 0.0
         for (index, a) in polygon.enumerated() {
             let b = polygon[(index + 1) % polygon.count]
@@ -244,72 +341,81 @@ enum TangramLayout {
         }
         return true
     }
-}
 
-/// Placement shared by the Tiles and Tangram canvases: each person sits at
-/// an anchor cell and covers a set of grid units there.
-enum GridPlacement {
-    /// People keep the anchor they were placed at (the first to claim the
-    /// space wins); everyone else takes the lowest anchor where they fit, in
-    /// list order.
-    static func anchors(for people: [Person], cell: KeyPath<Person, Int?>,
-                        footprint: (Person, Int) -> Set<Int>?) -> [UUID: Int] {
-        var anchors: [UUID: Int] = [:]
-        var taken = Set<Int>()
-        var unplaced: [Person] = []
-        for person in people {
-            if let anchor = person[keyPath: cell], let units = footprint(person, anchor), taken.isDisjoint(with: units) {
-                anchors[person.id] = anchor
-                taken.formUnion(units)
-            } else {
-                unplaced.append(person)
+    // MARK: Fit Together
+
+    /// Everyone's pieces packed snugly from the top-left on the triangular
+    /// lattice, in one of several tight arrangements picked at random. Shapes
+    /// and colours are kept; pieces may turn to fit. Of the orders tried, one
+    /// whose lowest piece is highest wins, preferring one that looks different
+    /// from how the pieces sit now.
+    static func packed(_ people: [Person], using generator: inout some RandomNumberGenerator) -> [UUID: TangramPiece] {
+        guard !people.isEmpty else { return [:] }
+        let biggestFirst = people.indices.sorted {
+            let (a, b) = (people[$0].tangram.area, people[$1].tangram.area)
+            return a != b ? a > b : $0 < $1
+        }
+        var orders = [biggestFirst, Array(people.indices)]
+        for _ in 0..<(people.count <= 24 ? 10 : 3) {
+            orders.append(people.indices.shuffled(using: &generator))
+        }
+        var best: (bottom: Double, arrangements: [[UUID: TangramPiece]])?
+        for order in orders {
+            let firstTurn = Int.random(in: 0..<6, using: &generator)
+            let attempt = pack(people, in: order, firstTurn: firstTurn)
+            if best == nil || attempt.bottom < best!.bottom - 1e-6 {
+                best = (attempt.bottom, [attempt.pieces])
+            } else if abs(attempt.bottom - best!.bottom) <= 1e-6 {
+                best!.arrangements.append(attempt.pieces)
             }
         }
-        for person in unplaced {
-            var next = 0
-            while true {
-                if let units = footprint(person, next), taken.isDisjoint(with: units) {
-                    anchors[person.id] = next
-                    taken.formUnion(units)
-                    break
-                }
-                next += 1
-            }
-        }
-        return anchors
+        let current = Dictionary(uniqueKeysWithValues: people.map { ($0.id, $0.tangram) })
+        let candidates = best!.arrangements
+        let fresh = candidates.filter { $0 != current }
+        return (fresh.isEmpty ? candidates : fresh).randomElement(using: &generator)!
     }
 
-    /// Pins everyone to their current anchor (so filling gaps doesn't shuffle
-    /// unplaced people around) and puts `id` at `anchor`. People it now
-    /// overlaps move to `vacated` when they fit there, and otherwise to the
-    /// first spot they fit.
-    static func pinning(_ people: [Person], moving id: UUID, to anchor: Int, anchors: [UUID: Int], vacated: Int?,
-                        cell: WritableKeyPath<Person, Int?>,
-                        footprint: (Person, Int) -> Set<Int>?) -> [Person] {
-        guard let moverIndex = people.firstIndex(where: { $0.id == id }) else { return people }
-        var updated = people
-        let moverUnits = footprint(updated[moverIndex], anchor) ?? []
-        updated[moverIndex][keyPath: cell] = anchor
-        var taken = moverUnits
-        var displaced: [Int] = []
-        for index in updated.indices where index != moverIndex {
-            let current = anchors[updated[index].id]
-            updated[index][keyPath: cell] = current
-            let units = current.flatMap { footprint(updated[index], $0) } ?? []
-            if moverUnits.isDisjoint(with: units) {
-                taken.formUnion(units)
-            } else {
-                displaced.append(index)
+    /// First fit in `order` on a half-edge lattice: each piece takes the
+    /// first spot where one of its turns fits without touching the others.
+    private static func pack(_ people: [Person], in order: [Int],
+                             firstTurn: Int) -> (bottom: Double, pieces: [UUID: TangramPiece]) {
+        let stepX = TangramPiece.edge / 4
+        let stepY = TangramPiece.triangleHeight / 3
+        var placed: [(TangramPiece, Point)] = []
+        var pieces: [UUID: TangramPiece] = [:]
+        var bottom = 0.0
+        for index in order {
+            let base = people[index].tangram
+            let turns = base.shape.symmetry
+            var found: (TangramPiece, Point)?
+            var row = 0
+            search: while true {
+                let y = Double(row) * stepY
+                var column = 0
+                while true {
+                    let x = Double(column) * stepX
+                    if x > width { break }
+                    for turn in 0..<turns {
+                        var piece = base
+                        piece.sixths = (firstTurn + turn) % 6
+                        let box = piece.bounds
+                        let centre = Point(x: x - box.min.x, y: y - box.min.y)
+                        guard centre.x + box.max.x <= width + 1e-9 else { continue }
+                        if !placed.contains(where: { separation(piece, at: centre, from: $0.0, at: $0.1) != nil }) {
+                            found = (piece, centre)
+                            break search
+                        }
+                    }
+                    column += 1
+                }
+                row += 1
             }
+            var (piece, centre) = found!
+            piece.position = centre
+            pieces[people[index].id] = piece
+            placed.append((piece, centre))
+            bottom = max(bottom, centre.y + piece.bounds.max.y)
         }
-        for index in displaced {
-            if let vacated, let units = footprint(updated[index], vacated), taken.isDisjoint(with: units) {
-                updated[index][keyPath: cell] = vacated
-                taken.formUnion(units)
-            } else {
-                updated[index][keyPath: cell] = nil
-            }
-        }
-        return updated
+        return (bottom, pieces)
     }
 }
