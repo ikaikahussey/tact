@@ -87,13 +87,19 @@ final class HelpersTests: XCTestCase {
         XCTAssertNotNil(ArtImageCache().tile(for: data, index: ArtPuzzle.pieceCount - 1, tileCount: ArtPuzzle.pieceCount))
     }
 
-    func testHiddenLayoutsResolveToList() {
+    func testHiddenLayoutsResolve() {
         XCTAssertEqual(PeopleLayout.colors.resolved, .list)
         XCTAssertEqual(PeopleLayout.flashcards.resolved, .list)
-        XCTAssertEqual(PeopleLayout.art.resolved, .art)
+        XCTAssertEqual(PeopleLayout.art.resolved, .grid)
         XCTAssertFalse(PeopleLayout.available.contains(.colors))
-        XCTAssertEqual(PeopleLayout.available, [.list, .grid, .tangram, .art])
+        XCTAssertEqual(PeopleLayout.available, [.grid, .list, .tangram])
         XCTAssertEqual(PeopleLayout.art.title, "Puzzle")
+    }
+
+    func testPuzzleFlipNeedsATileForEveryPiece() {
+        XCTAssertFalse(PeopleGridContent.canFlipToPuzzle(peopleCount: 0))
+        XCTAssertFalse(PeopleGridContent.canFlipToPuzzle(peopleCount: ArtPuzzle.pieceCount - 1))
+        XCTAssertTrue(PeopleGridContent.canFlipToPuzzle(peopleCount: ArtPuzzle.pieceCount))
     }
 
     func testBirthdayFormatting() {

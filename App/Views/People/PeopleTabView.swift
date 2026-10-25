@@ -1,39 +1,67 @@
 import SwiftUI
 
-/// The People tab. Switches between the list and the Tiles canvas and hosts
+/// The People tab. Switches between Tiles, the list and Tangram, and hosts
 /// the shared "Add Person" and settings actions.
 struct PeopleTabView: View {
     @EnvironmentObject private var store: TactStore
     @AppStorage(PeopleLayout.storageKey) private var layout: PeopleLayout = .list
+    @AppStorage(PeopleGridContent.showingPuzzleKey) private var tilesShowingPuzzle = false
+    @State private var showingLayouts = false
     @State private var showingAddPerson = false
     @State private var showingSettings = false
     @State private var newPersonName = ""
 
-    /// "People" with a chevron: tapping opens the view-mode menu.
+    /// "People" with a caret: tapping it slides out the views as icons.
     private var header: some View {
-        Menu {
-            Picker("View", selection: $layout) {
-                ForEach(PeopleLayout.available) { option in
-                    Label(option.title, systemImage: option.systemImage).tag(option)
+        TabHeader("People") {
+            HStack(spacing: 6) {
+                Button {
+                    withAnimation(.snappy) { showingLayouts.toggle() }
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(showingLayouts ? 180 : 0))
+                        .frame(width: 28, height: 36)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(showingLayouts ? "Hide Views" : "Show Views")
+                .accessibilityValue(layout.resolved.title)
+
+                if showingLayouts {
+                    HStack(spacing: 4) {
+                        ForEach(PeopleLayout.available) { option in
+                            layoutButton(option)
+                        }
+                    }
+                    .transition(.scale(scale: 0.6, anchor: .leading).combined(with: .opacity))
                 }
             }
-            Divider()
-            Button { showingSettings = true } label: {
-                Label("Settings…", systemImage: "gearshape")
+            .buttonStyle(.plain)
+            // Same height open or closed, centred on the title's capitals.
+            .frame(height: 36)
+            .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 12 }
+        }
+    }
+
+    private func layoutButton(_ option: PeopleLayout) -> some View {
+        let isSelected = layout.resolved == option
+        return Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            withAnimation(.snappy) {
+                layout = option
+                showingLayouts = false
             }
         } label: {
-            TabHeader("People") {
-                Image(systemName: "chevron.down.circle.fill")
-                    .font(.title3)
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(.secondary)
-            }
-            .foregroundStyle(.primary)
-            .contentShape(Rectangle())
+            Image(systemName: option.systemImage)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
+                .frame(width: 36, height: 36)
+                .background(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.tactTileGray.opacity(0.5)),
+                            in: Circle())
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("People, \(layout.resolved.title)")
-        .accessibilityHint("Changes how people are shown")
+        .accessibilityLabel(option.title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     var body: some View {
@@ -41,7 +69,7 @@ struct PeopleTabView: View {
             VStack(spacing: 0) {
                 header
                     .overlay(alignment: .trailing) {
-                        if layout.resolved == .list && !store.people.isEmpty {
+                        if layout.resolved == .list && !store.people.isEmpty && !showingLayouts {
                             OutlineToggle()
                                 .padding(.trailing, 20)
                                 .padding(.top, 4)
@@ -51,10 +79,8 @@ struct PeopleTabView: View {
                 switch layout.resolved {
                 case .list:
                     PeopleListContent()
-                case .grid, .colors:
+                case .grid, .colors, .art:
                     PeopleGridContent()
-                case .art:
-                    ArtPuzzleView()
                 case .tangram:
                     TangramGridContent()
                 case .flashcards:
@@ -62,9 +88,21 @@ struct PeopleTabView: View {
                 }
             }
             .background(Color.tactBackground)
+            .onAppear {
+                // The Puzzle used to be its own layout; it is now the back of Tiles.
+                if layout == .art {
+                    tilesShowingPuzzle = true
+                    layout = .grid
+                }
+            }
             .navigationTitle("People")
             .appTitleBar()
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { showingSettings = true } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button { showingAddPerson = true } label: {
                         Label("Add Person", systemImage: "plus")

@@ -11,12 +11,17 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
 
     static let storageKey = "peopleLayout"
 
-    /// Layouts offered in the People menu. Random Colors and Flashcards are
+    /// Layouts offered next to the People header. Random Colors and Flashcards are
     /// kept for stored preferences but hidden until they are ready to ship.
-    static let available: [PeopleLayout] = [.list, .grid, .tangram, .art]
+    /// The Puzzle is the flip side of Tiles, so `art` is no longer listed.
+    static let available: [PeopleLayout] = [.grid, .list, .tangram]
 
-    /// The layout to show: hidden layouts fall back to the list.
-    var resolved: PeopleLayout { Self.available.contains(self) ? self : .list }
+    /// The layout to show: the Puzzle opens as Tiles (turned over), and other
+    /// hidden layouts fall back to the list.
+    var resolved: PeopleLayout {
+        if self == .art { return .grid }
+        return Self.available.contains(self) ? self : .list
+    }
 
     var id: String { rawValue }
 
