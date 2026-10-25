@@ -91,16 +91,27 @@ final class HelpersTests: XCTestCase {
         XCTAssertEqual(PeopleLayout.colors.resolved, .grid)
         XCTAssertEqual(PeopleLayout.flashcards.resolved, .grid)
         XCTAssertEqual(PeopleLayout.art.resolved, .grid)
+        XCTAssertEqual(PeopleLayout.tangram.resolved, .grid)
         XCTAssertFalse(PeopleLayout.available.contains(.colors))
-        XCTAssertEqual(PeopleLayout.available, [.grid, .list, .tangram])
+        XCTAssertEqual(PeopleLayout.available, [.grid, .list])
         XCTAssertEqual(PeopleLayout.standard, .grid)
         XCTAssertEqual(PeopleLayout.art.title, "Puzzles")
     }
 
-    func testPuzzleFlipNeedsATileForEveryPiece() {
-        XCTAssertFalse(PeopleGridContent.canFlipToPuzzle(peopleCount: 0))
-        XCTAssertFalse(PeopleGridContent.canFlipToPuzzle(peopleCount: ArtPuzzle.pieceCount - 1))
-        XCTAssertTrue(PeopleGridContent.canFlipToPuzzle(peopleCount: ArtPuzzle.pieceCount))
+    func testGamesNeedATileForEveryPuzzlePiece() {
+        XCTAssertFalse(PeopleGridContent.canFlipToGames(peopleCount: 0))
+        XCTAssertFalse(PeopleGridContent.canFlipToGames(peopleCount: ArtPuzzle.pieceCount - 1))
+        XCTAssertTrue(PeopleGridContent.canFlipToGames(peopleCount: ArtPuzzle.pieceCount))
+    }
+
+    func testGamesOnTheBackOfTiles() {
+        XCTAssertEqual(TileGame.all.map(\.id), ["woodblock", "tangram"])
+        XCTAssertEqual(Set(TileGame.all.map(\.id)).count, TileGame.all.count, "ids are unique")
+        XCTAssertEqual(TileGame.named("tangram").id, "tangram")
+        XCTAssertEqual(TileGame.named("gone").id, "woodblock", "an unknown game falls back to the first")
+        XCTAssertEqual(PeopleLayout.art.formerGame?.id, "woodblock")
+        XCTAssertEqual(PeopleLayout.tangram.formerGame?.id, "tangram")
+        XCTAssertNil(PeopleLayout.list.formerGame)
     }
 
     func testBirthdayFormatting() {

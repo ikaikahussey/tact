@@ -4,22 +4,28 @@ import SwiftUI
 /// their geometric pattern. Tap a tile to open the person; touch and hold to
 /// change its colour or turn it, or drag it to any cell (gaps allowed).
 /// Bring Together closes the gaps. Once there are enough people to cover the
-/// puzzle board, the flip button turns every tile over to show the picture
-/// puzzle on the back of the top four rows.
+/// puzzle board, the flip button turns every tile over to the games on the
+/// back (`TileGame`), and a selector picks which one is played.
 struct PeopleGridContent: View {
     @EnvironmentObject private var store: TactStore
-    @AppStorage(Self.showingPuzzleKey) private var showingPuzzle = false
-    @State private var game = PuzzleGame()
+    @AppStorage(Self.showingGamesKey) private var showingGames = false
+    @AppStorage(TileGame.storageKey) private var selectedGameID = TileGame.all[0].id
     @State private var openPersonID: UUID?
     @State private var dropTarget: Int?
-    @State private var showingPuzzleSettings = false
 
-    static let showingPuzzleKey = "tilesShowingPuzzle"
+    /// Whether the tiles are turned over. The key predates the other games.
+    static let showingGamesKey = "tilesShowingPuzzle"
 
-    /// The puzzle is offered once there is a tile for every piece of the board.
-    static func canFlipToPuzzle(peopleCount: Int) -> Bool {
+    /// The games are offered once there is a tile for every piece of the
+    /// woodblock puzzle's board.
+    static func canFlipToGames(peopleCount: Int) -> Bool {
         peopleCount >= ArtPuzzle.pieceCount
     }
+
+    /// Room the shared round buttons take at the bottom corners, so each
+    /// game can keep its own buttons clear of them.
+    private static let flipButtonInset: CGFloat = 44 + 12
+    private static let selectorInset: CGFloat = 140
 
     private let columns = TileLayout.columns
     private let spacing: CGFloat = 1
@@ -36,6 +42,97 @@ struct PeopleGridContent: View {
     }
 
     var body: some View {
+        ZStack {
+            tiles
+            games
+        }
+        .background(Color.tactBackground)
+        .overlay(alignment: .bottomTrailing) {
+            HStack(spacing: 12) {
+                if !showingGames && store.people.count > 1 {
+                    CanvasActionButton(title: "Bring Together", systemImage: "square.grid.3x3.topleft.filled",
+                                       hint: "Closes the gaps between tiles, keeping their order.",
+                                       isEnabled: !TileLayout.isCompact(store.people)) {
+                        withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                            store.bringTilesTogether()
+                        }
+                    }
+                }
+                // Always offer the way back, even if people were removed meanwhile.
+                if showingGames || Self.canFlipToGames(peopleCount: store.people.count) {
+                    CanvasActionButton(title: showingGames ? "Flip to Tiles" : "Flip to Games",
+                                       systemImage: showingGames ? "square.grid.3x3.fill" : "puzzlepiece.fill",
+                                       hint: "Turns every tile over.") {
+                        showingGames.toggle()
+                    }
+                }
+            }
+            .padding(16)
+        }
+        .overlay(alignment: .bottomLeading) {
+            if showingGames {
+                gameSelector
+                    .padding(16)
+                    .transition(.scale(scale: 0.6, anchor: .leading).combined(with: .opacity))
+            }
+        }
+        .animation(.snappy, value: showingGames)
+        .overlay {
+            if store.people.isEmpty && !showingGames {
+                ContentUnavailableView {
+                    Label("No People Yet", systemImage: "square.grid.2x2")
+                } description: {
+                    Text("Tap + to add someone. Each person becomes a patterned tile: tap it to open them, or touch and hold to change its colour.")
+                }
+            }
+        }
+        .navigationDestination(item: $openPersonID) { id in
+            PersonDetailView(personID: id)
+        }
+    }
+
+    /// Every game, each face up only while the tiles are turned over and it
+    /// is the chosen one. All stay loaded so each keeps its progress.
+    private var games: some View {
+        GeometryReader { geometry in
+            ForEach(TileGame.all) { game in
+                let isShowing = showingGames && TileGame.named(selectedGameID).id == game.id
+                game.board(TileGameContext(size: geometry.size, isShowing: isShowing, flipDelay: flipDelay,
+                                           leadingControlInset: Self.selectorInset,
+                                           trailingControlInset: Self.flipButtonInset))
+                    .allowsHitTesting(isShowing)
+                    .accessibilityHidden(!isShowing)
+            }
+        }
+    }
+
+    /// Round icons for the games, the chosen one filled, in a capsule.
+    private var gameSelector: some View {
+        HStack(spacing: 4) {
+            ForEach(TileGame.all) { game in
+                let isSelected = TileGame.named(selectedGameID).id == game.id
+                Button {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    selectedGameID = game.id
+                } label: {
+                    Image(systemName: game.systemImage)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
+                        .frame(width: 36, height: 36)
+                        .background(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.tactTileGray.opacity(0.5)),
+                                    in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(game.title)
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .background(.regularMaterial, in: Capsule())
+        .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
+    }
+
+    private var tiles: some View {
         GeometryReader { geometry in
             let squareSize = ((geometry.size.width - spacing * CGFloat(columns - 1)) / CGFloat(columns)).rounded(.down)
             let pitch = squareSize + spacing
@@ -44,8 +141,7 @@ struct PeopleGridContent: View {
             let people = Dictionary(store.people.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
             let placed = layout.compactMap { cell, id in people[id].map { (cell: cell, person: $0) } }
                 .sorted { $0.cell < $1.cell }
-            // Leave room under the puzzle for its status line.
-            let cellCount = Self.cellCount(occupied: layout.keys, visibleRows: max(visibleRows, ArtPuzzle.rows + 1), columns: columns)
+            let cellCount = Self.cellCount(occupied: layout.keys, visibleRows: visibleRows, columns: columns)
             let origin = { (cell: Int) in
                 CGSize(width: CGFloat(cell % columns) * pitch, height: CGFloat(cell / columns) * pitch)
             }
@@ -67,26 +163,16 @@ struct PeopleGridContent: View {
 
                     ForEach(placed, id: \.person.id) { anchor, person in
                         tile(for: person, size: squareSize)
-                            .modifier(TileFlipFace(side: .front, showingBack: showingPuzzle, delay: flipDelay(anchor)))
+                            .modifier(TileFlipFace(side: .front, showingBack: showingGames, delay: flipDelay(anchor)))
                             .dropDestination(for: String.self) { items, _ in
                                 drop(items, at: anchor)
                             } isTargeted: { targeted in
                                 target(anchor, targeted)
                             }
                             .offset(origin(anchor))
-                            .allowsHitTesting(!showingPuzzle)
-                            .accessibilityHidden(showingPuzzle)
+                            .allowsHitTesting(!showingGames)
+                            .accessibilityHidden(showingGames)
                     }
-
-                    PuzzleBoard(game: game, pitch: pitch, pieceSize: squareSize,
-                                isShowing: showingPuzzle, flipDelay: flipDelay)
-
-                    puzzleStatus
-                        .frame(width: geometry.size.width - 32, alignment: .leading)
-                        .offset(x: 16, y: CGFloat(ArtPuzzle.rows) * pitch + 12)
-                        .opacity(showingPuzzle ? 1 : 0)
-                        .animation(.easeInOut(duration: 0.2).delay(showingPuzzle ? 0.35 : 0), value: showingPuzzle)
-                        .accessibilityHidden(!showingPuzzle)
 
                     if let dropTarget {
                         Rectangle()
@@ -101,95 +187,19 @@ struct PeopleGridContent: View {
                 .padding(.bottom, 80)
                 .id(Self.topID)
             }
-            .scrollDisabled(showingPuzzle)
-            .onChange(of: showingPuzzle) { _, showing in
-                // The puzzle is on the back of the top rows.
+            .scrollDisabled(showingGames)
+            .onChange(of: showingGames) { _, showing in
+                // The games line up with the top rows.
                 if showing { withAnimation { proxy.scrollTo(Self.topID, anchor: .top) } }
             }
             .onAppear {
-                if showingPuzzle { proxy.scrollTo(Self.topID, anchor: .top) }
+                if showingGames { proxy.scrollTo(Self.topID, anchor: .top) }
             }
             }
-        }
-        .background(Color.tactBackground)
-        .overlay(alignment: .bottomTrailing) {
-            HStack(spacing: 12) {
-                if showingPuzzle {
-                    CanvasActionButton(title: "Choose Photo", systemImage: "photo",
-                                       hint: "Picks the picture for the puzzle.") {
-                        showingPuzzleSettings = true
-                    }
-                    CanvasActionButton(title: "New Game", systemImage: "shuffle",
-                                       hint: "Scrambles the puzzle and starts again.") {
-                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { game.newGame() }
-                    }
-                } else if store.people.count > 1 {
-                    CanvasActionButton(title: "Bring Together", systemImage: "square.grid.3x3.topleft.filled",
-                                       hint: "Closes the gaps between tiles, keeping their order.",
-                                       isEnabled: !TileLayout.isCompact(store.people)) {
-                        withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
-                            store.bringTilesTogether()
-                        }
-                    }
-                }
-                // Always offer the way back, even if people were removed meanwhile.
-                if showingPuzzle || Self.canFlipToPuzzle(peopleCount: store.people.count) {
-                    CanvasActionButton(title: showingPuzzle ? "Flip to Tiles" : "Flip to Puzzle",
-                                       systemImage: showingPuzzle ? "square.grid.3x3.fill" : "puzzlepiece.fill",
-                                       hint: "Turns every tile over.") {
-                        showingPuzzle.toggle()
-                    }
-                }
-            }
-            .padding(16)
-        }
-        .onChange(of: store.settings.artSettings.imageData) { _, _ in
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { game.newGame() }
-        }
-        .sheet(isPresented: $showingPuzzleSettings) {
-            NavigationStack {
-                ArtSettingsView()
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Done") { showingPuzzleSettings = false }
-                        }
-                    }
-            }
-        }
-        .overlay {
-            if store.people.isEmpty && !showingPuzzle {
-                ContentUnavailableView {
-                    Label("No People Yet", systemImage: "square.grid.2x2")
-                } description: {
-                    Text("Tap + to add someone. Each person becomes a patterned tile: tap it to open them, or touch and hold to change its colour.")
-                }
-            }
-        }
-        .navigationDestination(item: $openPersonID) { id in
-            PersonDetailView(personID: id)
         }
     }
 
     private static let topID = "tilesTop"
-
-    private var puzzleStatus: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if game.isSolved {
-                Label("Solved in \(game.movesText)", systemImage: "checkmark.seal.fill")
-                    .foregroundStyle(.green)
-                    .fontWeight(.semibold)
-            } else {
-                Text(game.movesText)
-                    .foregroundStyle(.secondary)
-            }
-            if game.moveCount == 0 || game.isSolved {
-                Text("Drag the pieces into the empty space to rebuild the picture.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .animation(.easeInOut(duration: 0.2), value: game.isSolved)
-    }
 
     private func drop(_ items: [String], at cell: Int) -> Bool {
         guard let id = items.first.flatMap(UUID.init(uuidString:)) else { return false }

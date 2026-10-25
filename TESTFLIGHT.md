@@ -36,10 +36,11 @@ Tact keeps notes about the people in your life. Everything stays on your phone.
 Please try:
 • Add a few people, give some a photo, and link one to a contact card.
 • Write notes from the Notes tab and from a person's screen. Link a note to more than one person.
-• Switch the People view (tap the arrow beside "People") between Tiles, List and Tangram; Settings is the gear at the top left. In List, tap + on a person to add a note about them, and the small outline button beside the People header shows each person with their notes beneath them. Each person is a tile.
+• Switch the People view (tap the arrow beside "People") between Tiles and List; Settings is the gear at the top left. In List, tap + on a person to add a note about them, and the small outline button beside the People header shows each person with their notes beneath them. Each person is a tile.
 • In Tiles (the view People opens on), each person is a tile showing their photo or a pattern; choose which under Tile on their screen. Tap a tile to open the person. Touch and hold a tile to pick its colour or turn it, or drag it anywhere. Try making a picture. The round grid button brings the tiles together again.
-• In Tangram, triangles fit together along cell diagonals and squares can turn 45° into diamonds. Drop a triangle next to another piece and it turns to fit. Tap the round shuffle button to fit everything together snugly; tap again for a different arrangement.
-• In Tiles, once you have 16 people, tap the round puzzle-piece button to flip every tile over to the picture puzzle. Slide the pieces to rebuild the picture, tap the photo button to use your own, and tap the grid button to flip back.
+• In Tiles, once you have 16 people, tap the round puzzle-piece button to flip every tile over to the games on the back. The selector at the bottom left switches between them; the grid button flips back.
+• Woodblock Puzzle: slide the pieces to rebuild the picture, and tap the photo button to use your own.
+• Tangram: triangles fit together along cell diagonals and squares can turn 45° into diamonds. Drop a triangle next to another piece and it turns to fit. Tap the round shuffle button to fit everything together snugly; tap again for a different arrangement.
 • In Settings, try the Classic, Pastel, Earthy and Jewel colours: they recolour the tiles, Tangram pieces and buttons.
 • Group Notes by person (tap the "Notes" header).
 • Edit a note: change its date, add or remove people, then delete it.

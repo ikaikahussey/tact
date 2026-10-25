@@ -6,9 +6,12 @@ import SwiftUI
 /// around. Tap a piece to open the person; touch and hold to change its
 /// shape, colour or turn, or drag it somewhere else. A triangle dropped next
 /// to another turns to fill the gap if it can. Fit Together packs every
-/// piece in as snugly as it can, a different way each time.
+/// piece in as snugly as it can, a different way each time. It is played on
+/// the back of Tiles (`TileGame.tangram`): the pieces turn into view as the
+/// tiles turn over.
 struct TangramGridContent: View {
     @EnvironmentObject private var store: TactStore
+    let context: TileGameContext
     @State private var openPersonID: UUID?
     @State private var dropTarget: Int?
 
@@ -32,6 +35,8 @@ struct TangramGridContent: View {
                     ForEach(0..<cellCount, id: \.self) { cell in
                         LatticeCell()
                             .frame(width: cellSize, height: cellSize)
+                            .opacity(context.isShowing ? 1 : 0)
+                            .animation(.easeInOut(duration: 0.3).delay(context.flipDelay(cell)), value: context.isShowing)
                             .contentShape(Rectangle())
                             .dropDestination(for: String.self) { items, _ in
                                 drop(items, at: cell)
@@ -44,6 +49,7 @@ struct TangramGridContent: View {
 
                     ForEach(placed, id: \.person.id) { anchor, person in
                         piece(for: person, cellSize: cellSize)
+                            .modifier(TileFlipFace(side: .back, showingBack: context.isShowing, delay: context.flipDelay(anchor)))
                             .dropDestination(for: String.self) { items, location in
                                 drop(items, at: anchor + Int(location.y / cellSize) * columns + Int(location.x / cellSize))
                             } isTargeted: { targeted in
@@ -65,22 +71,15 @@ struct TangramGridContent: View {
                 .padding(.bottom, 80)
             }
         }
-        .background(Color.tactBackground)
         .overlay(alignment: .bottomTrailing) {
-            if store.people.count > 1 {
+            if context.isShowing && store.people.count > 1 {
                 fitControls
                     .padding(16)
+                    .padding(.trailing, context.trailingControlInset)
+                    .transition(.opacity)
             }
         }
-        .overlay {
-            if store.people.isEmpty {
-                ContentUnavailableView {
-                    Label("No People Yet", systemImage: "square.split.diagonal.2x2")
-                } description: {
-                    Text("Tap + to add someone. Each person becomes a tangram piece: tap it to open them, or touch and hold to change its shape, colour or turn.")
-                }
-            }
-        }
+        .animation(.easeInOut(duration: 0.2), value: context.isShowing)
         .navigationDestination(item: $openPersonID) { id in
             PersonDetailView(personID: id)
         }
