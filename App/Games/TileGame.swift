@@ -1,38 +1,52 @@
 import SwiftUI
 
-/// A game listed on the Games screen. Each draws on the same four-column
-/// grid as the People tiles, given a `TileGameContext` for the canvas size.
+/// A game played on the back of the People tiles. Choosing one from the
+/// Games menu turns every tile over, and the game's pieces turn into view
+/// in their place.
+///
+/// To add a game, write a view that takes a `TileGameContext` and list it
+/// in `TileGame.all`. The view draws on the same four-column grid as the
+/// tiles and turns its pieces with `TileFlipFace(side: .back, …)` using the
+/// context's `isShowing` and `flipDelay`. Every game stays loaded while the
+/// tiles are open, so each keeps its progress.
 struct TileGame: Identifiable {
     let id: String
     let title: String
     let blurb: String
     let systemImage: String
-    let route: Route
+    let board: (TileGameContext) -> AnyView
 
-    /// The games offered, in the order of their cards.
+    /// The games offered, in the order of the menu. The first is the default.
     static let all: [TileGame] = [.tangram, .slidingPuzzle]
+
+    static let storageKey = "tilesGame"
+
+    /// The game with `id`, or the first game when there is none.
+    static func named(_ id: String) -> TileGame {
+        all.first { $0.id == id } ?? all[0]
+    }
 
     static let tangram = TileGame(id: "tangram", title: "Tangram",
                                   blurb: "Everyone as a pattern block. Drag the pieces around the table or fit them together.",
-                                  systemImage: "square.split.diagonal.2x2", route: .tangram)
+                                  systemImage: "square.split.diagonal.2x2") {
+        AnyView(TangramGridContent(context: $0))
+    }
 
     static let slidingPuzzle = TileGame(id: "woodblock", title: "Sliding Puzzle",
                                         blurb: "A picture cut into sixteen pieces, one missing. Slide them back into place.",
-                                        systemImage: "puzzlepiece", route: .slidingPuzzle(.standard))
+                                        systemImage: "puzzlepiece") {
+        AnyView(SlidingPuzzleGame(context: $0, source: .standard))
+    }
 }
 
-/// What a game is given to draw with.
+/// What a game is given to draw with on the back of the tiles.
 struct TileGameContext {
     /// Size of the canvas the game fills.
     let size: CGSize
-    /// Whether the game is on screen. Always true now that games have their
-    /// own screen; kept so the pieces' flip-in animation can be reused.
+    /// Whether this game is face up: the tiles are turned over and it is chosen.
     var isShowing = true
     /// Stagger for the flip, by cell in a four-column grid.
     var flipDelay: (Int) -> Double = { _ in 0 }
-    /// Room to leave at the bottom corners for other controls.
-    var leadingControlInset: CGFloat = 0
-    var trailingControlInset: CGFloat = 0
 
     static let columns = TileLayout.columns
     static let spacing: CGFloat = 1

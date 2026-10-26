@@ -1,12 +1,13 @@
 import SwiftUI
 
 /// The root screen: the people as a grid of tiles (People), as a list with
-/// their notes (Notes), or the games (Games), picked by the floating switch
-/// at the bottom and remembered, under the shared header. Everything else
-/// is pushed from here.
+/// their notes (Notes), or a game on the back of the tiles (Games), picked
+/// by the floating switch at the bottom and remembered, under the shared
+/// header. Everything else is pushed from here.
 struct PeopleRootView: View {
     @EnvironmentObject private var store: TactStore
     @AppStorage(PeopleLayout.storageKey) private var rememberedLayout: PeopleLayout = .standard
+    @AppStorage(TileGame.storageKey) private var selectedGameID = TileGame.all[0].id
     @State private var path = NavigationPath()
     @State private var searchText = ""
     @State private var isSearching = false
@@ -24,17 +25,19 @@ struct PeopleRootView: View {
             HeaderScreen {
                 header
             } content: {
-                switch layout {
-                case .list:
+                if layout == .list {
                     PeopleListContent(query: query, editMode: $editMode)
-                case .games:
-                    GamesContent()
-                default:
-                    PeopleGridContent(query: query, isEditing: editMode.isEditing)
+                } else {
+                    // The grid and the games share one canvas: a game is the
+                    // back of the tiles, and choosing one turns them over.
+                    ZStack {
+                        PeopleGridContent(query: query, isEditing: editMode.isEditing, showingGames: layout == .games)
+                        GamesSurface(showing: layout == .games, selectedGameID: selectedGameID)
+                    }
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                ViewSwitch(layout: layoutBinding)
+                ViewSwitch(layout: layoutBinding, selectedGameID: $selectedGameID)
                     .padding(.bottom, 8)
             }
             .environment(\.editMode, $editMode)
@@ -137,14 +140,6 @@ struct PeopleRootView: View {
             PersonDetailView(personID: id)
         case .note(let id):
             NoteDetailView(noteID: id)
-        case .tangram:
-            GameScreen(title: route.title, onLogoTap: popToRoot) { context in
-                TangramGridContent(context: context)
-            }
-        case .slidingPuzzle(let source):
-            GameScreen(title: route.title, onLogoTap: popToRoot) { context in
-                SlidingPuzzleGame(context: context, source: source)
-            }
         }
     }
 }

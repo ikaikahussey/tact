@@ -39,7 +39,7 @@ Please try:
 • Notes is everyone with their notes beneath them, newest first. Tap + on a person to add a note about them, or + in the header for a new note linked to anyone. More > Edit reorders and deletes people in Notes and deletes tiles in People.
 • Tap the search icon and type: the grid and the list both narrow to matching people and notes.
 • In the grid, each person is a tile showing their photo or a pattern; choose which under Tile on their screen. Tap a tile to open the person. Touch and hold a tile to pick its colour or turn it, or drag it anywhere. The round grid button brings the tiles together again.
-• Switch to Games. Tangram: tap a piece to open the person, touch and hold for its menu, drag to push the others, turn it with two fingers, and tap the shuffle button to fit everything together. Sliding Puzzle: slide the pieces to rebuild the Tact tiles, or choose your own photo. Open Puzzle from a person's screen to play with their photo.
+• Tap Games on the switch and pick a game: every tile flips over to it, and People flips them back. Tangram: tap a piece to open the person, touch and hold for its menu, drag to push the others, turn it with two fingers, and tap the shuffle button to fit everything together. Sliding Puzzle: slide the pieces to rebuild the Tact tiles, or choose your own photo. Open Puzzle from a person's screen to play with their photo.
 ```
 
 ## Beta App Review notes

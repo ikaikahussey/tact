@@ -5,8 +5,9 @@ import SwiftUI
 /// snapped to a grid: drag one anywhere and the pieces in its way are pushed
 /// along like wooden blocks. Tap a piece to open the person; touch and hold
 /// to change its shape, colour or turn, or turn it with two fingers. Fit
-/// Together packs every piece in
-/// snugly, a different way each time. Reached from the Games screen.
+/// Together packs every piece in snugly, a different way each time. Played
+/// on the back of the tiles (`TileGame.tangram`): the pieces turn into view
+/// as the tiles turn over.
 struct TangramGridContent: View {
     @EnvironmentObject private var store: TactStore
     @Environment(\.pushRoute) private var pushRoute
@@ -37,11 +38,16 @@ struct TangramGridContent: View {
                 ZStack(alignment: .topLeading) {
                     TriangularLattice(cellSize: cellSize)
                         .frame(width: cellSize * CGFloat(columns), height: height)
+                        .opacity(context.isShowing ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.4).delay(context.flipDelay(0)), value: context.isShowing)
                         .accessibilityHidden(true)
 
                     ForEach(placed, id: \.person.id) { centre, person in
+                        let cell = Int(centre.y) * columns + min(columns - 1, max(0, Int(centre.x)))
                         let offset = person.tangram.boundsOffset
                         piece(for: person, centre: centre, cellSize: cellSize)
+                            .modifier(TileFlipFace(side: .back, showingBack: context.isShowing,
+                                                   delay: context.flipDelay(cell)))
                             .position(x: (centre.x + offset.x) * cellSize, y: (centre.y + offset.y) * cellSize)
                             .zIndex(dragging?.id == person.id ? 1 : 0)
                     }
@@ -54,11 +60,13 @@ struct TangramGridContent: View {
             .scrollDisabled(dragging != nil)
         }
         .overlay(alignment: .bottomTrailing) {
-            if store.people.count > 1 {
+            if context.isShowing && store.people.count > 1 {
                 fitControls
                     .padding(16)
+                    .transition(.opacity)
             }
         }
+        .animation(.easeInOut(duration: 0.2), value: context.isShowing)
     }
 
     /// Packs every piece in snugly, picking a new arrangement each press.

@@ -14,14 +14,19 @@ struct SlidingPuzzleGame: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            PuzzleBoard(game: game, imageData: imageData, pitch: context.pitch, pieceSize: context.cellSize)
+            PuzzleBoard(game: game, imageData: imageData, pitch: context.pitch, pieceSize: context.cellSize,
+                        isShowing: context.isShowing, flipDelay: context.flipDelay)
 
             status
                 .frame(width: context.size.width - 32, alignment: .leading)
                 .offset(x: 16, y: CGFloat(ArtPuzzle.rows) * context.pitch + 12)
+                .opacity(context.isShowing ? 1 : 0)
+                .animation(.easeInOut(duration: 0.2).delay(context.isShowing ? 0.35 : 0), value: context.isShowing)
+                .accessibilityHidden(!context.isShowing)
         }
         .frame(width: context.size.width, height: context.size.height, alignment: .topLeading)
         .overlay(alignment: .bottomTrailing) {
+            if context.isShowing {
             HStack(spacing: 12) {
                 if source == .standard {
                     CanvasActionButton(title: "Choose Photo", systemImage: "photo",
@@ -35,7 +40,10 @@ struct SlidingPuzzleGame: View {
                 }
             }
             .padding(16)
+            .transition(.opacity)
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: context.isShowing)
         .onChange(of: imageData) { _, _ in
             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { game.newGame() }
         }

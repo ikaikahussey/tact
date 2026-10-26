@@ -4,11 +4,15 @@ import SwiftUI
 /// their geometric pattern. Tap a tile to open the person; touch and hold to
 /// start a note, change its color, turn it or delete the person, or drag
 /// it to any cell (gaps allowed). Edit puts a delete badge on every tile.
+/// Choosing a game turns every tile over (`TileFlipFace`) to the game on
+/// the back (`GamesSurface`).
 /// Bring Together closes the gaps.
 struct PeopleGridContent: View {
     let query: String
     /// Edit mode: each tile wears a delete badge instead of opening.
     var isEditing = false
+    /// The tiles are turned over to a game (`GamesSurface` draws the back).
+    var showingGames = false
 
     @EnvironmentObject private var store: TactStore
     @State private var dropTarget: Int?
@@ -29,7 +33,7 @@ struct PeopleGridContent: View {
         tiles
             .background(Color.tactBackground)
             .overlay(alignment: .bottomTrailing) {
-                if store.people.count > 1 && query.isEmpty {
+                if store.people.count > 1 && query.isEmpty && !showingGames {
                     CanvasActionButton(title: "Bring Together", systemImage: "square.grid.3x3.topleft.filled",
                                        hint: "Closes the gaps between tiles, keeping their order.",
                                        isEnabled: !TileLayout.isCompact(store.people)) {
@@ -55,7 +59,7 @@ struct PeopleGridContent: View {
                 Text("Notes linked only to this person are deleted too. Notes shared with other people are kept.")
             }
             .overlay {
-                if store.people.isEmpty {
+                if store.people.isEmpty && !showingGames {
                     ContentUnavailableView {
                         Label("No People Yet", systemImage: "square.grid.2x2")
                     } description: {
@@ -77,6 +81,7 @@ struct PeopleGridContent: View {
                 CGSize(width: CGFloat(cell % columns) * pitch, height: CGFloat(cell / columns) * pitch)
             }
 
+            ScrollViewReader { proxy in
             ScrollView {
                 ZStack(alignment: .topLeading) {
                     ForEach(0..<cellCount, id: \.self) { cell in
@@ -93,12 +98,16 @@ struct PeopleGridContent: View {
 
                     ForEach(items.tiles, id: \.person.id) { placed in
                         tile(for: placed.person, size: squareSize)
+                            .modifier(TileFlipFace(side: .front, showingBack: showingGames,
+                                                   delay: TileFlipFace.delay(forCell: placed.cell, columns: columns)))
                             .dropDestination(for: String.self) { items, _ in
                                 drop(items, at: placed.cell)
                             } isTargeted: { targeted in
                                 target(placed.cell, targeted)
                             }
                             .offset(origin(placed.cell))
+                            .allowsHitTesting(!showingGames)
+                            .accessibilityHidden(showingGames)
                             .transition(.scale(scale: 0.8).combined(with: .opacity))
                     }
 
@@ -114,9 +123,21 @@ struct PeopleGridContent: View {
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: items)
                 .animation(.snappy, value: isEditing)
                 .padding(.bottom, 80)
+                .id(Self.topID)
+            }
+            .scrollDisabled(showingGames)
+            .onChange(of: showingGames) { _, showing in
+                // The games line up with the top rows.
+                if showing { withAnimation { proxy.scrollTo(Self.topID, anchor: .top) } }
+            }
+            .onAppear {
+                if showingGames { proxy.scrollTo(Self.topID, anchor: .top) }
+            }
             }
         }
     }
+
+    private static let topID = "tilesTop"
 
     private func drop(_ items: [String], at cell: Int) -> Bool {
         guard let id = items.first.flatMap(UUID.init(uuidString:)) else { return false }
