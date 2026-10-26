@@ -16,11 +16,11 @@ From the repository root:
 Scripts/testflight.sh
 ```
 
-The team (3D52FT6PP7) is set in the project. The script archives a Release build with a timestamp build number, signs it automatically, and uploads it. Processing takes a few minutes; then the build appears under TestFlight in App Store Connect.
+The team (3D52FT6PP7) is set in the project. The script archives a Release build with a timestamp build number, signs it with the Apple Distribution certificate in the login keychain and the "Tact App Store" profile, and uploads it with the team's App Store Connect API key. The key ID and issuer ID live in `~/.appstoreconnect/tact.env` (or `ASC_KEY_ID` / `ASC_ISSUER_ID` in the environment) and the `.p8` in `~/.appstoreconnect/private_keys/`; neither is in the repository. Processing takes a few minutes; then the build appears under TestFlight in App Store Connect.
 
-Or in Xcode: select "Any iOS Device (arm64)", Product > Archive, then Distribute App > TestFlight & App Store.
+The script does not use the Xcode login: `xcodebuild` run from a terminal cannot read the accounts Xcode keeps, so it fails with "Failed to Use Accounts" however often you sign in. The API key avoids that. API keys cannot use the team's cloud-managed distribution certificate either, which is why signing is manual. On a new Mac: Xcode > Settings > Accounts > Manage Certificates > + > Apple Distribution, then in the developer portal regenerate the "Tact App Store" profile (Profiles > App Store Connect > Tact > that certificate) and download it.
 
-To upload without being interactively signed in (CI), create an App Store Connect API key with the App Manager role and pass `ASC_KEY_PATH`, `ASC_KEY_ID` and `ASC_ISSUER_ID` as well.
+Or in Xcode: select "Any iOS Device (arm64)", Product > Archive, then Distribute App > TestFlight & App Store. That path uses the Xcode login and cloud signing and works independently of the above.
 
 ## Export compliance
 
