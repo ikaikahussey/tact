@@ -38,10 +38,11 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Toggle("Sounds", isOn: $gameSoundsOn)
-                        .onChange(of: gameSoundsOn) { _, on in
-                            if !on { Synth.shared.stop() }
-                        }
+                    NavigationLink {
+                        SoundSettingsView()
+                    } label: {
+                        LabeledContent("Sound", value: gameSoundsOn ? "On" : "Off")
+                    }
                     NavigationLink {
                         ArtSettingsView()
                     } label: {
@@ -50,8 +51,6 @@ struct SettingsView: View {
                     }
                 } header: {
                     Text("Games")
-                } footer: {
-                    Text("Beeps and boops in Lights Out. They follow the silent switch.")
                 }
 
                 Section {
