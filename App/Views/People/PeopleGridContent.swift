@@ -3,7 +3,8 @@ import SwiftUI
 /// The Tiles canvas: a four-column grid where each person is a square with
 /// their geometric pattern. Tap a tile to open the person; touch and hold to
 /// start a note, change its color, turn it or delete the person, or drag
-/// it to any cell (gaps allowed). Edit puts a delete badge on every tile.
+/// it to any cell (gaps allowed). Touch and hold an empty cell to add
+/// someone there. Edit puts a delete badge on every tile.
 /// Choosing a game turns every tile over (`TileFlipFace`) to the game on
 /// the back (`GamesSurface`).
 /// Bring Together closes the gaps.
@@ -13,6 +14,8 @@ struct PeopleGridContent: View {
     var isEditing = false
     /// The tiles are turned over to a game (`GamesSurface` draws the back).
     var showingGames = false
+    /// Touch and hold an empty cell to add someone there.
+    var onAddPerson: (_ cell: Int) -> Void = { _ in }
 
     @EnvironmentObject private var store: TactStore
     @State private var dropTarget: Int?
@@ -87,6 +90,12 @@ struct PeopleGridContent: View {
                     ForEach(0..<cellCount, id: \.self) { cell in
                         Color.tactTileGray.opacity(0.35)
                             .frame(width: squareSize, height: squareSize)
+                            .contentShape(Rectangle())
+                            .onLongPressGesture(minimumDuration: 0.4) {
+                                guard !showingGames, !isEditing else { return }
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                onAddPerson(cell)
+                            }
                             .dropDestination(for: String.self) { items, _ in
                                 drop(items, at: cell)
                             } isTargeted: { targeted in

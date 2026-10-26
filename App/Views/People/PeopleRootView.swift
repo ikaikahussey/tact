@@ -16,6 +16,8 @@ struct PeopleRootView: View {
     @State private var showingAddNote = false
     @State private var showingSettings = false
     @State private var newPersonName = ""
+    /// The empty cell that was held to add someone; their tile goes there.
+    @State private var addPersonCell: Int?
     /// What the canvas shows right now. Mode changes are staged through the
     /// tiles: a game flips them over, and any other mode flips them back
     /// before the list fades in, so every change passes through the flip.
@@ -50,7 +52,10 @@ struct PeopleRootView: View {
                     // the list are hidden and the overlay carries the tiles.
                     ZStack {
                         PeopleGridContent(query: query, isEditing: editMode.isEditing && !showsList,
-                                          showingGames: canvasShowsGames)
+                                          showingGames: canvasShowsGames) { cell in
+                            addPersonCell = cell
+                            showingAddPerson = true
+                        }
                         GamesSurface(showing: canvasShowsGames, selectedGameID: selectedGameID)
                     }
                     .opacity(flight == nil && !listVisible ? 1 : 0)
@@ -83,10 +88,16 @@ struct PeopleRootView: View {
             .alert("Add Person", isPresented: $showingAddPerson) {
                 TextField("Name", text: $newPersonName)
                     .textInputAutocapitalization(.words)
-                Button("Cancel", role: .cancel) { newPersonName = "" }
-                Button("Add") {
-                    store.addPerson(named: newPersonName)
+                Button("Cancel", role: .cancel) {
                     newPersonName = ""
+                    addPersonCell = nil
+                }
+                Button("Add") {
+                    if let person = store.addPerson(named: newPersonName), let cell = addPersonCell {
+                        store.moveTile(personID: person.id, toCell: cell)
+                    }
+                    newPersonName = ""
+                    addPersonCell = nil
                 }
             }
             .sheet(isPresented: $showingAddNote) { NewNoteSheet() }
