@@ -30,9 +30,9 @@ struct PeopleRootView: View {
     @State private var flight: TileFlight?
     @State private var avatarFrames = AvatarFrames()
     @State private var stagedChange = 0
-    /// The view is changing to the list because a tag was searched for,
-    /// so the search must survive the change.
-    @State private var switchingForTagSearch = false
+    /// The view is changing because of what was searched for, so the
+    /// search must survive the change.
+    @State private var switchingForSearch = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var layout: PeopleLayout { rememberedLayout.resolved }
@@ -123,17 +123,17 @@ struct PeopleRootView: View {
             .onChange(of: layout) { from, to in
                 stage(from: from, to: to)
                 editMode = .inactive
-                // A tag search brings the list with it; any other change
-                // of view ends the search.
-                if switchingForTagSearch {
-                    switchingForTagSearch = false
+                // A search brings its view with it; any other change of
+                // view ends the search.
+                if switchingForSearch {
+                    switchingForSearch = false
                 } else {
                     isSearching = false
                     searchText = ""
                 }
             }
             .onChange(of: searchText) { _, text in
-                showListForTagSearch(text)
+                followSearch(text)
             }
         }
     }
@@ -199,11 +199,20 @@ struct PeopleRootView: View {
     }
 
     /// A search for a tag is a search through notes, so it always shows
-    /// the list, whatever view was up.
-    private func showListForTagSearch(_ text: String) {
-        guard NoteTags.queryTag(text) != nil, layout != .list else { return }
-        switchingForTagSearch = true
-        withAnimation(.snappy) { rememberedLayout = .list }
+    /// the list; any other search over a game turns the tiles back so the
+    /// matching people can be seen.
+    private func followSearch(_ text: String) {
+        let wanted: PeopleLayout
+        if NoteTags.queryTag(text) != nil {
+            wanted = .list
+        } else if layout == .games, !PeopleSearch.normalized(text).isEmpty, !NoteTags.isTagQuery(text) {
+            wanted = .grid
+        } else {
+            return
+        }
+        guard layout != wanted else { return }
+        switchingForSearch = true
+        withAnimation(.snappy) { rememberedLayout = wanted }
     }
 
     /// Moves the canvas to `to` in steps. Leaving a game turns the tiles
