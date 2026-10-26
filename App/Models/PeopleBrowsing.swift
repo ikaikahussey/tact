@@ -15,9 +15,11 @@ enum HeaderAction: CaseIterable {
         }
     }
 
-    /// The actions the root screen offers: Edit only in list mode.
+    /// The actions the root screen offers. The same set in both layouts:
+    /// Edit reorders and deletes people in the list and deletes tiles in
+    /// the grid.
     static func actions(for layout: PeopleLayout) -> [HeaderAction] {
-        allCases.filter { $0 != .edit || layout == .list }
+        allCases
     }
 }
 

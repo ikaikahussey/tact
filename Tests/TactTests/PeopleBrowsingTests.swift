@@ -74,11 +74,10 @@ final class PeopleBrowsingTests: XCTestCase {
 
     // MARK: Header icons
 
-    func testEditIconOnlyInListMode() {
-        XCTAssertEqual(HeaderAction.actions(for: .grid), [.search, .layoutToggle, .games, .add, .settings])
-        XCTAssertEqual(HeaderAction.actions(for: .list), [.search, .layoutToggle, .games, .add, .edit, .settings])
-        XCTAssertFalse(HeaderAction.actions(for: .grid).contains(.edit))
-        XCTAssertTrue(HeaderAction.actions(for: .list).contains(.edit))
+    func testEditIconShowsInBothLayouts() {
+        let expected: [HeaderAction] = [.search, .layoutToggle, .games, .add, .edit, .settings]
+        XCTAssertEqual(HeaderAction.actions(for: .grid), expected)
+        XCTAssertEqual(HeaderAction.actions(for: .list), expected)
     }
 
     // MARK: Search

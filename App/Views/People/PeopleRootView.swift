@@ -27,7 +27,7 @@ struct PeopleRootView: View {
                 case .list:
                     PeopleListContent(query: query, editMode: $editMode)
                 default:
-                    PeopleGridContent(query: query)
+                    PeopleGridContent(query: query, isEditing: editMode.isEditing)
                 }
             }
             .environment(\.editMode, $editMode)
@@ -83,9 +83,18 @@ struct PeopleRootView: View {
                 path.append(Route.games)
             }
         case .add:
-            HeaderIconButton(title: layout == .grid ? "Add Person" : "New Note", systemImage: action.systemImage) {
-                if layout == .grid { showingAddPerson = true } else { showingAddNote = true }
+            Menu {
+                Button { showingAddPerson = true } label: {
+                    Label("New Person", systemImage: "person.badge.plus")
+                }
+                Button { showingAddNote = true } label: {
+                    Label("New Note", systemImage: "square.and.pencil")
+                }
+            } label: {
+                HeaderIconButton(title: "Add", systemImage: action.systemImage) {}
             }
+            .accessibilityLabel("Add")
+            .accessibilityHint("New person or new note")
         case .edit:
             HeaderIconButton(title: editMode.isEditing ? "Done" : "Edit",
                              systemImage: editMode.isEditing ? "checkmark.circle" : action.systemImage,
