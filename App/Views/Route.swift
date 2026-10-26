@@ -5,16 +5,6 @@ import Foundation
 enum Route: Hashable {
     case person(UUID)
     case note(UUID)
-    case tangram
-    case slidingPuzzle(PuzzleImageSource)
-
-    var title: String {
-        switch self {
-        case .person, .note:  return ""
-        case .tangram:        return "Tangram"
-        case .slidingPuzzle:  return "Sliding Puzzle"
-        }
-    }
 }
 
 /// Which picture the sliding puzzle cuts up.

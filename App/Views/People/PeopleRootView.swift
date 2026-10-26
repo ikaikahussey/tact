@@ -1,12 +1,13 @@
 import SwiftUI
 
 /// The root screen: the people as a grid of tiles (People), as a list with
-/// their notes (Notes), or the games (Games), picked by the floating switch
-/// at the bottom and remembered, under the shared header. Everything else
-/// is pushed from here.
+/// their notes (Notes), or a game on the back of the tiles (Games), picked
+/// by the floating switch at the bottom and remembered, under the shared
+/// header. Everything else is pushed from here.
 struct PeopleRootView: View {
     @EnvironmentObject private var store: TactStore
     @AppStorage(PeopleLayout.storageKey) private var rememberedLayout: PeopleLayout = .standard
+    @AppStorage(TileGame.storageKey) private var selectedGameID = TileGame.all[0].id
     @State private var path = NavigationPath()
     @State private var searchText = ""
     @State private var isSearching = false
@@ -15,8 +16,25 @@ struct PeopleRootView: View {
     @State private var showingAddNote = false
     @State private var showingSettings = false
     @State private var newPersonName = ""
+    /// What the canvas shows right now. Mode changes are staged through the
+    /// tiles: a game flips them over, and any other mode flips them back
+    /// before the list fades in, so every change passes through the flip.
+    @State private var canvasShowsGames = false
+    /// The list is in the hierarchy (laid out, so its rows report where
+    /// their avatars are) and whether it can be seen.
+    @State private var showsList = false
+    @State private var listVisible = false
+    /// Tiles sliding between their grid cells and their list rows.
+    @State private var flight: TileFlight?
+    @State private var avatarFrames = AvatarFrames()
+    @State private var stagedChange = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var layout: PeopleLayout { rememberedLayout.resolved }
+
+    /// How long the whole wave takes: the last cell's stagger plus one turn.
+    static let flipDuration = TileFlipFace.delay(forCell: TileLayout.columns * 4 - 1, columns: TileLayout.columns)
+        + TileFlipFace.halfDuration * 2
     private var query: String { isSearching ? searchText : "" }
 
     var body: some View {
@@ -24,17 +42,37 @@ struct PeopleRootView: View {
             HeaderScreen {
                 header
             } content: {
-                switch layout {
-                case .list:
-                    PeopleListContent(query: query, editMode: $editMode)
-                case .games:
-                    GamesContent()
-                default:
-                    PeopleGridContent(query: query, isEditing: editMode.isEditing)
+                ZStack {
+                    // The grid and the games share one canvas: a game is the
+                    // back of the tiles, and choosing one turns them over. The
+                    // canvas stays while the list shows, so games keep their
+                    // progress. While tiles are in flight both the canvas and
+                    // the list are hidden and the overlay carries the tiles.
+                    ZStack {
+                        PeopleGridContent(query: query, isEditing: editMode.isEditing && !showsList,
+                                          showingGames: canvasShowsGames)
+                        GamesSurface(showing: canvasShowsGames, selectedGameID: selectedGameID)
+                    }
+                    .opacity(flight == nil && !listVisible ? 1 : 0)
+                    .allowsHitTesting(!showsList && flight == nil)
+                    .accessibilityHidden(showsList)
+                    if showsList {
+                        PeopleListContent(query: query, editMode: $editMode)
+                            .opacity(listVisible ? 1 : 0)
+                            .allowsHitTesting(listVisible)
+                    }
                 }
+                .animation(.easeInOut(duration: 0.15), value: listVisible)
+                .overlayPreferenceValue(TileAnchors.self) { tiles in
+                    if let flight {
+                        TileFlightOverlay(flight: flight, people: store.people, tiles: tiles,
+                                          avatars: avatarFrames.frames)
+                    }
+                }
+                .environment(avatarFrames)
             }
             .safeAreaInset(edge: .bottom) {
-                ViewSwitch(layout: layoutBinding)
+                ViewSwitch(layout: layoutBinding, selectedGameID: $selectedGameID)
                     .padding(.bottom, 8)
             }
             .environment(\.editMode, $editMode)
@@ -53,7 +91,13 @@ struct PeopleRootView: View {
             }
             .sheet(isPresented: $showingAddNote) { NewNoteSheet() }
             .sheet(isPresented: $showingSettings) { SettingsView() }
-            .onChange(of: layout) { _, _ in
+            .onAppear {
+                canvasShowsGames = layout == .games
+                showsList = layout == .list
+                listVisible = showsList
+            }
+            .onChange(of: layout) { from, to in
+                stage(from: from, to: to)
                 editMode = .inactive
                 isSearching = false
                 searchText = ""
@@ -121,6 +165,63 @@ struct PeopleRootView: View {
         }
     }
 
+    /// Moves the canvas to `to` in steps. Leaving a game turns the tiles
+    /// back first, then the tiles slide into their list rows; leaving the
+    /// list slides them back to their cells, then a game turns them over.
+    private func stage(from: PeopleLayout, to: PeopleLayout) {
+        stagedChange += 1
+        let change = stagedChange
+        func later(_ seconds: Double, _ action: @escaping () -> Void) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(seconds))
+                if stagedChange == change { action() }
+            }
+        }
+        /// Tiles fly from the grid into the list. The list is laid out
+        /// unseen first so its rows can say where their avatars are.
+        func flyToList() {
+            showsList = true
+            listVisible = false
+            guard !reduceMotion else { listVisible = true; return }
+            later(0.08) {
+                flight = TileFlight(toList: true)
+                later(0.02) { withAnimation { flight?.progress = 1 } }
+                later(TileFlight.duration + 0.05) {
+                    listVisible = true
+                    flight = nil
+                }
+            }
+        }
+        /// Tiles fly from the list back to the grid, then `then` runs.
+        func flyToGrid(then: @escaping () -> Void) {
+            listVisible = false
+            guard !reduceMotion else { showsList = false; then(); return }
+            flight = TileFlight(toList: false)
+            later(0.02) { withAnimation { flight?.progress = 1 } }
+            later(TileFlight.duration + 0.05) {
+                showsList = false
+                flight = nil
+                then()
+            }
+        }
+        flight = nil
+        switch (from, to) {
+        case (.games, .list):
+            canvasShowsGames = false
+            later(Self.flipDuration) { flyToList() }
+        case (.list, .games):
+            flyToGrid { later(0.1) { canvasShowsGames = true } }
+        case (.list, _):
+            flyToGrid {}
+        case (_, .games):
+            canvasShowsGames = true
+        case (_, .list):
+            flyToList()
+        default:
+            canvasShowsGames = false
+        }
+    }
+
     private var layoutBinding: Binding<PeopleLayout> {
         Binding(get: { layout }, set: { rememberedLayout = $0 })
     }
@@ -137,14 +238,6 @@ struct PeopleRootView: View {
             PersonDetailView(personID: id)
         case .note(let id):
             NoteDetailView(noteID: id)
-        case .tangram:
-            GameScreen(title: route.title, onLogoTap: popToRoot) { context in
-                TangramGridContent(context: context)
-            }
-        case .slidingPuzzle(let source):
-            GameScreen(title: route.title, onLogoTap: popToRoot) { context in
-                SlidingPuzzleGame(context: context, source: source)
-            }
         }
     }
 }

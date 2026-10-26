@@ -106,11 +106,15 @@ final class HelpersTests: XCTestCase {
         XCTAssertEqual(PeopleLayout.art.title, "Puzzles")
     }
 
-    func testGamesAreListedForTheGamesScreen() {
+    func testGamesOnTheBackOfTheTiles() {
         XCTAssertEqual(TileGame.all.map(\.id), ["tangram", "woodblock"])
         XCTAssertEqual(TileGame.all.map(\.title), ["Tangram", "Sliding Puzzle"])
-        XCTAssertEqual(TileGame.all.map(\.route), [.tangram, .slidingPuzzle(.standard)])
-        XCTAssertEqual(Route.slidingPuzzle(.person(UUID())).title, "Sliding Puzzle")
+        XCTAssertEqual(Set(TileGame.all.map(\.id)).count, TileGame.all.count, "ids are unique")
+        XCTAssertEqual(TileGame.named("woodblock").title, "Sliding Puzzle")
+        XCTAssertEqual(TileGame.named("gone").id, "tangram", "an unknown game falls back to the first")
+        XCTAssertEqual(TileFlipFace.delay(forCell: 0, columns: 4), 0)
+        XCTAssertEqual(TileFlipFace.delay(forCell: 5, columns: 4), TileFlipFace.delay(forCell: 2, columns: 4),
+                       "cells on the same diagonal turn together")
     }
 
     func testBirthdayFormatting() {

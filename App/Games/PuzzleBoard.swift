@@ -30,7 +30,8 @@ final class PuzzleGame {
 /// The sliding picture puzzle on the four-column grid: the picture is cut
 /// into a 4×4 grid with one piece missing, scrambled, and restored by
 /// dragging pieces into the empty space. Dragging a piece that cannot move
-/// gives a small bump instead.
+/// gives a small bump instead. Each piece sits on a tile cell and turns over
+/// with it when the grid flips.
 struct PuzzleBoard: View {
     let game: PuzzleGame
     /// The picture being rebuilt.
@@ -38,6 +39,10 @@ struct PuzzleBoard: View {
     /// Distance from one cell to the next.
     let pitch: CGFloat
     let pieceSize: CGFloat
+    /// Whether the board is face up (the tiles are turned over).
+    var isShowing = true
+    /// Stagger for the flip, by cell.
+    var flipDelay: (Int) -> Double = { _ in 0 }
 
     // Drag state. Offsets apply to `draggedTiles` along one axis.
     @State private var draggedTiles: Set<Int> = []
@@ -57,6 +62,7 @@ struct PuzzleBoard: View {
             ForEach(puzzle.tiles, id: \.self) { tile in
                 if let slot = puzzle.slot(of: tile) {
                     pieceView(index: tile)
+                        .modifier(TileFlipFace(side: .back, showingBack: isShowing, delay: flipDelay(slot)))
                         .position(center(of: slot))
                         .offset(offset(for: tile))
                         .zIndex(draggedTiles.contains(tile) || bumpedTile == tile ? 1 : 0)
@@ -69,12 +75,15 @@ struct PuzzleBoard: View {
             if game.isSolved {
                 // Fill the empty space so the finished picture is whole.
                 pieceView(index: puzzle.tiles.count)
+                    .modifier(TileFlipFace(side: .back, showingBack: isShowing, delay: flipDelay(puzzle.blankIndex)))
                     .position(center(of: puzzle.blankIndex))
                     .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
         }
         .frame(width: pitch * CGFloat(columns), height: pitch * CGFloat(ArtPuzzle.rows), alignment: .topLeading)
         .animation(commitAnimation, value: game.isSolved)
+        .allowsHitTesting(isShowing)
+        .accessibilityHidden(!isShowing)
     }
 
     @ViewBuilder

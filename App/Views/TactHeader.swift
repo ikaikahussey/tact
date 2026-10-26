@@ -120,27 +120,42 @@ struct HeaderIconButton: View {
 /// root screen, where the thumb is. Pushed screens cover it.
 struct ViewSwitch: View {
     @Binding var layout: PeopleLayout
+    /// The game on the back of the tiles; Games pops up a menu to pick one.
+    @Binding var selectedGameID: String
     @Environment(\.appPalette) private var palette
 
     var body: some View {
         HStack(spacing: 4) {
             ForEach(PeopleLayout.available) { option in
                 let isSelected = layout.resolved == option
-                Button {
-                    guard !isSelected else { return }
-                    UISelectionFeedbackGenerator().selectionChanged()
-                    withAnimation(.snappy) { layout = option }
-                } label: {
-                    Image(systemName: option.switchImage)
-                        .font(.tact(.body).weight(.semibold))
-                        .foregroundStyle(isSelected ? AnyShapeStyle(palette.onAccent) : AnyShapeStyle(.primary))
-                        .frame(width: 56, height: 44)
-                        .background(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear), in: Capsule())
-                        .contentShape(Capsule())
+                if option == .games {
+                    Menu {
+                        ForEach(TileGame.all) { game in
+                            Button {
+                                UISelectionFeedbackGenerator().selectionChanged()
+                                selectedGameID = game.id
+                                withAnimation(.snappy) { layout = .games }
+                            } label: {
+                                Label(game.title, systemImage: game.systemImage)
+                            }
+                        }
+                    } label: {
+                        segment(option, isSelected: isSelected)
+                    }
+                    .accessibilityLabel(isSelected ? "Games, \(TileGame.named(selectedGameID).title)" : "Games")
+                    .accessibilityHint("Turns the tiles over to a game")
+                } else {
+                    Button {
+                        guard !isSelected else { return }
+                        UISelectionFeedbackGenerator().selectionChanged()
+                        withAnimation(.snappy) { layout = option }
+                    } label: {
+                        segment(option, isSelected: isSelected)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(option.viewTitle)
+                    .accessibilityAddTraits(isSelected ? [.isSelected] : [])
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(option.viewTitle)
-                .accessibilityAddTraits(isSelected ? [.isSelected] : [])
             }
         }
         .padding(4)
@@ -148,6 +163,15 @@ struct ViewSwitch: View {
         .shadow(color: .black.opacity(0.14), radius: 10, y: 4)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("View")
+    }
+
+    private func segment(_ option: PeopleLayout, isSelected: Bool) -> some View {
+        Image(systemName: option.switchImage)
+            .font(.tact(.body).weight(.semibold))
+            .foregroundStyle(isSelected ? AnyShapeStyle(palette.onAccent) : AnyShapeStyle(.primary))
+            .frame(width: 56, height: 44)
+            .background(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear), in: Capsule())
+            .contentShape(Capsule())
     }
 }
 
