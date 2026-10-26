@@ -118,4 +118,13 @@ final class TactStoreTests: XCTestCase {
         }
         wait(for: [expectation], timeout: 2)
     }
+
+    func testSettingTangramPositionsMovesOnlyThePiecesGiven() {
+        let ada = store.addPerson(named: "Ada")!
+        let grace = store.addPerson(named: "Grace")!
+        store.setTangramPositions([ada.id: .init(x: 2, y: 3)])
+        XCTAssertEqual(store.person(id: ada.id)?.tangram.position, .init(x: 2, y: 3))
+        XCTAssertNil(store.person(id: grace.id)?.tangram.position)
+        XCTAssertEqual(store.person(id: ada.id)?.tangram.shape, ada.tangram.shape, "the piece itself is untouched")
+    }
 }
