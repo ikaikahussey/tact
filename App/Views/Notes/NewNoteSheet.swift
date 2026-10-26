@@ -36,6 +36,10 @@ struct NewNoteSheet: View {
             .navigationTitle("New Note")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    TagSuggestionStrip(text: $text)
+                    Spacer()
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }

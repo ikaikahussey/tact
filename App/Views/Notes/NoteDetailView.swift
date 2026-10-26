@@ -29,6 +29,11 @@ struct NoteDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 editor
+                let tags = NoteTags.tags(in: text)
+                if !tags.isEmpty {
+                    TagChips(tags: tags)
+                        .padding(.top, -8)
+                }
                 metadata(for: note)
                 section("People") {
                     PersonChipRow(selectedPersonIds: $selectedPersonIds,
@@ -58,6 +63,7 @@ struct NoteDetailView: View {
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             ToolbarItemGroup(placement: .keyboard) {
+                TagSuggestionStrip(text: $text)
                 Spacer()
                 Button("Done") { editorFocused = false }
                     .fontWeight(.semibold)

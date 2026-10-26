@@ -275,6 +275,9 @@ struct PersonDetailView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(note.text).foregroundStyle(.primary).lineLimit(2)
+                                if !note.tags.isEmpty {
+                                    TagChips(tags: note.tags)
+                                }
                                 Text(note.date, style: .date).font(.tact(.caption)).foregroundStyle(.secondary)
                             }
                             Spacer()
