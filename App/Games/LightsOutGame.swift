@@ -11,6 +11,7 @@ struct LightsOutGame: View {
     @EnvironmentObject private var store: TactStore
     @Environment(\.pushRoute) private var pushRoute
     @Environment(\.appPalette) private var palette
+    @AppStorage(GameSounds.enabledKey) private var soundOn = true
     let context: TileGameContext
     @State private var board: LightsOut = {
         var board = LightsOut(columns: LightsOutGame.columns, rows: LightsOutGame.rows)
@@ -52,9 +53,18 @@ struct LightsOutGame: View {
         .frame(width: context.size.width, height: context.size.height, alignment: .topLeading)
         .overlay(alignment: .bottomTrailing) {
             if context.isShowing {
-                CanvasActionButton(title: "New Game", systemImage: "shuffle",
-                                   hint: "Scrambles the lights and starts again.") {
-                    withAnimation(.easeInOut(duration: 0.3)) { board.scramble(presses: Self.scramblePresses) }
+                HStack(spacing: 12) {
+                    CanvasActionButton(title: soundOn ? "Sound On" : "Sound Off",
+                                       systemImage: soundOn ? "speaker.wave.2.fill" : "speaker.slash.fill",
+                                       hint: "Turns the beeps on or off.") {
+                        soundOn.toggle()
+                        if soundOn { GameSounds.play(GameSounds.lightPressed(cell: 0, lit: true)) } else { Synth.shared.stop() }
+                    }
+                    CanvasActionButton(title: "New Game", systemImage: "shuffle",
+                                       hint: "Scrambles the lights and starts again.") {
+                        withAnimation(.easeInOut(duration: 0.3)) { board.scramble(presses: Self.scramblePresses) }
+                        GameSounds.play(GameSounds.scrambled())
+                    }
                 }
                 .padding(16)
                 .transition(.opacity)
@@ -104,6 +114,9 @@ struct LightsOutGame: View {
         }
         if board.isSolved {
             UINotificationFeedbackGenerator().notificationOccurred(.success)
+            GameSounds.play(GameSounds.won())
+        } else {
+            GameSounds.play(GameSounds.lightPressed(cell: cell, lit: board.isLit(cell)))
         }
     }
 
