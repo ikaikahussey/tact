@@ -133,17 +133,7 @@ struct PersonDetailView: View {
     /// of the patterns, in their colour.
     private func tileChooser(for person: Person) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Tile").font(.tact(.headline))
-                Spacer()
-                NavigationLink(value: Route.slidingPuzzle(.person(personID))) {
-                    Label("Puzzle", systemImage: "puzzlepiece")
-                        .font(.tact(.subheadline))
-                }
-                .accessibilityHint(person.photoData == nil
-                                   ? "Plays the sliding puzzle with the Tact tiles"
-                                   : "Plays the sliding puzzle with \(person.name)'s photo")
-            }
+            Text("Tile").font(.tact(.headline))
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     tileChoice(isSelected: person.showsPhoto) {

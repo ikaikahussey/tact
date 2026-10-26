@@ -163,14 +163,12 @@ struct PeopleGridContent: View {
             }
             Divider()
             Menu {
+                // Just the colours, no names; VoiceOver still gets them.
                 Picker("Color", selection: colorIndex) {
                     ForEach(TilePalette.menuOrder, id: \.self) { index in
-                        Label {
-                            Text(TilePalette.name(index).capitalized)
-                        } icon: {
-                            Image(uiImage: TilePalette.swatch(index))
-                        }
-                        .tag(index)
+                        Image(uiImage: TilePalette.swatch(index))
+                            .accessibilityLabel(TilePalette.name(index).capitalized)
+                            .tag(index)
                     }
                 }
             } label: {
