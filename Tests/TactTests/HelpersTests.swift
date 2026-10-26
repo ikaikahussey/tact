@@ -107,8 +107,8 @@ final class HelpersTests: XCTestCase {
     }
 
     func testGamesOnTheBackOfTheTiles() {
-        XCTAssertEqual(TileGame.all.map(\.id), ["tangram", "woodblock"])
-        XCTAssertEqual(TileGame.all.map(\.title), ["Tangram", "Sliding Puzzle"])
+        XCTAssertEqual(TileGame.all.map(\.id), ["tangram", "woodblock", "lightsout", "mosaic"])
+        XCTAssertEqual(TileGame.all.map(\.title), ["Tangram", "Sliding Puzzle", "Lights Out", "Mosaic"])
         XCTAssertEqual(Set(TileGame.all.map(\.id)).count, TileGame.all.count, "ids are unique")
         XCTAssertEqual(TileGame.named("woodblock").title, "Sliding Puzzle")
         XCTAssertEqual(TileGame.named("gone").id, "tangram", "an unknown game falls back to the first")

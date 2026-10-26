@@ -40,7 +40,7 @@ Please try:
 • Tap the search icon and type: the grid and the list both narrow to matching people and notes.
 • Tag a note by typing #words in it, like #birthday. The tags appear as chips under the note; tap one to search for it. With the search field open, the tags you use are listed to tap, and typing # in a note offers them above the keyboard.
 • In the grid, each person is a tile showing their photo or a pattern; choose which under Tile on their screen. Tap a tile to open the person. Touch and hold a tile to pick its colour or turn it, or drag it anywhere. The round grid button brings the tiles together again.
-• Tap Games on the switch and pick a game: every tile flips over to it, and People flips them back. Tangram: tap a piece to open the person, touch and hold for its menu, drag to push the others, turn it with two fingers, and tap the shuffle button to fit everything together. Sliding Puzzle: slide the pieces to rebuild the Tact tiles, or choose your own photo. Open Puzzle from a person's screen to play with their photo.
+• Tap Games on the switch and pick a game: every tile flips over to it, and People flips them back. Tangram: tap a piece to open the person, touch and hold for its menu, drag to push the others, turn it with two fingers, and tap the shuffle button to fit everything together. Sliding Puzzle: slide the pieces to rebuild the Tact tiles, or choose your own photo. Open Puzzle from a person's screen to play with their photo. Lights Out: tap a light to flip it and its neighbours; turn them all off. Mosaic: pick a stamp from the strip, tap or drag on the canvas, tap a cell again to turn it; Fill and Clear are the round buttons. Your mosaic should still be there after relaunching.
 ```
 
 ## Beta App Review notes
