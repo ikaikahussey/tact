@@ -83,7 +83,7 @@ final class PeopleBrowsingTests: XCTestCase {
     func testHeaderIconsAndMoreMenuByView() {
         XCTAssertEqual(HeaderAction.actions(for: .grid), [.search, .add, .more])
         XCTAssertEqual(HeaderAction.actions(for: .list), [.search, .add, .more])
-        XCTAssertEqual(HeaderAction.actions(for: .games), [.add, .more], "nothing to search in the games")
+        XCTAssertEqual(HeaderAction.actions(for: .games), [.search, .add, .more], "search stays available over a game")
         XCTAssertEqual(HeaderAction.moreItems(for: .grid), [.edit, .settings])
         XCTAssertEqual(HeaderAction.moreItems(for: .list), [.edit, .settings])
         XCTAssertEqual(HeaderAction.moreItems(for: .games), [.settings], "nothing to edit in the games")
