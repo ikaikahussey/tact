@@ -44,6 +44,9 @@ struct PeopleRootView: View {
             HeaderScreen {
                 header
             } content: {
+                if isSearching {
+                    recentTags
+                }
                 ZStack {
                     // The grid and the games share one canvas: a game is the
                     // back of the tiles, and choosing one turns them over. The
@@ -82,6 +85,13 @@ struct PeopleRootView: View {
             }
             .environment(\.editMode, $editMode)
             .environment(\.pushRoute) { path.append($0) }
+            .environment(\.searchTag) { tag in
+                path = NavigationPath()
+                withAnimation(.snappy) {
+                    isSearching = true
+                    searchText = "#" + tag
+                }
+            }
             .navigationDestination(for: Route.self) { route in
                 destination(for: route)
             }
@@ -230,6 +240,24 @@ struct PeopleRootView: View {
             flyToList()
         default:
             canvasShowsGames = false
+        }
+    }
+
+    /// While searching: the tags in use, most used first, narrowed to what
+    /// follows a typed `#`. Tapping one searches for it; again clears.
+    @ViewBuilder
+    private var recentTags: some View {
+        let counts = store.tagCounts
+        let typed = NoteTags.isTagQuery(searchText) ? String(searchText.dropFirst()) : ""
+        let shown = TagCount.matching(typed, in: counts)
+        if !shown.isEmpty && (typed.isEmpty || NoteTags.isTagQuery(searchText)) {
+            TagRow(tags: shown, selected: NoteTags.queryTag(searchText)) { tag in
+                withAnimation(.snappy) {
+                    searchText = NoteTags.queryTag(searchText) == NoteTags.normalized(tag) ? "" : "#" + tag
+                }
+            }
+            .background(Color.tactBackground)
+            .transition(.move(edge: .top).combined(with: .opacity))
         }
     }
 

@@ -89,6 +89,11 @@ final class TactStore: ObservableObject {
         notes.sorted { $0.date > $1.date }
     }
 
+    /// Every tag typed in any note, most used first.
+    var tagCounts: [TagCount] {
+        TagCount.counts(in: notes)
+    }
+
     func names(forPersonIDs ids: [UUID]) -> [String] {
         ids.compactMap { id in person(id: id)?.name }
     }

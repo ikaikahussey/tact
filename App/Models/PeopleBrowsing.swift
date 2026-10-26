@@ -63,10 +63,18 @@ extension PeopleLayout {
 
 /// Filters people and notes by the header search field. A person matches
 /// when their name (or linked contact's name) or any of their notes contains
-/// the query.
+/// the query. A query starting with `#` is a tag search: a note matches
+/// only when it carries exactly that tag, and names are not searched.
 enum PeopleSearch {
     static func normalized(_ query: String) -> String {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Whether `note` is a hit for the (normalized, non-empty) query.
+    static func noteMatches(_ note: Note, query: String) -> Bool {
+        if let tag = NoteTags.queryTag(query) { return note.hasTag(tag) }
+        if NoteTags.isTagQuery(query) { return false }
+        return note.text.localizedCaseInsensitiveContains(query)
     }
 
     static func nameMatches(_ person: Person, query: String) -> Bool {
@@ -79,8 +87,8 @@ enum PeopleSearch {
         let query = normalized(rawQuery)
         guard !query.isEmpty else { return people }
         return people.filter { person in
-            nameMatches(person, query: query)
-                || notes.contains { $0.isLinked(to: person.id) && $0.text.localizedCaseInsensitiveContains(query) }
+            (!NoteTags.isTagQuery(query) && nameMatches(person, query: query))
+                || notes.contains { $0.isLinked(to: person.id) && noteMatches($0, query: query) }
         }
     }
 
@@ -91,10 +99,10 @@ enum PeopleSearch {
         let query = normalized(rawQuery)
         return people.compactMap { person in
             let own = notes.filter { $0.isLinked(to: person.id) }.sorted { $0.date > $1.date }
-            if query.isEmpty || nameMatches(person, query: query) {
+            if query.isEmpty || (!NoteTags.isTagQuery(query) && nameMatches(person, query: query)) {
                 return PersonSection(person: person, notes: own)
             }
-            let matching = own.filter { $0.text.localizedCaseInsensitiveContains(query) }
+            let matching = own.filter { noteMatches($0, query: query) }
             return matching.isEmpty ? nil : PersonSection(person: person, notes: matching)
         }
     }

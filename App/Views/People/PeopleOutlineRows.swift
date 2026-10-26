@@ -18,6 +18,9 @@ struct NoteOutlineRow: View {
                 Text(note.text)
                     .font(.tact(.subheadline))
                     .lineLimit(3)
+                if !note.tags.isEmpty {
+                    TagChips(tags: note.tags)
+                }
                 HStack(spacing: 6) {
                     Text(note.date, style: .date)
                     if let others {
