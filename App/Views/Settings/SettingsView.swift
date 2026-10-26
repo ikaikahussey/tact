@@ -5,6 +5,7 @@ struct SettingsView: View {
     @EnvironmentObject private var store: TactStore
     @Environment(\.dismiss) private var dismiss
     @AppStorage(AppPalette.storageKey) private var palette: AppPalette = .classic
+    @AppStorage(GameSounds.enabledKey) private var gameSoundsOn = true
 
     var body: some View {
         NavigationStack {
@@ -36,13 +37,21 @@ struct SettingsView: View {
                     Text("Changes the colors of everyone's tiles and the app's buttons.")
                 }
 
-                Section("Puzzles") {
+                Section {
+                    Toggle("Sounds", isOn: $gameSoundsOn)
+                        .onChange(of: gameSoundsOn) { _, on in
+                            if !on { Synth.shared.stop() }
+                        }
                     NavigationLink {
                         ArtSettingsView()
                     } label: {
                         LabeledContent("Puzzle Picture",
                                        value: store.settings.artSettings.imageData == nil ? "Default" : "Your Photo")
                     }
+                } header: {
+                    Text("Games")
+                } footer: {
+                    Text("Beeps and boops in Lights Out. They follow the silent switch.")
                 }
 
                 Section {
