@@ -5,20 +5,17 @@ enum HeaderMetrics {
     static let height: CGFloat = 44
     static let logoHeight: CGFloat = 28
     static let iconWidth: CGFloat = 44
-    static let switchWidth: CGFloat = 126
 }
 
 /// The one-row header every screen uses in place of a navigation bar:
-/// the Tact wordmark (tap to return to the root grid), then either the
-/// view name in Helvetica Bold or, on the root, the people/notes/games switch,
-/// and the screen's icons on the right. When a search binding is given and
-/// `isSearching` is on, the name or switch gives way to an inline search
-/// field. Pushed screens show a back chevron first.
+/// the Tact wordmark (tap to return to the root grid), the view name in
+/// Helvetica Bold (none on the root, whose view is picked by the
+/// `ViewSwitch` at the bottom), and the screen's icons on the right. When a
+/// search binding is given and `isSearching` is on, the name gives way to
+/// an inline search field. Pushed screens show a back chevron first.
 struct TactHeader<Trailing: View>: View {
     let title: String
     var showsBack = false
-    /// On the root: the view, shown as a people/notes/games switch.
-    var layout: Binding<PeopleLayout>? = nil
     var searchText: Binding<String>? = nil
     var isSearching: Binding<Bool>? = nil
     var onLogoTap: () -> Void = {}
@@ -51,9 +48,7 @@ struct TactHeader<Trailing: View>: View {
 
             if searching, let searchText {
                 searchField(searchText)
-            } else if let layout {
-                layoutSwitch(layout)
-            } else {
+            } else if !title.isEmpty {
                 Text(title)
                     .font(.tact(.title3))
                     .lineLimit(1)
@@ -74,20 +69,6 @@ struct TactHeader<Trailing: View>: View {
         .onChange(of: searching) { _, now in
             searchFocused = now
         }
-    }
-
-    /// People, Notes or Games, as a switch of icons.
-    private func layoutSwitch(_ layout: Binding<PeopleLayout>) -> some View {
-        Picker("View", selection: Binding(get: { layout.wrappedValue.resolved }, set: { layout.wrappedValue = $0 })) {
-            ForEach(PeopleLayout.available) { option in
-                Image(systemName: option.switchImage)
-                    .accessibilityLabel(option.viewTitle)
-                    .tag(option)
-            }
-        }
-        .pickerStyle(.segmented)
-        .frame(width: HeaderMetrics.switchWidth)
-        .accessibilityLabel("View")
     }
 
     private func searchField(_ text: Binding<String>) -> some View {
@@ -132,6 +113,41 @@ struct HeaderIconButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)
+    }
+}
+
+/// People, Notes or Games: a floating capsule of icons at the bottom of the
+/// root screen, where the thumb is. Pushed screens cover it.
+struct ViewSwitch: View {
+    @Binding var layout: PeopleLayout
+    @Environment(\.appPalette) private var palette
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(PeopleLayout.available) { option in
+                let isSelected = layout.resolved == option
+                Button {
+                    guard !isSelected else { return }
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    withAnimation(.snappy) { layout = option }
+                } label: {
+                    Image(systemName: option.switchImage)
+                        .font(.tact(.body).weight(.semibold))
+                        .foregroundStyle(isSelected ? AnyShapeStyle(palette.onAccent) : AnyShapeStyle(.primary))
+                        .frame(width: 56, height: 44)
+                        .background(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear), in: Capsule())
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(option.viewTitle)
+                .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+            }
+        }
+        .padding(4)
+        .background(.regularMaterial, in: Capsule())
+        .shadow(color: .black.opacity(0.14), radius: 10, y: 4)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("View")
     }
 }
 

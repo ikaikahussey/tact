@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// The root screen: the people as a grid of tiles (People), as a list with
-/// their notes (Notes), or the games (Games), under the shared header,
-/// which remembers the choice. Everything else is pushed from here.
+/// their notes (Notes), or the games (Games), picked by the floating switch
+/// at the bottom and remembered, under the shared header. Everything else
+/// is pushed from here.
 struct PeopleRootView: View {
     @EnvironmentObject private var store: TactStore
     @AppStorage(PeopleLayout.storageKey) private var rememberedLayout: PeopleLayout = .standard
@@ -32,6 +33,10 @@ struct PeopleRootView: View {
                     PeopleGridContent(query: query, isEditing: editMode.isEditing)
                 }
             }
+            .safeAreaInset(edge: .bottom) {
+                ViewSwitch(layout: layoutBinding)
+                    .padding(.bottom, 8)
+            }
             .environment(\.editMode, $editMode)
             .environment(\.pushRoute) { path.append($0) }
             .navigationDestination(for: Route.self) { route in
@@ -57,12 +62,7 @@ struct PeopleRootView: View {
     }
 
     private var header: some View {
-        TactHeader(title: layout.viewTitle,
-                   layout: Binding(get: { layout }, set: { newValue in
-                       UISelectionFeedbackGenerator().selectionChanged()
-                       withAnimation(.snappy) { rememberedLayout = newValue }
-                   }),
-                   searchText: $searchText, isSearching: $isSearching, onLogoTap: popToRoot) {
+        TactHeader(title: "", searchText: $searchText, isSearching: $isSearching, onLogoTap: popToRoot) {
             ForEach(HeaderAction.actions(for: layout), id: \.self) { action in
                 button(for: action)
             }
@@ -119,6 +119,10 @@ struct PeopleRootView: View {
             .accessibilityLabel("More")
             .accessibilityHint(editMode.isEditing ? "Done editing, or settings" : "Edit or settings")
         }
+    }
+
+    private var layoutBinding: Binding<PeopleLayout> {
+        Binding(get: { layout }, set: { rememberedLayout = $0 })
     }
 
     private func popToRoot() {
