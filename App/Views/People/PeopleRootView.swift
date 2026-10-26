@@ -30,6 +30,9 @@ struct PeopleRootView: View {
     @State private var flight: TileFlight?
     @State private var avatarFrames = AvatarFrames()
     @State private var stagedChange = 0
+    /// The view is changing to the list because a tag was searched for,
+    /// so the search must survive the change.
+    @State private var switchingForTagSearch = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var layout: PeopleLayout { rememberedLayout.resolved }
@@ -120,8 +123,17 @@ struct PeopleRootView: View {
             .onChange(of: layout) { from, to in
                 stage(from: from, to: to)
                 editMode = .inactive
-                isSearching = false
-                searchText = ""
+                // A tag search brings the list with it; any other change
+                // of view ends the search.
+                if switchingForTagSearch {
+                    switchingForTagSearch = false
+                } else {
+                    isSearching = false
+                    searchText = ""
+                }
+            }
+            .onChange(of: searchText) { _, text in
+                showListForTagSearch(text)
             }
         }
     }
@@ -184,6 +196,14 @@ struct PeopleRootView: View {
             .accessibilityLabel("More")
             .accessibilityHint(editMode.isEditing ? "Done editing, or settings" : "Edit or settings")
         }
+    }
+
+    /// A search for a tag is a search through notes, so it always shows
+    /// the list, whatever view was up.
+    private func showListForTagSearch(_ text: String) {
+        guard NoteTags.queryTag(text) != nil, layout != .list else { return }
+        switchingForTagSearch = true
+        withAnimation(.snappy) { rememberedLayout = .list }
     }
 
     /// Moves the canvas to `to` in steps. Leaving a game turns the tiles
