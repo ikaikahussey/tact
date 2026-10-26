@@ -35,11 +35,11 @@ Tact keeps notes about the people in your life. Everything stays on your phone.
 
 Please try:
 • Add a few people, give some a photo, and link one to a contact card.
-• The header has one row: tap the Tact mark to come back to the grid, and use the icons for search, grid/list, games, add, edit (list only) and settings.
-• Tap the list icon: this is Notes, everyone with their notes beneath them, newest first. Tap + on a person to add a note about them, or + in the header for a new note linked to anyone. Edit reorders and deletes people.
+• The header has one row: tap TACT to come back to the grid, use the switch for People, Notes or Games, and the icons for search, add (new person or note) and More (Edit, Settings).
+• Notes is everyone with their notes beneath them, newest first. Tap + on a person to add a note about them, or + in the header for a new note linked to anyone. More > Edit reorders and deletes people in Notes and deletes tiles in People.
 • Tap the search icon and type: the grid and the list both narrow to matching people and notes.
 • In the grid, each person is a tile showing their photo or a pattern; choose which under Tile on their screen. Tap a tile to open the person. Touch and hold a tile to pick its colour or turn it, or drag it anywhere. The round grid button brings the tiles together again.
-• Tap the puzzle-piece icon for Games. Tangram: tap a piece to open the person, touch and hold for its menu, drag to push the others, turn it with two fingers, and tap the shuffle button to fit everything together. Sliding Puzzle: slide the pieces to rebuild the Tact tiles, or choose your own photo. Open Puzzle from a person's screen to play with their photo.
+• Switch to Games. Tangram: tap a piece to open the person, touch and hold for its menu, drag to push the others, turn it with two fingers, and tap the shuffle button to fit everything together. Sliding Puzzle: slide the pieces to rebuild the Tact tiles, or choose your own photo. Open Puzzle from a person's screen to play with their photo.
 ```
 
 ## Beta App Review notes

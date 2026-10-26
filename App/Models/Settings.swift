@@ -1,6 +1,7 @@
 import Foundation
 
-/// How the People tab shows everyone: the grid of tiles or the list.
+/// What the root screen shows: the grid of tiles, the list with notes, or
+/// the games.
 enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
     case list
     case grid
@@ -8,6 +9,8 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
     case flashcards
     case art
     case tangram
+    /// The Games cards, shown in place of the people.
+    case games
 
     static let storageKey = "peopleLayout"
 
@@ -15,7 +18,7 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
     /// kept for stored preferences but hidden until they are ready to ship.
     /// The puzzle and Tangram are games (`TileGame`), reached from the Games
     /// tile, so `art` and `tangram` are not listed.
-    static let available: [PeopleLayout] = [.grid, .list]
+    static let available: [PeopleLayout] = [.grid, .list, .games]
 
     /// What the People tab shows until the user picks something else.
     static let standard: PeopleLayout = .grid
@@ -33,6 +36,7 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
         case .flashcards: return "Flashcards"
         case .art:        return "Puzzles"
         case .tangram:    return "Tangram"
+        case .games:      return "Games"
         }
     }
 
@@ -44,6 +48,7 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
         case .flashcards: return "rectangle.stack"
         case .art:        return "puzzlepiece"
         case .tangram:    return "square.split.diagonal.2x2"
+        case .games:      return "puzzlepiece"
         }
     }
 }

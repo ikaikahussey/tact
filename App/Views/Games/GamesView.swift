@@ -1,27 +1,21 @@
 import SwiftUI
 
-/// The games, reached from the Games tile on the People grid: a card for
-/// each, pushing the game.
-struct GamesView: View {
-    var onLogoTap: () -> Void = {}
+/// The Games view of the root screen: a card for each game, pushing it.
+struct GamesContent: View {
     @Environment(\.appPalette) private var palette
 
     var body: some View {
-        HeaderScreen {
-            TactHeader(title: Route.games.title, showsBack: true, onLogoTap: onLogoTap) { EmptyView() }
-        } content: {
-            ScrollView {
-                VStack(spacing: 16) {
-                    ForEach(TileGame.all) { game in
-                        NavigationLink(value: game.route) {
-                            card(for: game)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityHint("Opens \(game.title)")
+        ScrollView {
+            VStack(spacing: 16) {
+                ForEach(TileGame.all) { game in
+                    NavigationLink(value: game.route) {
+                        card(for: game)
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Opens \(game.title)")
                 }
-                .padding(16)
             }
+            .padding(16)
         }
     }
 

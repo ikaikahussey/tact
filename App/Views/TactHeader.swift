@@ -3,20 +3,21 @@ import SwiftUI
 /// Sizes shared by the header and its icons.
 enum HeaderMetrics {
     static let height: CGFloat = 44
-    static let logoHeight: CGFloat = 24
-    static let iconWidth: CGFloat = 36
+    static let logoHeight: CGFloat = 28
+    static let iconWidth: CGFloat = 44
+    static let switchWidth: CGFloat = 126
 }
 
 /// The one-row header every screen uses in place of a navigation bar:
 /// the Tact wordmark (tap to return to the root grid), then either the
-/// view name in Helvetica Bold or, on the root, the people/notes switch,
+/// view name in Helvetica Bold or, on the root, the people/notes/games switch,
 /// and the screen's icons on the right. When a search binding is given and
 /// `isSearching` is on, the name or switch gives way to an inline search
 /// field. Pushed screens show a back chevron first.
 struct TactHeader<Trailing: View>: View {
     let title: String
     var showsBack = false
-    /// On the root: the grid/list choice, shown as a people/notes switch.
+    /// On the root: the view, shown as a people/notes/games switch.
     var layout: Binding<PeopleLayout>? = nil
     var searchText: Binding<String>? = nil
     var isSearching: Binding<Bool>? = nil
@@ -68,14 +69,14 @@ struct TactHeader<Trailing: View>: View {
         }
         .buttonStyle(.plain)
         .frame(height: HeaderMetrics.height)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 10)
         .background(Color.tactBackground)
         .onChange(of: searching) { _, now in
             searchFocused = now
         }
     }
 
-    /// People or Notes, as a two-way switch of icons.
+    /// People, Notes or Games, as a switch of icons.
     private func layoutSwitch(_ layout: Binding<PeopleLayout>) -> some View {
         Picker("View", selection: Binding(get: { layout.wrappedValue.resolved }, set: { layout.wrappedValue = $0 })) {
             ForEach(PeopleLayout.available) { option in
@@ -85,7 +86,7 @@ struct TactHeader<Trailing: View>: View {
             }
         }
         .pickerStyle(.segmented)
-        .frame(width: 92)
+        .frame(width: HeaderMetrics.switchWidth)
         .accessibilityLabel("View")
     }
 
