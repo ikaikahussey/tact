@@ -3,17 +3,21 @@ import SwiftUI
 /// Sizes shared by the header and its icons.
 enum HeaderMetrics {
     static let height: CGFloat = 44
-    static let logoHeight: CGFloat = 28
+    static let logoHeight: CGFloat = 24
+    static let iconWidth: CGFloat = 36
 }
 
 /// The one-row header every screen uses in place of a navigation bar:
-/// the Tact mark (tap to return to the root grid), the view name in
-/// Helvetica Bold, and the screen's icons on the right. When a search
-/// binding is given and `isSearching` is on, the name gives way to an
-/// inline search field. Pushed screens show a back chevron first.
+/// the Tact wordmark (tap to return to the root grid), then either the
+/// view name in Helvetica Bold or, on the root, the people/notes switch,
+/// and the screen's icons on the right. When a search binding is given and
+/// `isSearching` is on, the name or switch gives way to an inline search
+/// field. Pushed screens show a back chevron first.
 struct TactHeader<Trailing: View>: View {
     let title: String
     var showsBack = false
+    /// On the root: the grid/list choice, shown as a people/notes switch.
+    var layout: Binding<PeopleLayout>? = nil
     var searchText: Binding<String>? = nil
     var isSearching: Binding<Bool>? = nil
     var onLogoTap: () -> Void = {}
@@ -37,7 +41,7 @@ struct TactHeader<Trailing: View>: View {
             }
 
             Button(action: onLogoTap) {
-                TactLogo(variant: .mark, height: HeaderMetrics.logoHeight)
+                TactLogo(variant: .wordmark, height: HeaderMetrics.logoHeight)
                     .frame(height: HeaderMetrics.height)
                     .contentShape(Rectangle())
             }
@@ -46,6 +50,8 @@ struct TactHeader<Trailing: View>: View {
 
             if searching, let searchText {
                 searchField(searchText)
+            } else if let layout {
+                layoutSwitch(layout)
             } else {
                 Text(title)
                     .font(.tact(.title3))
@@ -67,6 +73,20 @@ struct TactHeader<Trailing: View>: View {
         .onChange(of: searching) { _, now in
             searchFocused = now
         }
+    }
+
+    /// People or Notes, as a two-way switch of icons.
+    private func layoutSwitch(_ layout: Binding<PeopleLayout>) -> some View {
+        Picker("View", selection: Binding(get: { layout.wrappedValue.resolved }, set: { layout.wrappedValue = $0 })) {
+            ForEach(PeopleLayout.available) { option in
+                Image(systemName: option.switchImage)
+                    .accessibilityLabel(option.viewTitle)
+                    .tag(option)
+            }
+        }
+        .pickerStyle(.segmented)
+        .frame(width: 92)
+        .accessibilityLabel("View")
     }
 
     private func searchField(_ text: Binding<String>) -> some View {
@@ -106,7 +126,7 @@ struct HeaderIconButton: View {
                 .font(.tact(.body).weight(.semibold))
                 .symbolVariant(isActive ? .fill : .none)
                 .foregroundStyle(isActive ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
-                .frame(width: 40, height: HeaderMetrics.height)
+                .frame(width: HeaderMetrics.iconWidth, height: HeaderMetrics.height)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

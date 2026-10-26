@@ -1,4 +1,5 @@
 import XCTest
+import SwiftUI
 @testable import Tact
 
 final class TileArtTests: XCTestCase {
@@ -85,6 +86,14 @@ final class TileArtTests: XCTestCase {
             }
         }
         XCTAssertEqual(TilePalette.color(3, in: .classic), TilePalette.colors[3])
+        // Grayscale keeps every tile colour told apart.
+        let grays = TilePalette.menuOrder.map { index -> CGFloat in
+            var white: CGFloat = 0, alpha: CGFloat = 0
+            UIColor(AppPalette.grayscale.tileColor(index)).getWhite(&white, alpha: &alpha)
+            return white
+        }
+        XCTAssertEqual(Set(grays.map { Int($0 * 100) }).count, grays.count)
+        XCTAssertTrue(grays == grays.sorted(), "lighter along the menu")
     }
 
     func testLayoutKeepsPlacedTilesAndFillsGapsInOrder() {
@@ -158,5 +167,55 @@ extension TactStoreTests {
         store.updateTile(forPersonID: ada.id) { $0.rotate() }
         XCTAssertEqual(store.person(id: ada.id)?.tile.quarterTurns, ada.tile.quarterTurns + 1)
         XCTAssertEqual(store.person(id: grace.id)?.tile, grace.tile)
+    }
+}
+
+/// Every motif meets the middle of each edge with the base shade and leaves
+/// the rest of the edge pale, so neighbouring tiles join whatever they show.
+@MainActor
+final class TilePatternEdgeTests: XCTestCase {
+    private typealias RGB = (CGFloat, CGFloat, CGFloat)
+
+    private func render(_ pattern: TilePattern, side: Int = 100) -> (Int, Int) -> RGB {
+        let renderer = ImageRenderer(content: TilePatternView(pattern: pattern, colorIndex: 5)
+            .environment(\.appPalette, .classic)
+            .frame(width: CGFloat(side), height: CGFloat(side)))
+        renderer.scale = 1
+        let image = renderer.cgImage!
+        var data = [UInt8](repeating: 0, count: side * side * 4)
+        let context = CGContext(data: &data, width: side, height: side, bitsPerComponent: 8, bytesPerRow: side * 4,
+                                space: CGColorSpaceCreateDeviceRGB(),
+                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.draw(image, in: CGRect(x: 0, y: 0, width: side, height: side))
+        return { x, y in
+            let i = (y * side + x) * 4
+            return (CGFloat(data[i]) / 255, CGFloat(data[i + 1]) / 255, CGFloat(data[i + 2]) / 255)
+        }
+    }
+
+    private func components(_ color: Color) -> RGB {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+        return (r, g, b)
+    }
+
+    private func close(_ a: RGB, _ b: RGB) -> Bool {
+        abs(a.0 - b.0) < 0.06 && abs(a.1 - b.1) < 0.06 && abs(a.2 - b.2) < 0.06
+    }
+
+    func testEveryPatternConnectsAtTheEdgeMidpointsAndNotBeside() {
+        let shades = TileShades(colorIndex: 5, palette: .classic)
+        let base = components(shades.base)
+        for pattern in TilePattern.allCases {
+            let pixel = render(pattern)
+            // Just inside each edge, at its middle: the band.
+            for (x, y) in [(50, 1), (50, 98), (1, 50), (98, 50)] {
+                XCTAssertTrue(close(pixel(x, y), base), "\(pattern) band at (\(x), \(y))")
+            }
+            // Just inside each edge, outside the band: not the band.
+            for (x, y) in [(20, 1), (80, 98), (1, 20), (98, 80)] {
+                XCTAssertFalse(close(pixel(x, y), base), "\(pattern) beside the band at (\(x), \(y))")
+            }
+        }
     }
 }

@@ -3,15 +3,20 @@ import SwiftUI
 /// Quilt-block geometric motifs drawn on a person's tile, in shades of their
 /// colour. Each person gets one from their seed, so it never changes on its
 /// own; turning the tile turns the motif.
+///
+/// Every motif keeps the same edge contract: a band of the base shade,
+/// `TilePatternView.bandWidth` of the tile wide, meets the middle of all four
+/// edges, and the rest of each edge is the pale background. So any two tiles
+/// side by side join up, whatever their motifs, colours or turns.
 enum TilePattern: Int, CaseIterable {
-    case quarterCircles
-    case nestedSquares
+    case arcs
+    case cross
     case pinwheel
     case bullseye
     case diamond
-    case sunrise
-    case stripes
-    case halfSquare
+    case checker
+    case frame
+    case petals
 
     init(seed: Int) {
         // Divided first so neighbouring seeds, which share colours, differ.
@@ -20,14 +25,14 @@ enum TilePattern: Int, CaseIterable {
 
     var title: String {
         switch self {
-        case .quarterCircles: "Quarter Circles"
-        case .nestedSquares:  "Nested Squares"
-        case .pinwheel:       "Pinwheel"
-        case .bullseye:       "Bullseye"
-        case .diamond:        "Diamond"
-        case .sunrise:        "Sunrise"
-        case .stripes:        "Stripes"
-        case .halfSquare:     "Half Square"
+        case .arcs:     "Arcs"
+        case .cross:    "Cross"
+        case .pinwheel: "Pinwheel"
+        case .bullseye: "Bullseye"
+        case .diamond:  "Diamond"
+        case .checker:  "Checker"
+        case .frame:    "Frame"
+        case .petals:   "Petals"
         }
     }
 }
@@ -69,6 +74,10 @@ struct TilePatternView: View {
     let colorIndex: Int
     @Environment(\.appPalette) private var palette
 
+    /// Width of the connecting band, as a fraction of the tile. The band
+    /// runs from `(1 - bandWidth) / 2` to `(1 + bandWidth) / 2` along an edge.
+    static let bandWidth: CGFloat = 0.2
+
     var body: some View {
         Canvas { context, size in
             Self.draw(pattern, shades: TileShades(colorIndex: colorIndex, palette: palette),
@@ -76,14 +85,19 @@ struct TilePatternView: View {
         }
     }
 
-    private static func draw(_ pattern: TilePattern, shades: TileShades, in rect: CGRect,
-                             context: inout GraphicsContext) {
+    static func draw(_ pattern: TilePattern, shades: TileShades, in rect: CGRect,
+                     context: inout GraphicsContext) {
         let s = rect.width
+        let half = bandWidth / 2
         context.clip(to: Path(rect))
         func fill(_ path: Path, _ color: Color) { context.fill(path, with: .color(color)) }
-        func square(_ inset: CGFloat) -> Path { Path(rect.insetBy(dx: s * inset, dy: s * inset)) }
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: rect.minX + x * s, y: rect.minY + y * s) }
+        func box(_ x0: CGFloat, _ y0: CGFloat, _ x1: CGFloat, _ y1: CGFloat) -> Path {
+            Path(CGRect(x: rect.minX + x0 * s, y: rect.minY + y0 * s, width: (x1 - x0) * s, height: (y1 - y0) * s))
+        }
         func circle(_ centre: CGPoint, _ radius: CGFloat) -> Path {
-            Path(ellipseIn: CGRect(x: centre.x - radius, y: centre.y - radius, width: radius * 2, height: radius * 2))
+            Path(ellipseIn: CGRect(x: centre.x - radius * s, y: centre.y - radius * s,
+                                   width: radius * 2 * s, height: radius * 2 * s))
         }
         func polygon(_ points: [CGPoint]) -> Path {
             var path = Path()
@@ -91,75 +105,81 @@ struct TilePatternView: View {
             path.closeSubpath()
             return path
         }
-        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: rect.minX + x * s, y: rect.minY + y * s) }
+        /// A quarter ring around a corner, from the middle of one edge to the
+        /// middle of the next: the band bent round the corner.
+        func cornerArc(_ corner: CGPoint) -> Path {
+            var path = circle(corner, 0.5 + half)
+            path.addPath(circle(corner, 0.5 - half))
+            return path
+        }
         let centre = point(0.5, 0.5)
+        /// The band straight across and straight down.
+        func cross() {
+            fill(box(0, 0.5 - half, 1, 0.5 + half), shades.base)
+            fill(box(0.5 - half, 0, 0.5 + half, 1), shades.base)
+        }
+
+        fill(Path(rect), shades.pale)
 
         switch pattern {
-        case .quarterCircles:
-            // Truchet-style arcs: a big quarter disc and a small one in opposite corners.
-            fill(Path(rect), shades.light)
-            fill(circle(point(0, 0), s * 0.82), shades.base)
-            fill(circle(point(0, 0), s * 0.42), shades.dark)
-            fill(circle(point(1, 1), s * 0.38), shades.pale)
+        case .arcs:
+            // Truchet: the band bends round two opposite corners.
+            fill(circle(point(0, 0), 0.5 - half), shades.light)
+            fill(circle(point(1, 1), 0.5 - half), shades.light)
+            context.fill(cornerArc(point(0, 0)), with: .color(shades.base), style: FillStyle(eoFill: true))
+            context.fill(cornerArc(point(1, 1)), with: .color(shades.base), style: FillStyle(eoFill: true))
+            fill(circle(point(1, 0), 0.14), shades.dark)
+            fill(circle(point(0, 1), 0.14), shades.dark)
 
-        case .nestedSquares:
-            fill(Path(rect), shades.base)
-            fill(square(0.14), shades.pale)
-            fill(square(0.26), shades.light)
-            fill(square(0.37), shades.dark)
+        case .cross:
+            cross()
+            fill(box(0.3, 0.3, 0.7, 0.7), shades.dark)
+            fill(box(0.4, 0.4, 0.6, 0.6), shades.light)
 
         case .pinwheel:
-            // Four half-square triangles turning around the centre.
-            fill(Path(rect), shades.pale)
-            fill(polygon([point(0, 0), point(0.5, 0), point(0.5, 0.5)]), shades.base)
-            fill(polygon([point(1, 0), point(1, 0.5), point(0.5, 0.5)]), shades.dark)
-            fill(polygon([point(1, 1), point(0.5, 1), point(0.5, 0.5)]), shades.base)
-            fill(polygon([point(0, 1), point(0, 0.5), point(0.5, 0.5)]), shades.dark)
+            // Four half-square triangles turning around the band's crossing.
+            fill(polygon([point(0, 0), point(0.5 - half, 0), point(0.5 - half, 0.5 - half)]), shades.light)
+            fill(polygon([point(1, 0), point(1, 0.5 - half), point(0.5 + half, 0.5 - half)]), shades.light)
+            fill(polygon([point(1, 1), point(0.5 + half, 1), point(0.5 + half, 0.5 + half)]), shades.light)
+            fill(polygon([point(0, 1), point(0, 0.5 + half), point(0.5 - half, 0.5 + half)]), shades.light)
+            cross()
+            fill(circle(centre, 0.12), shades.dark)
 
         case .bullseye:
-            fill(Path(rect), shades.pale)
-            fill(circle(centre, s * 0.44), shades.base)
-            fill(circle(centre, s * 0.31), shades.light)
-            fill(circle(centre, s * 0.17), shades.dark)
+            cross()
+            fill(circle(centre, 0.34), shades.dark)
+            fill(circle(centre, 0.24), shades.light)
+            fill(circle(centre, 0.12), shades.base)
 
         case .diamond:
-            fill(Path(rect), shades.base)
-            fill(polygon([point(0.5, 0.06), point(0.94, 0.5), point(0.5, 0.94), point(0.06, 0.5)]), shades.pale)
-            fill(polygon([point(0.5, 0.24), point(0.76, 0.5), point(0.5, 0.76), point(0.24, 0.5)]), shades.dark)
-            fill(circle(centre, s * 0.08), shades.light)
+            cross()
+            fill(polygon([point(0.5, 0.1), point(0.9, 0.5), point(0.5, 0.9), point(0.1, 0.5)]), shades.dark)
+            fill(polygon([point(0.5, 0.26), point(0.74, 0.5), point(0.5, 0.74), point(0.26, 0.5)]), shades.light)
+            fill(circle(centre, 0.07), shades.base)
 
-        case .sunrise:
-            // A half disc rising from the bottom edge, with rays of light behind.
-            fill(Path(rect), shades.pale)
-            for ray in 0..<5 {
-                let start = Double.pi + Double(ray) * Double.pi / 5
-                var wedge = Path()
-                wedge.move(to: point(0.5, 1))
-                wedge.addArc(center: point(0.5, 1), radius: s * 1.2, startAngle: .radians(start),
-                             endAngle: .radians(start + Double.pi / 10), clockwise: false)
-                wedge.closeSubpath()
-                context.fill(wedge, with: .color(shades.light))
+        case .checker:
+            // Two light quarters on the diagonal, the band laid over them.
+            fill(box(0, 0, 0.5, 0.5), shades.light)
+            fill(box(0.5, 0.5, 1, 1), shades.light)
+            cross()
+            fill(box(0.36, 0.36, 0.64, 0.64), shades.dark)
+
+        case .frame:
+            // A dark square frame the band passes through.
+            fill(box(0.14, 0.14, 0.86, 0.86), shades.dark)
+            fill(box(0.26, 0.26, 0.74, 0.74), shades.pale)
+            cross()
+            fill(circle(centre, 0.1), shades.light)
+
+        case .petals:
+            // The band bends round every corner, leaving a four-petal flower.
+            for corner in [point(0, 0), point(1, 0), point(1, 1), point(0, 1)] {
+                fill(circle(corner, 0.5 - half), shades.light)
             }
-            fill(circle(point(0.5, 1), s * 0.42), shades.base)
-            fill(circle(point(0.5, 1), s * 0.22), shades.dark)
-
-        case .stripes:
-            // Diagonal bands, clipped to the square.
-            fill(Path(rect), shades.pale)
-            var bands = context
-            bands.clip(to: Path(rect))
-            for (index, offset) in [-0.5, 0.0, 0.5, 1.0].enumerated() {
-                let band = polygon([point(offset, 0), point(offset + 0.25, 0),
-                                    point(offset + 1.25, 1), point(offset + 1, 1)])
-                bands.fill(band, with: .color(index.isMultiple(of: 2) ? shades.base : shades.light))
+            for corner in [point(0, 0), point(1, 0), point(1, 1), point(0, 1)] {
+                context.fill(cornerArc(corner), with: .color(shades.base), style: FillStyle(eoFill: true))
             }
-
-        case .halfSquare:
-            // Split on the diagonal, with a quarter circle tucked in each half.
-            fill(Path(rect), shades.light)
-            fill(polygon([point(0, 0), point(1, 0), point(0, 1)]), shades.base)
-            fill(circle(point(1, 1), s * 0.45), shades.dark)
-            fill(circle(point(0, 0), s * 0.3), shades.pale)
+            fill(circle(centre, 0.12), shades.dark)
         }
     }
 }

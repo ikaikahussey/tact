@@ -27,7 +27,7 @@ struct PeopleRootView: View {
                 case .list:
                     PeopleListContent(query: query, editMode: $editMode)
                 default:
-                    PeopleGridContent(query: query)
+                    PeopleGridContent(query: query, isEditing: editMode.isEditing)
                 }
             }
             .environment(\.editMode, $editMode)
@@ -51,8 +51,12 @@ struct PeopleRootView: View {
     }
 
     private var header: some View {
-        TactHeader(title: layout.viewTitle, searchText: $searchText, isSearching: $isSearching,
-                   onLogoTap: popToRoot) {
+        TactHeader(title: layout.viewTitle,
+                   layout: Binding(get: { layout }, set: { newValue in
+                       UISelectionFeedbackGenerator().selectionChanged()
+                       withAnimation(.snappy) { rememberedLayout = newValue }
+                   }),
+                   searchText: $searchText, isSearching: $isSearching, onLogoTap: popToRoot) {
             ForEach(HeaderAction.actions(for: layout), id: \.self) { action in
                 button(for: action)
             }
@@ -72,20 +76,23 @@ struct PeopleRootView: View {
                     if !isSearching { searchText = "" }
                 }
             }
-        case .layoutToggle:
-            HeaderIconButton(title: layout == .grid ? "Show List" : "Show Grid",
-                             systemImage: layout == .grid ? "list.bullet" : "square.grid.2x2") {
-                UISelectionFeedbackGenerator().selectionChanged()
-                withAnimation(.snappy) { rememberedLayout = layout.toggled }
-            }
         case .games:
             HeaderIconButton(title: "Games", systemImage: action.systemImage) {
                 path.append(Route.games)
             }
         case .add:
-            HeaderIconButton(title: layout == .grid ? "Add Person" : "New Note", systemImage: action.systemImage) {
-                if layout == .grid { showingAddPerson = true } else { showingAddNote = true }
+            Menu {
+                Button { showingAddPerson = true } label: {
+                    Label("New Person", systemImage: "person.badge.plus")
+                }
+                Button { showingAddNote = true } label: {
+                    Label("New Note", systemImage: "square.and.pencil")
+                }
+            } label: {
+                HeaderIconButton(title: "Add", systemImage: action.systemImage) {}
             }
+            .accessibilityLabel("Add")
+            .accessibilityHint("New person or new note")
         case .edit:
             HeaderIconButton(title: editMode.isEditing ? "Done" : "Edit",
                              systemImage: editMode.isEditing ? "checkmark.circle" : action.systemImage,

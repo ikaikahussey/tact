@@ -2,13 +2,18 @@ import SwiftUI
 
 /// The Tiles canvas: a four-column grid where each person is a square with
 /// their geometric pattern. Tap a tile to open the person; touch and hold to
-/// change its color or turn it, or drag it to any cell (gaps allowed).
+/// start a note, change its color, turn it or delete the person, or drag
+/// it to any cell (gaps allowed). Edit puts a delete badge on every tile.
 /// Bring Together closes the gaps.
 struct PeopleGridContent: View {
     let query: String
+    /// Edit mode: each tile wears a delete badge instead of opening.
+    var isEditing = false
 
     @EnvironmentObject private var store: TactStore
     @State private var dropTarget: Int?
+    @State private var addingNoteFor: Person?
+    @State private var deleting: Person?
 
     private let columns = TileLayout.columns
     private let spacing: CGFloat = 1
@@ -34,6 +39,20 @@ struct PeopleGridContent: View {
                     }
                     .padding(16)
                 }
+            }
+            .sheet(item: $addingNoteFor) { person in
+                AddNoteView(personID: person.id)
+            }
+            .alert("Delete \(deleting?.name ?? "")?", isPresented: Binding(
+                get: { deleting != nil }, set: { if !$0 { deleting = nil } })
+            ) {
+                Button("Cancel", role: .cancel) { deleting = nil }
+                Button("Delete", role: .destructive) {
+                    if let deleting { store.deletePerson(id: deleting.id) }
+                    deleting = nil
+                }
+            } message: {
+                Text("Notes linked only to this person are deleted too. Notes shared with other people are kept.")
             }
             .overlay {
                 if store.people.isEmpty {
@@ -93,6 +112,7 @@ struct PeopleGridContent: View {
                 }
                 .frame(width: geometry.size.width, height: CGFloat(cellCount / columns) * pitch, alignment: .topLeading)
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: items)
+                .animation(.snappy, value: isEditing)
                 .padding(.bottom, 80)
             }
         }
@@ -121,7 +141,27 @@ struct PeopleGridContent: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .disabled(isEditing)
+        .overlay(alignment: .topLeading) {
+            if isEditing {
+                Button { deleting = person } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.tact(.title2))
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.white, .red)
+                        .padding(6)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Delete \(person.name)")
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
         .contextMenu {
+            Button { addingNoteFor = person } label: {
+                Label("New Note", systemImage: "square.and.pencil")
+            }
+            Divider()
             Menu {
                 Picker("Color", selection: colorIndex) {
                     ForEach(TilePalette.menuOrder, id: \.self) { index in
@@ -139,13 +179,17 @@ struct PeopleGridContent: View {
             Button { store.updateTile(forPersonID: person.id) { $0.rotate() } } label: {
                 Label("Rotate", systemImage: "rotate.right")
             }
+            Divider()
+            Button(role: .destructive) { deleting = person } label: {
+                Label("Delete", systemImage: "trash")
+            }
         }
         .draggable(person.id.uuidString) {
             PersonTile(person: person, size: size)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(person.name), \(TilePalette.name(person.tile.colorIndex)) tile")
-        .accessibilityHint("Opens \(person.name). Touch and hold to change the color, turn the tile, or move it.")
+        .accessibilityHint("Opens \(person.name). Touch and hold for a new note, the color, turning, or deleting; drag to move it.")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction(named: "Change color") {
             let order = TilePalette.menuOrder
@@ -155,5 +199,7 @@ struct PeopleGridContent: View {
         .accessibilityAction(named: "Rotate") {
             store.updateTile(forPersonID: person.id) { $0.rotate() }
         }
+        .accessibilityAction(named: "New note") { addingNoteFor = person }
+        .accessibilityAction(named: "Delete") { deleting = person }
     }
 }
