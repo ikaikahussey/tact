@@ -186,6 +186,17 @@ final class TactStore: ObservableObject {
         people = Self.settled(updated, fixing: id)
     }
 
+    /// Puts every listed piece at the centre given, as when a drag ends and
+    /// the pieces it pushed aside come to rest.
+    func setTangramPositions(_ centres: [UUID: TangramPiece.Point]) {
+        var updated = people
+        for index in updated.indices {
+            if let centre = centres[updated[index].id] { updated[index].tangram.position = centre }
+        }
+        guard updated != people else { return }
+        people = updated
+    }
+
     /// Replaces several people's pieces at once, as when fitting everything
     /// together.
     func setTangramPieces(_ pieces: [UUID: TangramPiece]) {

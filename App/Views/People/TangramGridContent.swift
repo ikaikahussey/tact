@@ -13,6 +13,9 @@ struct TangramGridContent: View {
     let context: TileGameContext
     /// The piece being dragged and where the finger took hold of it.
     @State private var dragging: (id: UUID, grip: CGSize)?
+    /// Where every piece sits while one is dragged. The store is left alone
+    /// until the finger lifts, so each frame only moves this view.
+    @State private var liveCentres: [UUID: TangramPiece.Point]?
     /// The piece being turned with two fingers and the sixths applied so far.
     @State private var rotating: (id: UUID, applied: Int)?
     /// Fit Together is working out an arrangement (it runs off the main thread).
@@ -23,7 +26,7 @@ struct TangramGridContent: View {
     var body: some View {
         GeometryReader { geometry in
             let cellSize = (geometry.size.width / CGFloat(columns)).rounded(.down)
-            let positions = TangramLayout.positions(for: store.people)
+            let positions = liveCentres ?? TangramLayout.positions(for: store.people)
             let placed = store.people.compactMap { person in positions[person.id].map { (centre: $0, person: person) } }
             let lowest = placed.map { $0.centre.y + $0.person.tangram.bounds.max.y }.max() ?? 0
             let visibleRows = Int((geometry.size.height / cellSize).rounded(.up))
@@ -45,8 +48,7 @@ struct TangramGridContent: View {
                 }
                 .frame(width: geometry.size.width, height: height, alignment: .topLeading)
                 .coordinateSpace(name: "tangram")
-                .animation(dragging == nil ? .spring(response: 0.35, dampingFraction: 0.8) : .interactiveSpring(),
-                           value: positions)
+                .animation(dragging == nil ? .spring(response: 0.35, dampingFraction: 0.8) : nil, value: positions)
                 .padding(.bottom, 80)
             }
             .scrollDisabled(dragging != nil)
@@ -100,6 +102,7 @@ struct TangramGridContent: View {
                 }
             }
         )
+        let pieces = Dictionary(store.people.map { ($0.id, $0.tangram) }, uniquingKeysWith: { first, _ in first })
         let drag = DragGesture(minimumDistance: 3, coordinateSpace: .named("tangram"))
             .onChanged { value in
                 guard rotating == nil else { return }
@@ -107,15 +110,25 @@ struct TangramGridContent: View {
                     let grip = CGSize(width: value.startLocation.x - CGFloat(centre.x) * cellSize,
                                       height: value.startLocation.y - CGFloat(centre.y) * cellSize)
                     dragging = (person.id, grip)
+                    liveCentres = TangramLayout.positions(for: store.people)
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 }
                 let grip = dragging?.grip ?? .zero
                 let target = TangramPiece.Point(x: (value.location.x - grip.width) / cellSize,
                                                 y: (value.location.y - grip.height) / cellSize)
-                store.moveTangram(personID: person.id, to: target)
+                // A few passes a frame are enough: the next frame carries on.
+                var centres = liveCentres ?? [:]
+                centres[person.id] = TangramLayout.clamped(target, for: piece)
+                TangramLayout.settle(&centres, pieces: pieces, fixed: person.id, passes: 6)
+                liveCentres = centres
             }
             .onEnded { _ in
+                if var centres = liveCentres {
+                    TangramLayout.settle(&centres, pieces: pieces, fixed: person.id)
+                    store.setTangramPositions(centres)
+                }
                 dragging = nil
+                liveCentres = nil
             }
         // Two fingers turn the piece a sixth of a turn at a time.
         let rotation = RotationGesture(minimumAngleDelta: .degrees(8))
@@ -138,7 +151,6 @@ struct TangramGridContent: View {
             .frame(width: size.width, height: size.height)
             .contentShape(outline)
             .contentShape(.contextMenuPreview, outline)
-            .shadow(color: .black.opacity(dragging?.id == person.id ? 0.25 : 0), radius: 8, y: 4)
             .scaleEffect(dragging?.id == person.id ? 1.06 : 1)
             .onTapGesture { pushRoute(.person(person.id)) }
             .simultaneousGesture(rotation)
@@ -240,7 +252,8 @@ struct TangramPieceView: View {
                 .minimumScaleFactor(0.6)
                 .padding(.horizontal, 5)
                 .padding(.vertical, 2)
-                .background(.thinMaterial, in: Capsule())
+                // A flat fill, not a material: sixteen blurs moving at once stutter.
+                .background(Color.tactCardBackground.opacity(0.85), in: Capsule())
                 .frame(maxWidth: CGFloat(half.x * 2) * side - 6)
                 .offset(x: -CGFloat(piece.boundsOffset.x) * side, y: -CGFloat(piece.boundsOffset.y) * side)
         }
