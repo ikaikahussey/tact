@@ -101,7 +101,7 @@ final class HelpersTests: XCTestCase {
         XCTAssertEqual(PeopleLayout.art.resolved, .grid)
         XCTAssertEqual(PeopleLayout.tangram.resolved, .grid)
         XCTAssertFalse(PeopleLayout.available.contains(.colors))
-        XCTAssertEqual(PeopleLayout.available, [.grid, .list])
+        XCTAssertEqual(PeopleLayout.available, [.grid, .list, .games])
         XCTAssertEqual(PeopleLayout.standard, .grid)
         XCTAssertEqual(PeopleLayout.art.title, "Puzzles")
     }
@@ -110,7 +110,6 @@ final class HelpersTests: XCTestCase {
         XCTAssertEqual(TileGame.all.map(\.id), ["tangram", "woodblock"])
         XCTAssertEqual(TileGame.all.map(\.title), ["Tangram", "Sliding Puzzle"])
         XCTAssertEqual(TileGame.all.map(\.route), [.tangram, .slidingPuzzle(.standard)])
-        XCTAssertEqual(Route.games.title, "Games")
         XCTAssertEqual(Route.slidingPuzzle(.person(UUID())).title, "Sliding Puzzle")
     }
 

@@ -1,38 +1,55 @@
 import Foundation
 
-/// The icons on the right of the header, in order. The grid/list choice is
-/// the people/notes switch on the left, not one of these.
+/// The icons on the right of the header, in order. The view itself is
+/// picked by the people/notes/games switch on the left. Edit and Settings
+/// live under More.
 enum HeaderAction: CaseIterable {
-    case search, games, add, edit, settings
+    case search, add, more
 
     var systemImage: String {
         switch self {
-        case .search:       return "magnifyingglass"
-        case .games:        return "puzzlepiece"
-        case .add:          return "plus"
-        case .edit:         return "pencil"
-        case .settings:     return "gearshape"
+        case .search: return "magnifyingglass"
+        case .add:    return "plus"
+        case .more:   return "ellipsis.circle"
         }
     }
 
-    /// The actions the root screen offers. The same set in both layouts:
-    /// Edit reorders and deletes people in the list and deletes tiles in
-    /// the grid.
+    /// The icons the root offers: everything for people and notes, no
+    /// search over the games.
     static func actions(for layout: PeopleLayout) -> [HeaderAction] {
-        allCases
+        allCases.filter { $0 != .search || layout.resolved != .games }
+    }
+
+    /// What More offers: Edit only where there is something to edit.
+    static func moreItems(for layout: PeopleLayout) -> [MoreItem] {
+        layout.resolved == .games ? [.settings] : [.edit, .settings]
     }
 }
 
-extension PeopleLayout {
-    /// The other of the two offered layouts.
-    var toggled: PeopleLayout { resolved == .grid ? .list : .grid }
+/// The entries of the header's More menu.
+enum MoreItem: CaseIterable {
+    case edit, settings
+}
 
+extension PeopleLayout {
     /// The name of the view: the list of people with their notes is the
     /// Notes view.
-    var viewTitle: String { resolved == .list ? "Notes" : "People" }
+    var viewTitle: String {
+        switch resolved {
+        case .list:  return "Notes"
+        case .games: return "Games"
+        default:     return "People"
+        }
+    }
 
-    /// The icon on the header's people/notes switch.
-    var switchImage: String { resolved == .list ? "note.text" : "person.2.fill" }
+    /// The icon on the header's switch.
+    var switchImage: String {
+        switch resolved {
+        case .list:  return "note.text"
+        case .games: return "puzzlepiece.fill"
+        default:     return "person.2.fill"
+        }
+    }
 
     /// Reads the remembered layout the way `@AppStorage` stores it.
     static func remembered(in defaults: UserDefaults) -> PeopleLayout {

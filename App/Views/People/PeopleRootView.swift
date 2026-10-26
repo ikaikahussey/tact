@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// The root screen: the people as a grid of tiles (People) or as a list
-/// with their notes (Notes), under the shared header, which remembers the
-/// choice. Everything else is pushed from here.
+/// The root screen: the people as a grid of tiles (People), as a list with
+/// their notes (Notes), or the games (Games), picked by the floating switch
+/// at the bottom and remembered, under the shared header. Everything else
+/// is pushed from here.
 struct PeopleRootView: View {
     @EnvironmentObject private var store: TactStore
     @AppStorage(PeopleLayout.storageKey) private var rememberedLayout: PeopleLayout = .standard
@@ -26,9 +27,15 @@ struct PeopleRootView: View {
                 switch layout {
                 case .list:
                     PeopleListContent(query: query, editMode: $editMode)
+                case .games:
+                    GamesContent()
                 default:
                     PeopleGridContent(query: query, isEditing: editMode.isEditing)
                 }
+            }
+            .safeAreaInset(edge: .bottom) {
+                ViewSwitch(layout: layoutBinding)
+                    .padding(.bottom, 8)
             }
             .environment(\.editMode, $editMode)
             .environment(\.pushRoute) { path.append($0) }
@@ -46,17 +53,16 @@ struct PeopleRootView: View {
             }
             .sheet(isPresented: $showingAddNote) { NewNoteSheet() }
             .sheet(isPresented: $showingSettings) { SettingsView() }
-            .onChange(of: layout) { _, _ in editMode = .inactive }
+            .onChange(of: layout) { _, _ in
+                editMode = .inactive
+                isSearching = false
+                searchText = ""
+            }
         }
     }
 
     private var header: some View {
-        TactHeader(title: layout.viewTitle,
-                   layout: Binding(get: { layout }, set: { newValue in
-                       UISelectionFeedbackGenerator().selectionChanged()
-                       withAnimation(.snappy) { rememberedLayout = newValue }
-                   }),
-                   searchText: $searchText, isSearching: $isSearching, onLogoTap: popToRoot) {
+        TactHeader(title: "", searchText: $searchText, isSearching: $isSearching, onLogoTap: popToRoot) {
             ForEach(HeaderAction.actions(for: layout), id: \.self) { action in
                 button(for: action)
             }
@@ -76,10 +82,6 @@ struct PeopleRootView: View {
                     if !isSearching { searchText = "" }
                 }
             }
-        case .games:
-            HeaderIconButton(title: "Games", systemImage: action.systemImage) {
-                path.append(Route.games)
-            }
         case .add:
             Menu {
                 Button { showingAddPerson = true } label: {
@@ -93,17 +95,34 @@ struct PeopleRootView: View {
             }
             .accessibilityLabel("Add")
             .accessibilityHint("New person or new note")
-        case .edit:
-            HeaderIconButton(title: editMode.isEditing ? "Done" : "Edit",
-                             systemImage: editMode.isEditing ? "checkmark.circle" : action.systemImage,
-                             isActive: editMode.isEditing) {
-                withAnimation(.snappy) { editMode = editMode.isEditing ? .inactive : .active }
+        case .more:
+            Menu {
+                ForEach(HeaderAction.moreItems(for: layout), id: \.self) { item in
+                    switch item {
+                    case .edit:
+                        Button {
+                            withAnimation(.snappy) { editMode = editMode.isEditing ? .inactive : .active }
+                        } label: {
+                            Label(editMode.isEditing ? "Done" : "Edit",
+                                  systemImage: editMode.isEditing ? "checkmark.circle" : "pencil")
+                        }
+                    case .settings:
+                        Button { showingSettings = true } label: {
+                            Label("Settings", systemImage: "gearshape")
+                        }
+                    }
+                }
+            } label: {
+                HeaderIconButton(title: "More", systemImage: editMode.isEditing ? "checkmark.circle" : action.systemImage,
+                                 isActive: editMode.isEditing) {}
             }
-        case .settings:
-            HeaderIconButton(title: "Settings", systemImage: action.systemImage) {
-                showingSettings = true
-            }
+            .accessibilityLabel("More")
+            .accessibilityHint(editMode.isEditing ? "Done editing, or settings" : "Edit or settings")
         }
+    }
+
+    private var layoutBinding: Binding<PeopleLayout> {
+        Binding(get: { layout }, set: { rememberedLayout = $0 })
     }
 
     private func popToRoot() {
@@ -118,8 +137,6 @@ struct PeopleRootView: View {
             PersonDetailView(personID: id)
         case .note(let id):
             NoteDetailView(noteID: id)
-        case .games:
-            GamesView(onLogoTap: popToRoot)
         case .tangram:
             GameScreen(title: route.title, onLogoTap: popToRoot) { context in
                 TangramGridContent(context: context)

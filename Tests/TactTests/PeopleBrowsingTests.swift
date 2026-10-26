@@ -26,21 +26,25 @@ final class PeopleBrowsingTests: XCTestCase {
 
     // MARK: Grid / list toggle
 
-    func testToggleAlternatesBetweenGridAndList() {
-        XCTAssertEqual(PeopleLayout.grid.toggled, .list)
-        XCTAssertEqual(PeopleLayout.list.toggled, .grid)
-        XCTAssertEqual(PeopleLayout.colors.toggled, .list, "a hidden layout counts as the grid")
+    func testTheSwitchOffersPeopleNotesAndGames() {
+        XCTAssertEqual(PeopleLayout.available, [.grid, .list, .games])
+        XCTAssertEqual(PeopleLayout.games.resolved, .games)
+        XCTAssertEqual(PeopleLayout.games.viewTitle, "Games")
+        XCTAssertEqual(PeopleLayout.games.switchImage, "puzzlepiece.fill")
     }
 
-    func testToggledLayoutIsRemembered() {
+    func testChosenViewIsRemembered() {
         let defaults = TestSupport.defaults()
         XCTAssertEqual(PeopleLayout.remembered(in: defaults), .grid, "grid until chosen otherwise")
 
-        PeopleLayout.remembered(in: defaults).toggled.remember(in: defaults)
+        PeopleLayout.list.remember(in: defaults)
         XCTAssertEqual(defaults.string(forKey: PeopleLayout.storageKey), "list", "stored as @AppStorage stores it")
         XCTAssertEqual(PeopleLayout.remembered(in: defaults), .list)
 
-        PeopleLayout.remembered(in: defaults).toggled.remember(in: defaults)
+        PeopleLayout.games.remember(in: defaults)
+        XCTAssertEqual(PeopleLayout.remembered(in: defaults), .games)
+
+        PeopleLayout.grid.remember(in: defaults)
         XCTAssertEqual(PeopleLayout.remembered(in: defaults), .grid)
 
         defaults.set("flashcards", forKey: PeopleLayout.storageKey)
@@ -76,10 +80,13 @@ final class PeopleBrowsingTests: XCTestCase {
 
     // MARK: Header icons
 
-    func testEditIconShowsInBothLayouts() {
-        let expected: [HeaderAction] = [.search, .games, .add, .edit, .settings]
-        XCTAssertEqual(HeaderAction.actions(for: .grid), expected)
-        XCTAssertEqual(HeaderAction.actions(for: .list), expected)
+    func testHeaderIconsAndMoreMenuByView() {
+        XCTAssertEqual(HeaderAction.actions(for: .grid), [.search, .add, .more])
+        XCTAssertEqual(HeaderAction.actions(for: .list), [.search, .add, .more])
+        XCTAssertEqual(HeaderAction.actions(for: .games), [.add, .more], "nothing to search in the games")
+        XCTAssertEqual(HeaderAction.moreItems(for: .grid), [.edit, .settings])
+        XCTAssertEqual(HeaderAction.moreItems(for: .list), [.edit, .settings])
+        XCTAssertEqual(HeaderAction.moreItems(for: .games), [.settings], "nothing to edit in the games")
     }
 
     // MARK: Search
