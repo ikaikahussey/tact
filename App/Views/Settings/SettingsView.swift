@@ -10,26 +10,26 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    ForEach(AppPalette.allCases) { option in
-                        Button { palette = option } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text(option.title).foregroundStyle(.primary)
-                                    PaletteStrip(palette: option)
+                    HStack(alignment: .top, spacing: 0) {
+                        ForEach(AppPalette.allCases) { option in
+                            Button { palette = option } label: {
+                                VStack(spacing: 6) {
+                                    PaletteSwatch(palette: option, isSelected: option == palette)
+                                    Text(option.title)
+                                        .font(.tact(.caption))
+                                        .foregroundStyle(option == palette ? Color.primary : Color.secondary)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.8)
                                 }
-                                Spacer()
-                                if option == palette {
-                                    Image(systemName: "checkmark")
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(option.accent)
-                                }
+                                .frame(maxWidth: .infinity)
+                                .contentShape(Rectangle())
                             }
-                            .padding(.vertical, 2)
-                            .contentShape(Rectangle())
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(option.title)
+                            .accessibilityAddTraits(option == palette ? .isSelected : [])
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(option == palette ? .isSelected : [])
                     }
+                    .padding(.vertical, 6)
                 } header: {
                     Text("Colors")
                 } footer: {

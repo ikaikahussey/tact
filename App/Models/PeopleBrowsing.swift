@@ -1,13 +1,13 @@
 import Foundation
 
-/// The icons on the right of the header, in order.
+/// The icons on the right of the header, in order. The grid/list choice is
+/// the people/notes switch on the left, not one of these.
 enum HeaderAction: CaseIterable {
-    case search, layoutToggle, games, add, edit, settings
+    case search, games, add, edit, settings
 
     var systemImage: String {
         switch self {
         case .search:       return "magnifyingglass"
-        case .layoutToggle: return "square.grid.2x2"
         case .games:        return "puzzlepiece"
         case .add:          return "plus"
         case .edit:         return "pencil"
@@ -27,9 +27,12 @@ extension PeopleLayout {
     /// The other of the two offered layouts.
     var toggled: PeopleLayout { resolved == .grid ? .list : .grid }
 
-    /// The name in the header: the list of people with their notes is the
+    /// The name of the view: the list of people with their notes is the
     /// Notes view.
     var viewTitle: String { resolved == .list ? "Notes" : "People" }
+
+    /// The icon on the header's people/notes switch.
+    var switchImage: String { resolved == .list ? "note.text" : "person.2.fill" }
 
     /// Reads the remembered layout the way `@AppStorage` stores it.
     static func remembered(in defaults: UserDefaults) -> PeopleLayout {

@@ -86,6 +86,14 @@ final class TileArtTests: XCTestCase {
             }
         }
         XCTAssertEqual(TilePalette.color(3, in: .classic), TilePalette.colors[3])
+        // Grayscale keeps every tile colour told apart.
+        let grays = TilePalette.menuOrder.map { index -> CGFloat in
+            var white: CGFloat = 0, alpha: CGFloat = 0
+            UIColor(AppPalette.grayscale.tileColor(index)).getWhite(&white, alpha: &alpha)
+            return white
+        }
+        XCTAssertEqual(Set(grays.map { Int($0 * 100) }).count, grays.count)
+        XCTAssertTrue(grays == grays.sorted(), "lighter along the menu")
     }
 
     func testLayoutKeepsPlacedTilesAndFillsGapsInOrder() {

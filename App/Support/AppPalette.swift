@@ -9,6 +9,7 @@ enum AppPalette: String, CaseIterable, Identifiable {
     case pastel
     case earthy
     case jewel
+    case grayscale
 
     static let storageKey = "appPalette"
 
@@ -25,6 +26,7 @@ enum AppPalette: String, CaseIterable, Identifiable {
         case .pastel:  "Pastel"
         case .earthy:  "Earthy"
         case .jewel:   "Jewel"
+        case .grayscale: "Grayscale"
         }
     }
 
@@ -36,6 +38,7 @@ enum AppPalette: String, CaseIterable, Identifiable {
         case .pastel:  Color(red: 0.45, green: 0.38, blue: 0.72)
         case .earthy:  Color(red: 0.62, green: 0.36, blue: 0.22)
         case .jewel:   Color(red: 0.05, green: 0.45, blue: 0.47)
+        case .grayscale: Color(white: 0.22)
         }
     }
 
@@ -47,13 +50,19 @@ enum AppPalette: String, CaseIterable, Identifiable {
     }
 
     /// Tile colour `index`, made from the classic colour of the same hue.
+    /// Grayscale spreads the colours over shades of gray in menu order, so
+    /// neighbours in the colour menu stay told apart.
     func tileColor(_ index: Int) -> Color {
         let classic = TilePalette.colors[index]
         guard self != .classic else { return classic }
+        if self == .grayscale {
+            let step = Double(TilePalette.menuOrder.firstIndex(of: index) ?? index)
+            return Color(white: 0.28 + 0.52 * step / Double(TilePalette.menuOrder.count - 1))
+        }
         var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
         UIColor(classic).getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
         switch self {
-        case .classic:
+        case .classic, .grayscale:
             break
         case .pastel:
             saturation *= 0.45
@@ -82,18 +91,29 @@ extension EnvironmentValues {
     }
 }
 
-/// The twelve tile colours of a palette in menu order, as a row of dots.
-struct PaletteStrip: View {
+extension AppPalette {
+    /// The twelve tile colours in menu order, blended into one sweep.
+    var gradient: LinearGradient {
+        LinearGradient(colors: TilePalette.menuOrder.map(tileColor), startPoint: .leading, endPoint: .trailing)
+    }
+}
+
+/// A palette as a disc of its colours, ringed when chosen.
+struct PaletteSwatch: View {
     let palette: AppPalette
+    let isSelected: Bool
 
     var body: some View {
-        HStack(spacing: 4) {
-            ForEach(TilePalette.menuOrder, id: \.self) { index in
-                Circle()
-                    .fill(palette.tileColor(index))
-                    .frame(width: 16, height: 16)
+        Circle()
+            .fill(palette.gradient)
+            .frame(width: 44, height: 44)
+            .overlay {
+                Circle().strokeBorder(Color(uiColor: .systemBackground), lineWidth: isSelected ? 3 : 0)
             }
-        }
-        .accessibilityHidden(true)
+            .overlay {
+                Circle().strokeBorder(palette.accent, lineWidth: isSelected ? 2.5 : 0)
+                    .padding(-3)
+            }
+            .accessibilityHidden(true)
     }
 }

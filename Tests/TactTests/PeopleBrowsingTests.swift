@@ -53,6 +53,8 @@ final class PeopleBrowsingTests: XCTestCase {
         XCTAssertEqual(PeopleLayout.grid.viewTitle, "People")
         XCTAssertEqual(PeopleLayout.list.viewTitle, "Notes")
         XCTAssertEqual(PeopleLayout.flashcards.viewTitle, "People", "hidden layouts show as the grid")
+        XCTAssertEqual(PeopleLayout.grid.switchImage, "person.2.fill")
+        XCTAssertEqual(PeopleLayout.list.switchImage, "note.text")
     }
 
     // MARK: Sections
@@ -75,7 +77,7 @@ final class PeopleBrowsingTests: XCTestCase {
     // MARK: Header icons
 
     func testEditIconShowsInBothLayouts() {
-        let expected: [HeaderAction] = [.search, .layoutToggle, .games, .add, .edit, .settings]
+        let expected: [HeaderAction] = [.search, .games, .add, .edit, .settings]
         XCTAssertEqual(HeaderAction.actions(for: .grid), expected)
         XCTAssertEqual(HeaderAction.actions(for: .list), expected)
     }

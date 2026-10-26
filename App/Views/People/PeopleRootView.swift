@@ -51,8 +51,12 @@ struct PeopleRootView: View {
     }
 
     private var header: some View {
-        TactHeader(title: layout.viewTitle, searchText: $searchText, isSearching: $isSearching,
-                   onLogoTap: popToRoot) {
+        TactHeader(title: layout.viewTitle,
+                   layout: Binding(get: { layout }, set: { newValue in
+                       UISelectionFeedbackGenerator().selectionChanged()
+                       withAnimation(.snappy) { rememberedLayout = newValue }
+                   }),
+                   searchText: $searchText, isSearching: $isSearching, onLogoTap: popToRoot) {
             ForEach(HeaderAction.actions(for: layout), id: \.self) { action in
                 button(for: action)
             }
@@ -71,12 +75,6 @@ struct PeopleRootView: View {
                     isSearching.toggle()
                     if !isSearching { searchText = "" }
                 }
-            }
-        case .layoutToggle:
-            HeaderIconButton(title: layout == .grid ? "Show List" : "Show Grid",
-                             systemImage: layout == .grid ? "list.bullet" : "square.grid.2x2") {
-                UISelectionFeedbackGenerator().selectionChanged()
-                withAnimation(.snappy) { rememberedLayout = layout.toggled }
             }
         case .games:
             HeaderIconButton(title: "Games", systemImage: action.systemImage) {
