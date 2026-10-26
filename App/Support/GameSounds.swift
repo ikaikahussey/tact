@@ -28,6 +28,13 @@ final class Synth {
         var vibratoPhase = 0.0
     }
 
+    /// The waveform settings; read on the audio thread, so set under the lock.
+    var timbre: SoundTuning {
+        get { lock.lock(); defer { lock.unlock() }; return storedTimbre }
+        set { lock.lock(); storedTimbre = newValue; lock.unlock() }
+    }
+    private var storedTimbre = SoundTuning.standard
+
     private let engine = AVAudioEngine()
     private var source: AVAudioSourceNode?
     private let lock = NSLock()
@@ -102,14 +109,15 @@ final class Synth {
         let start = frame
         for i in 0..<frames { out[i] = 0 }
         for index in voices.indices {
-            Self.render(voice: &voices[index], from: start, into: out, frames: frames)
+            Self.render(voice: &voices[index], from: start, into: out, frames: frames, timbre: storedTimbre)
         }
         frame += Int64(frames)
         voices.removeAll { $0.startFrame + Int64($0.note.duration * Self.sampleRate) <= frame }
     }
 
     /// Adds one voice's samples for `frames` frames starting at `start`.
-    private static func render(voice: inout Voice, from start: Int64, into out: UnsafeMutablePointer<Float>, frames: Int) {
+    private static func render(voice: inout Voice, from start: Int64, into out: UnsafeMutablePointer<Float>, frames: Int,
+                               timbre: SoundTuning) {
         let note = voice.note
         let length = note.duration * sampleRate
         for i in 0..<frames {
@@ -119,19 +127,21 @@ final class Synth {
             let progress = position / length
             let hz = note.startHz + (note.endHz - note.startHz) * progress
             voice.vibratoPhase += 5.5 / sampleRate
-            let vibrato = 1 + 0.004 * sin(voice.vibratoPhase * 2 * .pi)
+            let vibrato = 1 + 0.01 * timbre.vibrato * sin(voice.vibratoPhase * 2 * .pi)
             voice.phase += hz * vibrato / sampleRate
             if voice.phase > 1 { voice.phase -= 1 }
-            out[i] += Float(sample(phase: voice.phase) * envelope(t, duration: note.duration) * note.gain)
+            out[i] += Float(sample(phase: voice.phase, warmth: timbre.warmth, edge: timbre.edge)
+                            * envelope(t, duration: note.duration) * note.gain)
         }
     }
 
-    /// The waveform at `phase` (0...1): a sine warmed with some triangle
-    /// and softly clipped.
-    static func sample(phase: Double) -> Double {
+    /// The waveform at `phase` (0...1): a sine warmed with `warmth` of
+    /// triangle and softly clipped, harder the more `edge`.
+    static func sample(phase: Double, warmth: Double = SoundTuning.standard.warmth,
+                       edge: Double = SoundTuning.standard.edge) -> Double {
         let sine = sin(phase * 2 * .pi)
         let triangle = 4 * abs(phase - 0.5) - 1
-        return tanh((sine + 0.35 * triangle) * 1.3)
+        return tanh((sine + warmth * triangle) * edge)
     }
 
     /// Quick attack, a short hold, then an exponential fall that reaches
@@ -141,6 +151,59 @@ final class Synth {
         let attack = min(1, t / 0.006)
         let release = max(0, 1 - max(0, t - duration * 0.55) / (duration * 0.45))
         return attack * release * release
+    }
+}
+
+/// How the beeps sound, set under Settings > Games > Sound. Each value is
+/// a plain number in UserDefaults so the sliders bind to it directly.
+struct SoundTuning: Equatable {
+    /// Loudness, 0 to 1.
+    var volume = 1.0
+    /// Transposition in semitones, -12 to 12.
+    var pitch = 0.0
+    /// Note length multiplier, 0.5 to 2.
+    var length = 1.0
+    /// How much triangle wave is mixed in, 0 to 1.
+    var warmth = 0.35
+    /// How hard the soft clip is driven, 1 to 4.
+    var edge = 1.3
+    /// Vibrato depth, 0 to 1 (as a fraction of 1%).
+    var vibrato = 0.4
+
+    static let standard = SoundTuning()
+
+    enum Key: String, CaseIterable {
+        case volume = "soundVolume", pitch = "soundPitch", length = "soundLength"
+        case warmth = "soundWarmth", edge = "soundEdge", vibrato = "soundVibrato"
+    }
+
+    static func load(from defaults: UserDefaults = .standard) -> SoundTuning {
+        var tuning = SoundTuning()
+        func read(_ key: Key, _ keyPath: WritableKeyPath<SoundTuning, Double>) {
+            if let value = defaults.object(forKey: key.rawValue) as? Double { tuning[keyPath: keyPath] = value }
+        }
+        read(.volume, \.volume); read(.pitch, \.pitch); read(.length, \.length)
+        read(.warmth, \.warmth); read(.edge, \.edge); read(.vibrato, \.vibrato)
+        return tuning
+    }
+
+    /// Back to the standard sound.
+    static func reset(in defaults: UserDefaults = .standard) {
+        Key.allCases.forEach { defaults.removeObject(forKey: $0.rawValue) }
+    }
+
+    /// `notes` transposed, lengthened and scaled by this tuning.
+    func applied(to notes: [Synth.Note]) -> [Synth.Note] {
+        let factor = pow(2, pitch / 12)
+        return notes.map { note in
+            var note = note
+            note.startHz *= factor
+            note.endHz *= factor
+            note.duration *= length
+            note.delay *= length
+            note.gain *= volume
+            return note
+        }
     }
 }
 
@@ -181,6 +244,17 @@ enum GameSounds {
 
     static func play(_ notes: [Synth.Note]) {
         guard isEnabled else { return }
-        Synth.shared.play(notes)
+        let tuning = SoundTuning.load()
+        Synth.shared.timbre = tuning
+        Synth.shared.play(tuning.applied(to: notes))
+    }
+
+    /// A beep and boop then a short run, for trying a tuning out.
+    static func sample() -> [Synth.Note] {
+        lightPressed(cell: 0, lit: true) + lightPressed(cell: 2, lit: false).map { note in
+            var note = note
+            note.delay += 0.26
+            return note
+        }
     }
 }

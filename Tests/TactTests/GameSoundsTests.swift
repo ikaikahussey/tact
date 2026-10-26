@@ -50,3 +50,50 @@ final class GameSoundsTests: XCTestCase {
         XCTAssertFalse(GameSounds.isEnabled)
     }
 }
+
+final class SoundTuningTests: XCTestCase {
+    func testStandardTuningLeavesNotesAlone() {
+        let notes = GameSounds.sample()
+        XCTAssertEqual(SoundTuning.standard.applied(to: notes), notes)
+    }
+
+    func testTuningTransposesLengthensAndScales() {
+        var tuning = SoundTuning.standard
+        tuning.pitch = 12
+        tuning.length = 2
+        tuning.volume = 0.5
+        let note = Synth.Note(startHz: 440, endHz: 880, duration: 0.1, delay: 0.2, gain: 0.4)
+        let tuned = tuning.applied(to: [note])[0]
+        XCTAssertEqual(tuned.startHz, 880, accuracy: 1e-9, "an octave up")
+        XCTAssertEqual(tuned.endHz, 1760, accuracy: 1e-9)
+        XCTAssertEqual(tuned.duration, 0.2, accuracy: 1e-9)
+        XCTAssertEqual(tuned.delay, 0.4, accuracy: 1e-9, "spacing stretches with the notes")
+        XCTAssertEqual(tuned.gain, 0.2, accuracy: 1e-9)
+    }
+
+    func testTuningRoundTripsThroughDefaultsAndResets() {
+        let defaults = TestSupport.defaults()
+        XCTAssertEqual(SoundTuning.load(from: defaults), .standard, "standard until changed")
+        defaults.set(0.25, forKey: SoundTuning.Key.volume.rawValue)
+        defaults.set(-5.0, forKey: SoundTuning.Key.pitch.rawValue)
+        defaults.set(0.9, forKey: SoundTuning.Key.warmth.rawValue)
+        let loaded = SoundTuning.load(from: defaults)
+        XCTAssertEqual(loaded.volume, 0.25)
+        XCTAssertEqual(loaded.pitch, -5)
+        XCTAssertEqual(loaded.warmth, 0.9)
+        XCTAssertEqual(loaded.edge, SoundTuning.standard.edge, "untouched values stay standard")
+        SoundTuning.reset(in: defaults)
+        XCTAssertEqual(SoundTuning.load(from: defaults), .standard)
+    }
+
+    func testTimbreKeepsTheWaveformInRange() {
+        for warmth in [0.0, 0.5, 1.0] {
+            for edge in [1.0, 2.5, 4.0] {
+                for step in 0...50 {
+                    let value = Synth.sample(phase: Double(step) / 50, warmth: warmth, edge: edge)
+                    XCTAssertTrue(value.isFinite && abs(value) <= 1, "warmth \(warmth) edge \(edge) step \(step)")
+                }
+            }
+        }
+    }
+}
