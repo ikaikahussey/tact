@@ -14,8 +14,8 @@ enum TilePattern: Int, CaseIterable {
     case pinwheel
     case bullseye
     case diamond
-    case sunrise
-    case dots
+    case checker
+    case frame
     case petals
 
     init(seed: Int) {
@@ -30,8 +30,8 @@ enum TilePattern: Int, CaseIterable {
         case .pinwheel: "Pinwheel"
         case .bullseye: "Bullseye"
         case .diamond:  "Diamond"
-        case .sunrise:  "Sunrise"
-        case .dots:     "Dots"
+        case .checker:  "Checker"
+        case .frame:    "Frame"
         case .petals:   "Petals"
         }
     }
@@ -157,28 +157,18 @@ struct TilePatternView: View {
             fill(polygon([point(0.5, 0.26), point(0.74, 0.5), point(0.5, 0.74), point(0.26, 0.5)]), shades.light)
             fill(circle(centre, 0.07), shades.base)
 
-        case .sunrise:
-            // A half disc rising from the bottom band, with rays behind it.
-            for ray in 0..<5 {
-                let start = Double.pi + Double(ray) * Double.pi / 5
-                var wedge = Path()
-                wedge.move(to: point(0.5, 1))
-                wedge.addArc(center: point(0.5, 1), radius: s * 1.2, startAngle: .radians(start),
-                             endAngle: .radians(start + Double.pi / 10), clockwise: false)
-                wedge.closeSubpath()
-                context.fill(wedge, with: .color(shades.light))
-            }
-            fill(box(0, 0.5 - half, 1, 0.5 + half), shades.base)
-            fill(circle(point(0.5, 1), 0.36), shades.dark)
-            fill(circle(point(0.5, 1), 0.2), shades.light)
-            // The upright band stands in front of the sun so it reaches the edge.
-            fill(box(0.5 - half, 0, 0.5 + half, 1), shades.base)
-
-        case .dots:
+        case .checker:
+            // Two light quarters on the diagonal, the band laid over them.
+            fill(box(0, 0, 0.5, 0.5), shades.light)
+            fill(box(0.5, 0.5, 1, 1), shades.light)
             cross()
-            for (x, y) in [(0.2, 0.2), (0.8, 0.2), (0.2, 0.8), (0.8, 0.8)] {
-                fill(circle(point(x, y), 0.1), shades.dark)
-            }
+            fill(box(0.36, 0.36, 0.64, 0.64), shades.dark)
+
+        case .frame:
+            // A dark square frame the band passes through.
+            fill(box(0.14, 0.14, 0.86, 0.86), shades.dark)
+            fill(box(0.26, 0.26, 0.74, 0.74), shades.pale)
+            cross()
             fill(circle(centre, 0.1), shades.light)
 
         case .petals:
