@@ -16,8 +16,18 @@ struct PeopleRootView: View {
     @State private var showingAddNote = false
     @State private var showingSettings = false
     @State private var newPersonName = ""
+    /// What the canvas shows right now. Mode changes are staged through the
+    /// tiles: a game flips them over, and any other mode flips them back
+    /// before the list fades in, so every change passes through the flip.
+    @State private var canvasShowsGames = false
+    @State private var showsList = false
+    @State private var stagedChange = 0
 
     private var layout: PeopleLayout { rememberedLayout.resolved }
+
+    /// How long the whole wave takes: the last cell's stagger plus one turn.
+    static let flipDuration = TileFlipFace.delay(forCell: TileLayout.columns * 4 - 1, columns: TileLayout.columns)
+        + TileFlipFace.halfDuration * 2
     private var query: String { isSearching ? searchText : "" }
 
     var body: some View {
@@ -25,16 +35,24 @@ struct PeopleRootView: View {
             HeaderScreen {
                 header
             } content: {
-                if layout == .list {
-                    PeopleListContent(query: query, editMode: $editMode)
-                } else {
+                ZStack {
                     // The grid and the games share one canvas: a game is the
-                    // back of the tiles, and choosing one turns them over.
+                    // back of the tiles, and choosing one turns them over. The
+                    // canvas stays while the list shows, so games keep their
+                    // progress.
                     ZStack {
-                        PeopleGridContent(query: query, isEditing: editMode.isEditing, showingGames: layout == .games)
-                        GamesSurface(showing: layout == .games, selectedGameID: selectedGameID)
+                        PeopleGridContent(query: query, isEditing: editMode.isEditing && !showsList,
+                                          showingGames: canvasShowsGames)
+                        GamesSurface(showing: canvasShowsGames, selectedGameID: selectedGameID)
+                    }
+                    .allowsHitTesting(!showsList)
+                    .accessibilityHidden(showsList)
+                    if showsList {
+                        PeopleListContent(query: query, editMode: $editMode)
+                            .transition(.opacity)
                     }
                 }
+                .animation(.easeInOut(duration: 0.2), value: showsList)
             }
             .safeAreaInset(edge: .bottom) {
                 ViewSwitch(layout: layoutBinding, selectedGameID: $selectedGameID)
@@ -56,7 +74,12 @@ struct PeopleRootView: View {
             }
             .sheet(isPresented: $showingAddNote) { NewNoteSheet() }
             .sheet(isPresented: $showingSettings) { SettingsView() }
-            .onChange(of: layout) { _, _ in
+            .onAppear {
+                canvasShowsGames = layout == .games
+                showsList = layout == .list
+            }
+            .onChange(of: layout) { from, to in
+                stage(from: from, to: to)
                 editMode = .inactive
                 isSearching = false
                 searchText = ""
@@ -121,6 +144,36 @@ struct PeopleRootView: View {
             }
             .accessibilityLabel("More")
             .accessibilityHint(editMode.isEditing ? "Done editing, or settings" : "Edit or settings")
+        }
+    }
+
+    /// Moves the canvas to `to` in steps. Leaving a game turns the tiles
+    /// back first; entering one from the list shows the tiles first.
+    private func stage(from: PeopleLayout, to: PeopleLayout) {
+        stagedChange += 1
+        let change = stagedChange
+        func later(_ seconds: Double, _ action: @escaping () -> Void) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(seconds))
+                if stagedChange == change { action() }
+            }
+        }
+        switch (from, to) {
+        case (.games, .list):
+            canvasShowsGames = false
+            later(Self.flipDuration) { showsList = true }
+        case (.list, .games):
+            showsList = false
+            later(0.25) { canvasShowsGames = true }
+        case (_, .games):
+            showsList = false
+            canvasShowsGames = true
+        case (_, .list):
+            canvasShowsGames = false
+            showsList = true
+        default:
+            showsList = false
+            canvasShowsGames = false
         }
     }
 
