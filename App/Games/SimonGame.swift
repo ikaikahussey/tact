@@ -20,6 +20,7 @@ struct SimonGame: View {
     let context: TileGameContext
     @State private var game = Simon(columns: SimonGame.columns, rows: SimonGame.rows)
     @State private var showingSound = false
+    @State private var showingTuning = false
     /// Pads lit and sounding now, by the game or the finger.
     @State private var sounding = Set<Int>()
     /// The pad under each finger, by the pad it started on.
@@ -77,6 +78,13 @@ struct SimonGame: View {
         .onChange(of: scaleID) { _, _ in retune() }
         .onChange(of: keySemitone) { _, _ in retune() }
         .onDisappear(perform: quiet)
+        .sheet(isPresented: $showingTuning) {
+            SimonTuningView(scaleID: $scaleID, keySemitone: $keySemitone) {
+                showingTuning = false
+                showingSound = true
+            }
+            .presentationDetents([.medium, .large])
+        }
         .sheet(isPresented: $showingSound) {
             NavigationStack {
                 SoundSettingsView()
@@ -91,25 +99,12 @@ struct SimonGame: View {
 
     // MARK: Tuning
 
-    /// Scale, key and the way to the synth, behind one round button.
+    /// Opens the tuning sheet: tonic on a piano, scale as icons, and the
+    /// way to the synth settings.
     private var tuneMenu: some View {
-        Menu {
-            Picker("Scale", selection: $scaleID) {
-                ForEach(SimonScale.allCases) { scale in
-                    Text(scale.title).tag(scale.rawValue)
-                }
-            }
-            .pickerStyle(.menu)
-            Picker("Key", selection: $keySemitone) {
-                ForEach(SimonKey.all) { key in
-                    Text(key.name(flats: tuning.scale.prefersFlats)).tag(key.semitone)
-                }
-            }
-            .pickerStyle(.menu)
-            Divider()
-            Button { showingSound = true } label: {
-                Label("Synth Settings…", systemImage: "slider.horizontal.3")
-            }
+        Button {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            showingTuning = true
         } label: {
             Image(systemName: "tuningfork")
                 .font(.tact(.body).weight(.semibold))
@@ -118,8 +113,9 @@ struct SimonGame: View {
                 .background(.tint, in: Circle())
                 .shadow(color: .black.opacity(0.18), radius: 6, y: 3)
         }
+        .buttonStyle(.plain)
         .accessibilityLabel("Tuning, \(tuning.title)")
-        .accessibilityHint("Chooses the scale and key, or opens the synth settings.")
+        .accessibilityHint("Chooses the tonic and scale, or opens the synth settings.")
     }
 
     /// A new scale or key: silence what is sounding (its pitches are gone)
