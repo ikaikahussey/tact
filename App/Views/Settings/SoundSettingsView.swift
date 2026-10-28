@@ -29,6 +29,12 @@ struct SoundSettingsView: View {
                     ConsoleSlider(label: "LENGTH", value: $length, range: 0.5...2,
                                   readout: String(format: "%.2f", length), onRelease: preview)
                 }
+                panel("TONIC") {
+                    SoundTuningControls(part: .tonic, onChange: soundRoot)
+                }
+                panel("SCALE") {
+                    SoundTuningControls(part: .scale, onChange: soundRoot)
+                }
                 panel("TONE") {
                     ConsoleSlider(label: "WARMTH", value: $warmth, range: 0...1,
                                   readout: String(format: "%3.0f", warmth * 100), onRelease: preview)
@@ -47,7 +53,7 @@ struct SoundSettingsView: View {
                         preview()
                     }
                 }
-                Text("SIMON AND THE GAMES · FOLLOWS THE SILENT SWITCH")
+                Text("SIMON AND THE GAMES · TONIC AND SCALE LAY OUT SIMON'S PADS · FOLLOWS THE SILENT SWITCH")
                     .font(Console.font(9))
                     .tracking(1.5)
                     .foregroundStyle(Console.dim)
@@ -127,6 +133,13 @@ struct SoundSettingsView: View {
     }
 
     private func preview() { preview(force: false) }
+
+    /// Sounds the root of the chosen tonic and scale on Simon's synth, so a
+    /// new tuning can be heard.
+    private func soundRoot(_ frequency: Double) {
+        guard soundOn else { return }
+        SimonSynth.shared.noteOn(frequency, duration: 0.3)
+    }
 }
 
 /// The console's colours and type.

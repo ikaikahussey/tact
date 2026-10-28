@@ -20,7 +20,6 @@ struct SimonGame: View {
     let context: TileGameContext
     @State private var game = Simon(columns: SimonGame.columns, rows: SimonGame.rows)
     @State private var showingSound = false
-    @State private var showingTuning = false
     /// Pads lit and sounding now, by the game or the finger.
     @State private var sounding = Set<Int>()
     /// The pad under each finger, by the pad it started on.
@@ -78,13 +77,6 @@ struct SimonGame: View {
         .onChange(of: scaleID) { _, _ in retune() }
         .onChange(of: keySemitone) { _, _ in retune() }
         .onDisappear(perform: quiet)
-        .sheet(isPresented: $showingTuning) {
-            SimonTuningView(scaleID: $scaleID, keySemitone: $keySemitone) {
-                showingTuning = false
-                showingSound = true
-            }
-            .presentationDetents([.medium, .large])
-        }
         .sheet(isPresented: $showingSound) {
             NavigationStack {
                 SoundSettingsView()
@@ -99,12 +91,11 @@ struct SimonGame: View {
 
     // MARK: Tuning
 
-    /// Opens the tuning sheet: tonic on a piano, scale as icons, and the
-    /// way to the synth settings.
+    /// Opens the audio console: tonic, scale and the synth.
     private var tuneMenu: some View {
         Button {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            showingTuning = true
+            showingSound = true
         } label: {
             Image(systemName: "tuningfork")
                 .font(.tact(.body).weight(.semibold))
@@ -115,7 +106,7 @@ struct SimonGame: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Tuning, \(tuning.title)")
-        .accessibilityHint("Chooses the tonic and scale, or opens the synth settings.")
+        .accessibilityHint("Opens the audio console: tonic, scale and synth.")
     }
 
     /// A new scale or key: silence what is sounding (its pitches are gone)
