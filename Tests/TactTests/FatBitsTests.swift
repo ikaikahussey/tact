@@ -59,9 +59,9 @@ final class FatBitsTests: XCTestCase {
         bits[3, 5] = 2
         XCTAssertEqual(bits[3, 5], 2)
         XCTAssertEqual(bits.bits[5 * FatBits.side + 3], 2, "row-major")
-        bits[8, 0] = 3
+        bits[FatBits.side, 0] = 3
         bits[0, -1] = 3
-        XCTAssertEqual(bits[8, 0], 0)
+        XCTAssertEqual(bits[FatBits.side, 0], 0)
         XCTAssertEqual(bits.bits.filter { $0 != 0 }.count, 1)
         bits[1, 1] = 7
         XCTAssertEqual(bits[1, 1], 3)
@@ -78,13 +78,14 @@ final class FatBitsTests: XCTestCase {
         var bits = FatBits.blank
         bits[0, 0] = 3
         bits[2, 1] = 1
+        let last = FatBits.side - 1
         let horizontal = bits.flippedHorizontally
-        XCTAssertEqual(horizontal[7, 0], 3)
-        XCTAssertEqual(horizontal[5, 1], 1)
+        XCTAssertEqual(horizontal[last, 0], 3)
+        XCTAssertEqual(horizontal[last - 2, 1], 1)
         XCTAssertEqual(horizontal[0, 0], 0)
         let vertical = bits.flippedVertically
-        XCTAssertEqual(vertical[0, 7], 3)
-        XCTAssertEqual(vertical[2, 6], 1)
+        XCTAssertEqual(vertical[0, last], 3)
+        XCTAssertEqual(vertical[2, last - 1], 1)
         XCTAssertEqual(bits.flippedHorizontally.flippedHorizontally, bits)
         XCTAssertEqual(bits.flippedVertically.flippedVertically, bits)
         XCTAssertEqual(FatBits.cross.flippedHorizontally, .cross, "the band is symmetric")
