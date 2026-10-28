@@ -1,0 +1,225 @@
+import XCTest
+@testable import Tact
+
+final class FatBitsTests: XCTestCase {
+    private func stamp(_ bits: FatBits, color: Int = 0) -> MosaicStamp {
+        MosaicStamp(bits: bits, colorIndex: color)
+    }
+
+    // MARK: Bitmap
+
+    func testCrossIsTheDefaultAndCoversTheBand() {
+        let bits = FatBits()
+        XCTAssertEqual(bits, .cross)
+        XCTAssertEqual(bits.bits.count, FatBits.count)
+        for index in 0..<FatBits.side {
+            for band in FatBits.bandRange {
+                XCTAssertEqual(bits[band, index], 2, "column \(band) row \(index)")
+                XCTAssertEqual(bits[index, band], 2, "row \(band) column \(index)")
+            }
+        }
+        XCTAssertEqual(bits[0, 0], 0)
+        XCTAssertEqual(bits[7, 7], 0)
+        XCTAssertFalse(bits.isBlank)
+    }
+
+    func testInitPadsCutsAndClampsShades() {
+        let short = FatBits(bits: [3, 9])
+        XCTAssertEqual(short.bits.count, FatBits.count)
+        XCTAssertEqual(short[0, 0], 3)
+        XCTAssertEqual(short[1, 0], 3, "shades above 3 are brought back to 3")
+        XCTAssertEqual(short[2, 0], 0)
+        let long = FatBits(bits: Array(repeating: 1, count: FatBits.count + 10))
+        XCTAssertEqual(long.bits.count, FatBits.count)
+    }
+
+    func testSubscriptSetsAndIgnoresOutOfRange() {
+        var bits = FatBits.blank
+        bits[3, 5] = 2
+        XCTAssertEqual(bits[3, 5], 2)
+        XCTAssertEqual(bits.bits[5 * FatBits.side + 3], 2, "row-major")
+        bits[8, 0] = 3
+        bits[0, -1] = 3
+        XCTAssertEqual(bits[8, 0], 0)
+        XCTAssertEqual(bits.bits.filter { $0 != 0 }.count, 1)
+        bits[1, 1] = 7
+        XCTAssertEqual(bits[1, 1], 3)
+    }
+
+    func testClearAndBlank() {
+        var bits = FatBits.cross
+        bits.clear()
+        XCTAssertTrue(bits.isBlank)
+        XCTAssertEqual(bits, .blank)
+    }
+
+    func testFlips() {
+        var bits = FatBits.blank
+        bits[0, 0] = 3
+        bits[2, 1] = 1
+        let horizontal = bits.flippedHorizontally
+        XCTAssertEqual(horizontal[7, 0], 3)
+        XCTAssertEqual(horizontal[5, 1], 1)
+        XCTAssertEqual(horizontal[0, 0], 0)
+        let vertical = bits.flippedVertically
+        XCTAssertEqual(vertical[0, 7], 3)
+        XCTAssertEqual(vertical[2, 6], 1)
+        XCTAssertEqual(bits.flippedHorizontally.flippedHorizontally, bits)
+        XCTAssertEqual(bits.flippedVertically.flippedVertically, bits)
+        XCTAssertEqual(FatBits.cross.flippedHorizontally, .cross, "the band is symmetric")
+    }
+
+    func testInvert() {
+        var bits = FatBits.blank
+        bits[0, 0] = 1
+        bits[1, 0] = 3
+        let inverted = bits.inverted
+        XCTAssertEqual(inverted[0, 0], 2)
+        XCTAssertEqual(inverted[1, 0], 0)
+        XCTAssertEqual(inverted[2, 0], 3)
+        XCTAssertEqual(inverted.inverted, bits)
+    }
+
+    func testBitmapRoundTripsThroughJSON() throws {
+        var bits = FatBits.cross
+        bits[6, 1] = 3
+        let data = try JSONEncoder().encode(bits)
+        XCTAssertEqual(try JSONDecoder().decode(FatBits.self, from: data), bits)
+    }
+
+    // MARK: Stamps
+
+    func testFatBitsStampLooksDifferentFromMotifsAndOtherBitmaps() {
+        let a = stamp(.cross)
+        var other = FatBits.cross
+        other[0, 0] = 3
+        let b = stamp(other)
+        let motif = MosaicStamp(pattern: 1, colorIndex: 0)
+        XCTAssertTrue(a.isFatBits)
+        XCTAssertFalse(motif.isFatBits)
+        XCTAssertEqual(a.pattern, MosaicStamp.fatBitsPattern)
+        XCTAssertFalse(a.sameLook(as: b))
+        XCTAssertFalse(a.sameLook(as: motif))
+        XCTAssertTrue(a.sameLook(as: a.turned))
+        XCTAssertFalse(a.sameLook(as: stamp(.cross, color: 1)))
+    }
+
+    func testTurningKeepsTheBitmap() {
+        let a = stamp(.cross)
+        XCTAssertEqual(a.turned.bits, .cross)
+        XCTAssertEqual(a.turned.quarterTurns, 1)
+        XCTAssertEqual(a.turned.turned.turned.turned.quarterTurns, 0)
+        XCTAssertEqual(a.turned.unturned, a)
+    }
+
+    func testStampingAFatBitsCellTwiceTurnsIt() {
+        var mosaic = Mosaic()
+        let a = stamp(.cross)
+        mosaic.stamp(a, at: 0)
+        mosaic.stamp(a, at: 0)
+        XCTAssertEqual(mosaic[0]?.quarterTurns, 1)
+        XCTAssertEqual(mosaic[0]?.bits, .cross)
+    }
+
+    func testFillKeepsBitmaps() {
+        var mosaic = Mosaic(columns: 4, rows: 2)
+        var generator = SystemRandomNumberGenerator()
+        mosaic.fill(from: [stamp(.cross)], using: &generator)
+        XCTAssertEqual(mosaic.filledCount, 8)
+        for index in 0..<8 {
+            XCTAssertEqual(mosaic[index]?.bits, .cross)
+        }
+    }
+
+    func testSwapAndRemoveFollowTheLook() {
+        var mosaic = Mosaic(columns: 4, rows: 1)
+        let a = stamp(.cross)
+        var changed = FatBits.cross
+        changed[0, 0] = 3
+        let b = stamp(changed)
+        let motif = MosaicStamp(pattern: 2, colorIndex: 4)
+        mosaic.stamp(a, at: 0)
+        mosaic.stamp(a, at: 1)
+        mosaic.stamp(a, at: 1)   // turned once
+        mosaic.stamp(motif, at: 2)
+        mosaic.swap(a, for: b)
+        XCTAssertEqual(mosaic[0], b)
+        XCTAssertEqual(mosaic[1]?.bits, changed)
+        XCTAssertEqual(mosaic[1]?.quarterTurns, 1, "the turn is kept")
+        XCTAssertEqual(mosaic[2], motif)
+        mosaic.remove(b)
+        XCTAssertNil(mosaic[0])
+        XCTAssertNil(mosaic[1])
+        XCTAssertEqual(mosaic[2], motif)
+    }
+
+    func testOldSavedMosaicsWithoutBitsStillDecode() throws {
+        let json = """
+        {"columns":2,"rows":1,"cells":[{"pattern":3,"colorIndex":5,"quarterTurns":2},null]}
+        """
+        let mosaic = try XCTUnwrap(Mosaic.decoded(from: Data(json.utf8)))
+        XCTAssertEqual(mosaic[0], MosaicStamp(pattern: 3, colorIndex: 5, quarterTurns: 2))
+        XCTAssertNil(mosaic[0]?.bits)
+        XCTAssertNil(mosaic[1])
+    }
+
+    func testMosaicWithFatBitsRoundTripsThroughJSON() throws {
+        var mosaic = Mosaic(columns: 2, rows: 1)
+        var bits = FatBits.cross
+        bits[7, 7] = 1
+        mosaic.stamp(stamp(bits, color: 9), at: 1)
+        let data = try XCTUnwrap(mosaic.encoded())
+        let back = try XCTUnwrap(Mosaic.decoded(from: data))
+        XCTAssertEqual(back, mosaic)
+        XCTAssertEqual(back[1]?.bits, bits)
+    }
+
+    // MARK: Shelf
+
+    func testShelfAddsUnturnedAndDeduplicates() {
+        var shelf = FatBitsShelf()
+        let a = stamp(.cross)
+        XCTAssertEqual(shelf.add(a.turned), a)
+        XCTAssertEqual(shelf.count, 1)
+        XCTAssertEqual(shelf.stamps[0].quarterTurns, 0)
+        shelf.add(a)
+        XCTAssertEqual(shelf.count, 1, "the same look is not added twice")
+        XCTAssertNil(shelf.add(MosaicStamp(pattern: 0, colorIndex: 0)), "motifs do not go on the shelf")
+        XCTAssertEqual(shelf.count, 1)
+    }
+
+    func testShelfReplaceAndRemove() {
+        var shelf = FatBitsShelf()
+        let a = stamp(.cross)
+        var changed = FatBits.cross
+        changed[0, 0] = 3
+        let b = stamp(changed)
+        shelf.add(a)
+        shelf.replace(a, with: b.turned)
+        XCTAssertEqual(shelf.stamps, [b])
+        shelf.add(a)
+        shelf.replace(a, with: b)
+        XCTAssertEqual(shelf.stamps, [b], "replacing with a look already held merges them")
+        shelf.remove(b)
+        XCTAssertTrue(shelf.isEmpty)
+    }
+
+    func testShelfHasALimit() {
+        var shelf = FatBitsShelf()
+        for index in 0..<(FatBitsShelf.limit + 5) {
+            var bits = FatBits.blank
+            bits[index % FatBits.side, index / FatBits.side] = 3
+            shelf.add(stamp(bits))
+        }
+        XCTAssertEqual(shelf.count, FatBitsShelf.limit)
+        XCTAssertTrue(shelf.isFull)
+    }
+
+    func testShelfRoundTripsThroughJSON() throws {
+        var shelf = FatBitsShelf()
+        shelf.add(stamp(.cross, color: 3))
+        let data = try XCTUnwrap(shelf.encoded())
+        XCTAssertEqual(FatBitsShelf.decoded(from: data), shelf)
+        XCTAssertNil(FatBitsShelf.decoded(from: nil))
+    }
+}

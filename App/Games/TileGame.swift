@@ -45,7 +45,7 @@ struct TileGame: Identifiable {
     }
 
     static let mosaic = TileGame(id: "mosaic", title: "Mosaic",
-                                 blurb: "A quilt laid from everyone's motifs. Stamp, turn and fill the canvas; it keeps.",
+                                 blurb: "A quilt laid from everyone's motifs. Stamp, turn and fill the canvas, or draw a stamp of your own in FatBits; it keeps.",
                                  systemImage: "square.grid.3x3.square") {
         AnyView(MosaicGame(context: $0))
     }
