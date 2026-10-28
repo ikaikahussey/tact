@@ -17,7 +17,7 @@ struct TileGame: Identifiable {
     let board: (TileGameContext) -> AnyView
 
     /// The games offered, in the order of the menu. The first is the default.
-    static let all: [TileGame] = [.tangram, .slidingPuzzle, .lightsOut, .mosaic]
+    static let all: [TileGame] = [.tangram, .slidingPuzzle, .simon, .mosaic]
 
     static let storageKey = "tilesGame"
 
@@ -38,10 +38,10 @@ struct TileGame: Identifiable {
         AnyView(SlidingPuzzleGame(context: $0, source: .standard))
     }
 
-    static let lightsOut = TileGame(id: "lightsout", title: "Lights Out",
-                                    blurb: "Sixteen lights, one per tile. Tap one and its neighbours flip too. Turn them all off.",
-                                    systemImage: "lightbulb") {
-        AnyView(LightsOutGame(context: $0))
+    static let simon = TileGame(id: "simon", title: "Simon",
+                                blurb: "Sixteen pads, each a note. Play them like a keyboard, or press play and repeat what Simon plays.",
+                                systemImage: "pianokeys") {
+        AnyView(SimonGame(context: $0))
     }
 
     static let mosaic = TileGame(id: "mosaic", title: "Mosaic",
