@@ -1,13 +1,14 @@
 import Foundation
 
-/// A FatBits stamp: an 8×8 bitmap in the four shades of a palette colour,
+/// A FatBits stamp: a 10×10 bitmap in the four shades of a palette colour,
 /// drawn big enough to edit one bit at a time, in the manner of MacPaint's
 /// FatBits. Shade 0 is pale, 1 light, 2 the colour itself, 3 dark, matching
 /// `TileShades`. A stamp made here sits in a Mosaic beside the built-in
-/// motifs; the middle two rows and columns are where the connecting band
-/// runs, so a stamp that keeps them joins up with its neighbours.
+/// motifs; the middle two rows and columns are exactly where their
+/// connecting band runs (`TilePatternView.bandWidth`, 0.4 to 0.6 of the
+/// tile), so a stamp that keeps them joins up with its neighbours.
 struct FatBits: Codable, Equatable, Hashable {
-    static let side = 8
+    static let side = 10
     static let count = side * side
     static let shadeCount: UInt8 = 4
 
@@ -15,8 +16,16 @@ struct FatBits: Codable, Equatable, Hashable {
     private(set) var bits: [UInt8]
 
     /// A stamp from `bits`: short arrays are padded with pale, long ones
-    /// cut, and shades out of range brought back in.
+    /// cut, and shades out of range brought back in. A bitmap saved on the
+    /// earlier 8×8 grid is scaled up to fit.
     init(bits: [UInt8]) {
+        var bits = bits
+        if bits.count == 64 {
+            bits = (0..<Self.count).map { index in
+                let x = (index % Self.side) * 8 / Self.side, y = (index / Self.side) * 8 / Self.side
+                return bits[y * 8 + x]
+            }
+        }
         var fixed = bits.prefix(Self.count).map { min($0, Self.shadeCount - 1) }
         fixed.append(contentsOf: Array(repeating: 0, count: Self.count - fixed.count))
         self.bits = fixed

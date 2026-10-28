@@ -80,7 +80,7 @@ extension FatBits {
     /// editing a tile in FatBits, so the person's motif is forked, not lost.
     @MainActor
     init(tracing pattern: TilePattern, colorIndex: Int, palette: AppPalette = .current) {
-        let scale = 8
+        let scale = 8  // sample points per bit
         let side = FatBits.side * scale
         let renderer = ImageRenderer(content: TilePatternView(pattern: pattern, colorIndex: colorIndex)
             .environment(\.appPalette, palette)

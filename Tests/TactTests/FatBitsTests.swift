@@ -19,12 +19,33 @@ final class FatBitsTests: XCTestCase {
             }
         }
         XCTAssertEqual(bits[0, 0], 0)
-        XCTAssertEqual(bits[7, 7], 0)
+        XCTAssertEqual(bits[FatBits.side - 1, FatBits.side - 1], 0)
         XCTAssertFalse(bits.isBlank)
     }
 
+    func testTheBandMatchesTheMotifs() {
+        // The built-in motifs' band runs from 0.4 to 0.6 of the tile; the
+        // FatBits band must cover exactly that, or stamps do not line up.
+        let lower = CGFloat(FatBits.bandRange.lowerBound) / CGFloat(FatBits.side)
+        let upper = CGFloat(FatBits.bandRange.upperBound + 1) / CGFloat(FatBits.side)
+        XCTAssertEqual(lower, (1 - TilePatternView.bandWidth) / 2, accuracy: 1e-9)
+        XCTAssertEqual(upper, (1 + TilePatternView.bandWidth) / 2, accuracy: 1e-9)
+    }
+
+    func testOldEightByEightBitmapsScaleUp() {
+        var old = [UInt8](repeating: 0, count: 64)
+        old[0] = 3                      // top-left corner
+        old[7 * 8 + 7] = 1              // bottom-right corner
+        for i in 0..<8 { old[i * 8 + 3] = 2; old[i * 8 + 4] = 2 }   // the old band
+        let bits = FatBits(bits: old)
+        XCTAssertEqual(bits.bits.count, FatBits.count)
+        XCTAssertEqual(bits[0, 0], 3)
+        XCTAssertEqual(bits[FatBits.side - 1, FatBits.side - 1], 1)
+        for band in FatBits.bandRange { XCTAssertEqual(bits[band, 0], 2) }
+    }
+
     func testInitPadsCutsAndClampsShades() {
-        let short = FatBits(bits: [3, 9])
+        let short = FatBits(bits: [3, 9])   // not 64 long, so taken as is
         XCTAssertEqual(short.bits.count, FatBits.count)
         XCTAssertEqual(short[0, 0], 3)
         XCTAssertEqual(short[1, 0], 3, "shades above 3 are brought back to 3")
