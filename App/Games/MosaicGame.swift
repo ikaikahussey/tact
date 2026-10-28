@@ -5,16 +5,23 @@ import SwiftUI
 /// motif in their colour) and an eraser. Tap a cell to stamp it; tap the
 /// same stamp again to turn it a quarter turn; drag across cells to paint a
 /// run. Fill lays a random quilt from the palette, Clear empties the canvas.
-/// The mosaic is saved, so it is there next time. Played on the back of the
+/// The pencil at the end of the palette opens FatBits, where a stamp of
+/// your own is drawn bit by bit; those stamps join the palette and can be
+/// edited or removed by holding them. The mosaic and the stamps are saved,
+/// so they are there next time. Played on the back of the
 /// tiles (`TileGame.mosaic`): the cells turn into view as the tiles turn over.
 struct MosaicGame: View {
     @EnvironmentObject private var store: TactStore
     @Environment(\.appPalette) private var palette
     @AppStorage(Mosaic.storageKey) private var savedData = Data()
+    @AppStorage(FatBitsShelf.storageKey) private var savedShelfData = Data()
     let context: TileGameContext
     @State private var mosaic = Mosaic(columns: TileLayout.columns, rows: 4)
+    @State private var shelf = FatBitsShelf()
     @State private var selected: MosaicStamp?   // nil is the eraser
     @State private var hasLoaded = false
+    /// What the FatBits sheet is open on: a new stamp, or one to edit.
+    @State private var editing: FatBitsTarget?
     /// Cells painted so far in the current drag, so each is stamped once.
     @State private var painted = Set<Int>()
 
@@ -39,6 +46,9 @@ struct MosaicGame: View {
         }
         return result
     }
+
+    /// Everything on the palette strip: everyone's looks, then FatBits stamps.
+    private var allStamps: [MosaicStamp] { stamps + shelf.stamps }
 
     private var rows: Int {
         max(4, Int(((context.size.height - Self.stripHeight) / context.pitch).rounded(.down)))
@@ -66,6 +76,31 @@ struct MosaicGame: View {
         .onAppear(perform: load)
         .onChange(of: rows) { _, newRows in mosaic = mosaic.resized(rows: newRows) }
         .onChange(of: mosaic) { _, newValue in savedData = newValue.encoded() ?? Data() }
+        .onChange(of: shelf) { _, newValue in savedShelfData = newValue.encoded() ?? Data() }
+        .sheet(item: $editing) { target in
+            FatBitsEditor(original: target.stamp,
+                          onSave: { stamp in save(stamp, replacing: target.stamp) },
+                          onDelete: target.stamp.map { old -> () -> Void in { remove(old) } })
+        }
+    }
+
+    /// Keeps a stamp from FatBits: a new one on the shelf, or an edited one
+    /// in place of `old`, on the shelf and across the canvas.
+    private func save(_ stamp: MosaicStamp, replacing old: MosaicStamp?) {
+        if let old {
+            shelf.replace(old, with: stamp)
+            mosaic.swap(old, for: stamp)
+        } else {
+            shelf.add(stamp)
+        }
+        selected = stamp.unturned
+    }
+
+    /// Takes a FatBits stamp off the shelf and out of the canvas.
+    private func remove(_ stamp: MosaicStamp) {
+        shelf.remove(stamp)
+        mosaic.remove(stamp)
+        if selected?.sameLook(as: stamp) == true { selected = stamps.first }
     }
 
     private func load() {
@@ -73,6 +108,7 @@ struct MosaicGame: View {
         hasLoaded = true
         let saved = Mosaic.decoded(from: savedData.isEmpty ? nil : savedData)
         mosaic = (saved ?? Mosaic(columns: Self.columns, rows: rows)).resized(rows: rows)
+        shelf = FatBitsShelf.decoded(from: savedShelfData.isEmpty ? nil : savedShelfData) ?? FatBitsShelf()
         if selected == nil { selected = stamps.first }
     }
 
@@ -82,7 +118,7 @@ struct MosaicGame: View {
         ZStack {
             Color.tactTileGray.opacity(0.35)
             if let stamp = mosaic[cell] {
-                TilePatternView(pattern: TilePattern(rawValue: stamp.pattern) ?? .cross, colorIndex: stamp.colorIndex)
+                MosaicStampView(stamp: stamp)
                     .rotationEffect(.degrees(Double(stamp.quarterTurns) * 90))
                     .transition(.opacity)
             }
@@ -127,13 +163,14 @@ struct MosaicGame: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     swatch(nil)
-                    ForEach(stamps, id: \.self) { stamp in swatch(stamp) }
+                    ForEach(allStamps, id: \.self) { stamp in swatch(stamp) }
+                    fatBitsButton
                 }
                 .padding(.horizontal, 4)
             }
             CanvasActionButton(title: "Fill", systemImage: "shuffle",
                                hint: "Lays a random quilt from the palette.") {
-                withAnimation(.easeInOut(duration: 0.3)) { mosaic.fill(from: stamps) }
+                withAnimation(.easeInOut(duration: 0.3)) { mosaic.fill(from: allStamps) }
             }
             CanvasActionButton(title: "Clear", systemImage: "trash",
                                hint: "Empties the canvas.", isEnabled: !mosaic.isEmpty) {
@@ -153,7 +190,7 @@ struct MosaicGame: View {
         } label: {
             Group {
                 if let stamp {
-                    TilePatternView(pattern: TilePattern(rawValue: stamp.pattern) ?? .cross, colorIndex: stamp.colorIndex)
+                    MosaicStampView(stamp: stamp)
                 } else {
                     Image(systemName: "eraser")
                         .font(.tact(.body).weight(.semibold))
@@ -169,8 +206,41 @@ struct MosaicGame: View {
             .shadow(color: .black.opacity(0.12), radius: 3, y: 2)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(stamp.map { "\(TilePalette.name($0.colorIndex)) \(TilePattern(rawValue: $0.pattern)?.title ?? "")" } ?? "Eraser")
+        .contextMenu {
+            if let stamp, stamp.isFatBits {
+                Button("Edit in FatBits", systemImage: "pencil") { editing = FatBitsTarget(stamp: stamp) }
+                Button("Remove Stamp", systemImage: "trash", role: .destructive) { remove(stamp) }
+            }
+        }
+        .accessibilityLabel(stamp.map {
+            $0.isFatBits ? "\(TilePalette.name($0.colorIndex)) FatBits stamp"
+                         : "\(TilePalette.name($0.colorIndex)) \(TilePattern(rawValue: $0.pattern)?.title ?? "")"
+        } ?? "Eraser")
+        .accessibilityHint(stamp?.isFatBits == true ? "Hold to edit or remove." : "")
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// Opens FatBits on a new stamp.
+    private var fatBitsButton: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            editing = FatBitsTarget(stamp: nil)
+        } label: {
+            Image(systemName: "pencil.and.outline")
+                .font(.tact(.body).weight(.semibold))
+                .foregroundStyle(shelf.isFull ? Color.secondary : palette.accent)
+                .frame(width: 40, height: 40)
+                .background(Color.tactCardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(Color.tactTileGray, style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+                .shadow(color: .black.opacity(0.12), radius: 3, y: 2)
+        }
+        .buttonStyle(.plain)
+        .disabled(shelf.isFull)
+        .accessibilityLabel("New FatBits stamp")
+        .accessibilityHint(shelf.isFull ? "The palette is full. Remove a stamp to draw another."
+                                        : "Opens FatBits to draw a stamp of your own.")
     }
 
     // MARK: Geometry
@@ -186,4 +256,11 @@ struct MosaicGame: View {
         guard column < Self.columns, row < mosaic.rows else { return nil }
         return row * Self.columns + column
     }
+}
+
+/// What the FatBits sheet is opened on.
+private struct FatBitsTarget: Identifiable {
+    /// The stamp to edit, or nil for a new one.
+    let stamp: MosaicStamp?
+    var id: String { stamp.map { "\($0.hashValue)" } ?? "new" }
 }
