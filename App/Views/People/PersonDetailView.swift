@@ -11,6 +11,7 @@ struct PersonDetailView: View {
     @State private var showingAddNote = false
     @State private var showingDeleteAlert = false
     @State private var showingPhotoPicker = false
+    @State private var showingFatBits = false
     @State private var showingLinkNotes = false
     @State private var showingContactPicker = false
     @State private var showingContactInfo = false
@@ -156,11 +157,22 @@ struct PersonDetailView: View {
                     }
                     .accessibilityLabel(person.photoData == nil ? "Add Photo" : "Photo")
 
+                    if let bits = person.tile.bits {
+                        tileChoice(isSelected: !person.showsPhoto) {
+                            store.updateTile(forPersonID: personID) { $0.showsPhoto = false }
+                        } label: {
+                            FatBitsView(bits: bits, colorIndex: person.tile.colorIndex)
+                                .rotationEffect(.degrees(Double(person.tile.quarterTurns) * 90))
+                        }
+                        .accessibilityLabel("FatBits tile")
+                    }
+
                     ForEach(TilePattern.allCases, id: \.self) { pattern in
-                        tileChoice(isSelected: !person.showsPhoto && person.tilePattern == pattern) {
+                        tileChoice(isSelected: !person.showsPhoto && !person.tile.isFatBits && person.tilePattern == pattern) {
                             store.updateTile(forPersonID: personID) {
                                 $0.pattern = pattern.rawValue
                                 $0.showsPhoto = false
+                                $0.revertToPattern()
                             }
                         } label: {
                             TilePatternView(pattern: pattern, colorIndex: person.tile.colorIndex)
@@ -171,8 +183,28 @@ struct PersonDetailView: View {
                 }
                 .padding(.vertical, 2)
             }
+            HStack(spacing: 16) {
+                Button {
+                    showingFatBits = true
+                } label: {
+                    Label(person.tile.isFatBits ? "Edit in FatBits" : "Draw in FatBits", systemImage: "pencil.and.outline")
+                }
+                if person.tile.isFatBits {
+                    Button {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        store.updateTile(forPersonID: personID) { $0.revertToPattern() }
+                    } label: {
+                        Label("Revert to Original", systemImage: "arrow.uturn.backward")
+                    }
+                }
+            }
+            .font(.tact(.subheadline))
+            .buttonStyle(.borderless)
         }
         .padding(.top, 4)
+        .sheet(isPresented: $showingFatBits) {
+            PersonFatBitsEditor(person: person)
+        }
     }
 
     private func tileChoice(isSelected: Bool, action: @escaping () -> Void,

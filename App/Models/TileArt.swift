@@ -19,13 +19,25 @@ struct TileArt: Codable, Equatable, Hashable {
     /// Whether the tile shows the person's photo, when they have one, instead
     /// of the pattern.
     var showsPhoto: Bool
+    /// A motif drawn in FatBits, shown in place of the pattern when set.
+    /// `pattern` is kept underneath, so reverting brings the original back.
+    var bits: FatBits?
 
-    init(quarterTurns: Int = 0, colorIndex: Int = 0, cell: Int? = nil, pattern: Int? = nil, showsPhoto: Bool = true) {
+    init(quarterTurns: Int = 0, colorIndex: Int = 0, cell: Int? = nil, pattern: Int? = nil,
+         showsPhoto: Bool = true, bits: FatBits? = nil) {
         self.quarterTurns = quarterTurns
         self.colorIndex = colorIndex
         self.cell = cell
         self.pattern = pattern
         self.showsPhoto = showsPhoto
+        self.bits = bits
+    }
+
+    var isFatBits: Bool { bits != nil }
+
+    /// Takes the FatBits motif off, so the tile shows its pattern again.
+    mutating func revertToPattern() {
+        bits = nil
     }
 
     /// The starting look for a person, derived from their seed so it is stable.
@@ -39,7 +51,7 @@ struct TileArt: Codable, Equatable, Hashable {
     }
 
     // Tiles saved with a shape or size from earlier versions decode without them.
-    private enum CodingKeys: String, CodingKey { case quarterTurns, colorIndex, cell, pattern, showsPhoto }
+    private enum CodingKeys: String, CodingKey { case quarterTurns, colorIndex, cell, pattern, showsPhoto, bits }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -50,6 +62,17 @@ struct TileArt: Codable, Equatable, Hashable {
         self.cell = cell.flatMap { $0 >= 0 ? $0 : nil }
         pattern = (try? container.decodeIfPresent(Int.self, forKey: .pattern)) ?? nil
         showsPhoto = (try? container.decodeIfPresent(Bool.self, forKey: .showsPhoto)) ?? nil ?? true
+        bits = (try? container.decodeIfPresent(FatBits.self, forKey: .bits)) ?? nil
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(quarterTurns, forKey: .quarterTurns)
+        try container.encode(colorIndex, forKey: .colorIndex)
+        try container.encodeIfPresent(cell, forKey: .cell)
+        try container.encodeIfPresent(pattern, forKey: .pattern)
+        try container.encode(showsPhoto, forKey: .showsPhoto)
+        try container.encodeIfPresent(bits, forKey: .bits)
     }
 }
 

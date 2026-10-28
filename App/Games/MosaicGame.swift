@@ -7,8 +7,10 @@ import SwiftUI
 /// run. Fill lays a random quilt from the palette, Clear empties the canvas.
 /// The pencil at the end of the palette opens FatBits, where a stamp of
 /// your own is drawn bit by bit; those stamps join the palette and can be
-/// edited or removed by holding them. The mosaic and the stamps are saved,
-/// so they are there next time. Played on the back of the
+/// edited or removed by holding them. Holding a person's stamp opens their
+/// tile in FatBits instead, and what is drawn there becomes their tile
+/// everywhere. The mosaic and the stamps are saved, so they are there next
+/// time. Played on the back of the
 /// tiles (`TileGame.mosaic`): the cells turn into view as the tiles turn over.
 struct MosaicGame: View {
     @EnvironmentObject private var store: TactStore
@@ -35,8 +37,7 @@ struct MosaicGame: View {
         var seen = Set<MosaicStamp>()
         var result: [MosaicStamp] = []
         for person in store.people {
-            let stamp = MosaicStamp(pattern: person.tilePattern.rawValue, colorIndex: person.tile.colorIndex)
-            if seen.insert(stamp).inserted { result.append(stamp) }
+            if seen.insert(person.mosaicStamp).inserted { result.append(person.mosaicStamp) }
         }
         if result.count < 4 {
             for (offset, pattern) in TilePattern.allCases.enumerated() {
@@ -78,9 +79,19 @@ struct MosaicGame: View {
         .onChange(of: mosaic) { _, newValue in savedData = newValue.encoded() ?? Data() }
         .onChange(of: shelf) { _, newValue in savedShelfData = newValue.encoded() ?? Data() }
         .sheet(item: $editing) { target in
-            FatBitsEditor(original: target.stamp,
-                          onSave: { stamp in save(stamp, replacing: target.stamp) },
-                          onDelete: target.stamp.map { old -> () -> Void in { remove(old) } })
+            switch target {
+            case .shelf(let stamp):
+                FatBitsEditor(original: stamp,
+                              onSave: { new in save(new, replacing: stamp) },
+                              onDelete: stamp.map { old -> () -> Void in { remove(old) } })
+            case .person(let id):
+                if let person = store.people.first(where: { $0.id == id }) {
+                    PersonFatBitsEditor(person: person) { old, new in
+                        mosaic.swap(old, for: new)
+                        selected = new
+                    }
+                }
+            }
         }
     }
 
@@ -207,9 +218,16 @@ struct MosaicGame: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            if let stamp, stamp.isFatBits {
-                Button("Edit in FatBits", systemImage: "pencil") { editing = FatBitsTarget(stamp: stamp) }
-                Button("Remove Stamp", systemImage: "trash", role: .destructive) { remove(stamp) }
+            if let stamp {
+                if shelf.stamps.contains(where: { $0.sameLook(as: stamp) }) {
+                    Button("Edit in FatBits", systemImage: "pencil") { editing = .shelf(stamp) }
+                    Button("Remove Stamp", systemImage: "trash", role: .destructive) { remove(stamp) }
+                } else {
+                    // Everyone whose tile has this look; editing changes their tile.
+                    ForEach(store.people.filter { $0.mosaicStamp.sameLook(as: stamp) }) { person in
+                        Button("Edit \(person.name)'s Tile in FatBits", systemImage: "pencil") { editing = .person(person.id) }
+                    }
+                }
             }
         }
         .accessibilityLabel(stamp.map {
@@ -224,7 +242,7 @@ struct MosaicGame: View {
     private var fatBitsButton: some View {
         Button {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            editing = FatBitsTarget(stamp: nil)
+            editing = .shelf(nil)
         } label: {
             Image(systemName: "pencil.and.outline")
                 .font(.tact(.body).weight(.semibold))
@@ -258,9 +276,16 @@ struct MosaicGame: View {
     }
 }
 
-/// What the FatBits sheet is opened on.
-private struct FatBitsTarget: Identifiable {
-    /// The stamp to edit, or nil for a new one.
-    let stamp: MosaicStamp?
-    var id: String { stamp.map { "\($0.hashValue)" } ?? "new" }
+/// What the FatBits sheet is opened on: a shelf stamp (nil for a new one),
+/// or a person's tile.
+private enum FatBitsTarget: Identifiable {
+    case shelf(MosaicStamp?)
+    case person(UUID)
+
+    var id: String {
+        switch self {
+        case .shelf(let stamp): stamp.map { "shelf-\($0.hashValue)" } ?? "shelf-new"
+        case .person(let id): "person-\(id)"
+        }
+    }
 }

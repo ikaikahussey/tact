@@ -54,7 +54,7 @@ struct TileArtView: View {
     let side: CGFloat
 
     var body: some View {
-        TilePatternView(pattern: pattern, colorIndex: art.colorIndex)
+        TileMotifView(bits: art.bits, pattern: pattern, colorIndex: art.colorIndex)
             .frame(width: side, height: side)
             .rotationEffect(.degrees(Double(art.quarterTurns) * 90))
             .animation(.spring(response: 0.3, dampingFraction: 0.75), value: art)
@@ -104,7 +104,7 @@ struct PersonAvatar: View {
                     .resizable()
                     .scaledToFill()
             } else {
-                TilePatternView(pattern: person.tilePattern, colorIndex: person.tile.colorIndex)
+                TileMotifView(person: person)
                     .rotationEffect(.degrees(Double(person.tile.quarterTurns) * 90))
             }
         }

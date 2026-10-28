@@ -222,4 +222,54 @@ final class FatBitsTests: XCTestCase {
         XCTAssertEqual(FatBitsShelf.decoded(from: data), shelf)
         XCTAssertNil(FatBitsShelf.decoded(from: nil))
     }
+
+    // MARK: Tiles
+
+    func testTileKeepsItsPatternUnderTheBitsAndReverts() throws {
+        var person = Person(name: "Ada", colorSeed: 7)
+        person.tile.pattern = TilePattern.diamond.rawValue
+        var bits = FatBits.cross
+        bits[0, 0] = 3
+        person.tile.bits = bits
+        XCTAssertTrue(person.tile.isFatBits)
+        XCTAssertEqual(person.tilePattern, .diamond, "the pattern stays underneath")
+        XCTAssertEqual(person.mosaicStamp, MosaicStamp(bits: bits, colorIndex: person.tile.colorIndex))
+
+        let decoded = try JSONDecoder().decode(Person.self, from: JSONEncoder().encode(person))
+        XCTAssertEqual(decoded.tile, person.tile)
+        XCTAssertEqual(decoded.tile.bits, bits)
+
+        person.tile.revertToPattern()
+        XCTAssertFalse(person.tile.isFatBits)
+        XCTAssertEqual(person.tilePattern, .diamond)
+        XCTAssertEqual(person.mosaicStamp, MosaicStamp(pattern: TilePattern.diamond.rawValue, colorIndex: person.tile.colorIndex))
+    }
+
+    func testTilesSavedWithoutBitsDecode() throws {
+        let json = #"{"quarterTurns":1,"colorIndex":2,"pattern":4,"showsPhoto":false}"#.data(using: .utf8)!
+        let art = try JSONDecoder().decode(TileArt.self, from: json)
+        XCTAssertNil(art.bits)
+        XCTAssertEqual(art, TileArt(quarterTurns: 1, colorIndex: 2, pattern: 4, showsPhoto: false))
+        let bad = #"{"colorIndex":2,"bits":"nonsense"}"#.data(using: .utf8)!
+        XCTAssertNil(try JSONDecoder().decode(TileArt.self, from: bad).bits, "a broken bitmap is dropped, not fatal")
+    }
+
+    @MainActor
+    func testTracingAPatternKeepsTheBand() {
+        for pattern in TilePattern.allCases {
+            let traced = FatBits(tracing: pattern, colorIndex: 5)
+            XCTAssertFalse(traced.isBlank, "\(pattern)")
+            // Every pattern carries the band to the middle of each edge.
+            for band in FatBits.bandRange {
+                XCTAssertNotEqual(traced[band, 0], 0, "\(pattern) top edge")
+                XCTAssertNotEqual(traced[band, FatBits.side - 1], 0, "\(pattern) bottom edge")
+                XCTAssertNotEqual(traced[0, band], 0, "\(pattern) left edge")
+                XCTAssertNotEqual(traced[FatBits.side - 1, band], 0, "\(pattern) right edge")
+            }
+        }
+        let cross = FatBits(tracing: .cross, colorIndex: 0)
+        XCTAssertEqual(cross[0, 0], 0, "corners of the cross are pale")
+        XCTAssertEqual(cross[0, FatBits.side / 2], 2, "the band is the colour itself")
+        XCTAssertEqual(cross[FatBits.side / 2, FatBits.side / 2], 1, "the middle of the cross is light")
+    }
 }

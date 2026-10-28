@@ -71,7 +71,7 @@ struct TileFace: View {
             if person.showsPhoto, let image = person.thumbnail(maxPixelSize: 512) {
                 Image(uiImage: image).resizable().scaledToFill()
             } else {
-                TilePatternView(pattern: person.tilePattern, colorIndex: person.tile.colorIndex)
+                TileMotifView(person: person)
                     .rotationEffect(.degrees(Double(person.tile.quarterTurns) * 90))
             }
         }
