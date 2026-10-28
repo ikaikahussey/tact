@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// The Sliding Puzzle screen: the board over the top four rows, the move
-/// count under it, and buttons to start again or, for the standard picture,
-/// choose a photo. A puzzle opened from a person uses their photo.
+/// The Sliding Puzzle screen: the board over the top four rows, a line
+/// under it, and buttons to start again or, for the standard picture,
+/// choose a photo. Moves are not counted. A puzzle opened from a person uses their photo.
 struct SlidingPuzzleGame: View {
     @EnvironmentObject private var store: TactStore
     let context: TileGameContext
@@ -62,14 +62,11 @@ struct SlidingPuzzleGame: View {
     private var status: some View {
         VStack(alignment: .leading, spacing: 6) {
             if game.isSolved {
-                Label("Solved in \(game.movesText)", systemImage: "checkmark.seal.fill")
+                Label("Solved", systemImage: "checkmark.seal.fill")
                     .foregroundStyle(.green)
                     .fontWeight(.semibold)
-            } else {
-                Text(game.movesText)
-                    .foregroundStyle(.secondary)
             }
-            if game.moveCount == 0 || game.isSolved {
+            if !game.hasStarted || game.isSolved {
                 Text("Drag the pieces into the empty space to rebuild the picture.")
                     .font(.tact(.footnote))
                     .foregroundStyle(.secondary)

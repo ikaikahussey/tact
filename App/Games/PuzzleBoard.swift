@@ -4,18 +4,19 @@ import SwiftUI
 @Observable
 final class PuzzleGame {
     private(set) var puzzle = ArtPuzzle.makePuzzle()
-    private(set) var moveCount = 0
+    /// Whether a piece has been slid since the shuffle. Moves are not
+    /// counted; the puzzle is unhurried.
+    private(set) var hasStarted = false
 
     init() { newGame() }
 
     var isSolved: Bool { puzzle.isSolved }
-    var movesText: String { moveCount == 1 ? "1 move" : "\(moveCount) moves" }
 
     /// Slides the run starting at `slot`. Returns `false` if nothing moved.
     @discardableResult
     func move(from slot: Int) -> Bool {
         guard puzzle.tap(slot) else { return false }
-        moveCount += 1
+        hasStarted = true
         return true
     }
 
@@ -23,7 +24,7 @@ final class PuzzleGame {
         var fresh = ArtPuzzle.makePuzzle()
         fresh.shuffle()
         puzzle = fresh
-        moveCount = 0
+        hasStarted = false
     }
 }
 
