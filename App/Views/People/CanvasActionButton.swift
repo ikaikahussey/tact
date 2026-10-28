@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A small round button floating over the Tiles and Tangram canvases, for
+/// A small round button floating over the Tiles and game canvases, for
 /// actions that rearrange everyone at once. The label is spoken, not shown.
 struct CanvasActionButton: View {
     let title: String

@@ -8,6 +8,7 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
     case colors
     case flashcards
     case art
+    /// Kept so an older stored preference still decodes; there is no Tangram now.
     case tangram
     /// The Games cards, shown in place of the people.
     case games
@@ -16,8 +17,8 @@ enum PeopleLayout: String, CaseIterable, Identifiable, Codable {
 
     /// Layouts the header toggles between. Random Colors and Flashcards are
     /// kept for stored preferences but hidden until they are ready to ship.
-    /// The puzzle and Tangram are games (`TileGame`), reached from the Games
-    /// tile, so `art` and `tangram` are not listed.
+    /// The puzzles are games (`TileGame`), reached from the Games tile, so
+    /// `art` is not listed, and `tangram` is a retired game.
     static let available: [PeopleLayout] = [.grid, .list, .games]
 
     /// What the People tab shows until the user picks something else.

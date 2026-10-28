@@ -3,7 +3,6 @@ import Foundation
 /// How a person's tile looks and where it sits on the Tiles canvas: a
 /// square with the person's photo, or their geometric pattern
 /// (`TilePattern`) turned in quarter turns in one of the palette colours.
-/// Shapes belong to the Tangram canvas; tiles are always one square cell.
 struct TileArt: Codable, Equatable, Hashable {
     /// Number of colours in `TilePalette`; colour indexes wrap around it.
     static let colorCount = 12
