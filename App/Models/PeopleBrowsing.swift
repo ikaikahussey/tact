@@ -14,10 +14,10 @@ enum HeaderAction: CaseIterable {
         }
     }
 
-    /// The icons the root offers: everything for people and notes, no
-    /// search over the games.
+    /// The icons the root offers, the same in every view. Searching over a
+    /// game turns the tiles back so the results can be seen.
     static func actions(for layout: PeopleLayout) -> [HeaderAction] {
-        allCases.filter { $0 != .search || layout.resolved != .games }
+        allCases
     }
 
     /// What More offers: Edit only where there is something to edit.

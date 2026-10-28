@@ -6,7 +6,8 @@ import SwiftUI
 /// to play it, hold it to sustain, and press several for a chord. The play
 /// button starts Simon: the pads light and sound a sequence, one longer each
 /// round, and the player plays it back. A wrong pad ends the game, and the
-/// pads are a keyboard again. The best run is remembered.
+/// pads are a keyboard again. The best run is remembered. Sound follows
+/// Settings > Games > Sound.
 /// Played on the back of the tiles (`TileGame.simon`): the pads turn into
 /// view as the tiles turn over.
 struct SimonGame: View {

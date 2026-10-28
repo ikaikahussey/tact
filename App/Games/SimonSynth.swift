@@ -1,12 +1,15 @@
 import AVFoundation
 import os
 
-/// A small polyphonic synthesizer for the Simon pads. Each voice is a sine
-/// with a touch of its second and third harmonics for warmth, under an
-/// attack-and-release envelope, so a pad sounds like a soft electric organ
-/// and never clicks. Voices are mixed in an `AVAudioSourceNode`; up to eight
-/// sound at once, and the oldest is replaced when more are needed.
+/// A small polyphonic synthesizer for the Simon pads. Each voice uses the
+/// same waveform as the games' beeps (`Synth.sample`, a warmed and softly
+/// clipped sine) under an attack-and-release envelope, so a held pad
+/// sustains like a soft electric organ and never clicks. Voices are mixed
+/// in an `AVAudioSourceNode`; up to eight sound at once, and the oldest is
+/// replaced when more are needed.
 ///
+/// Follows Settings > Games > Sound: off means silence, and volume, pitch,
+/// warmth, edge and vibrato are read from `SoundTuning` on every note.
 /// Uses the ambient session category, so the pads respect the silent
 /// switch and do not stop music playing in another app.
 final class SimonSynth {
@@ -24,13 +27,16 @@ final class SimonSynth {
     static let maxVoices = 8
     private let attackSeconds = 0.008
     private let releaseSeconds = 0.22
-    private let gain = 0.18
+    private let gain = 0.22
 
     private var engine: AVAudioEngine?
     private var voices: [Voice] = []
     private var nextSerial: UInt64 = 0
     private let lock = OSAllocatedUnfairLock()
     private var sampleRate = 44_100.0
+    /// The tuning in force, read on the audio thread; set under the lock.
+    private var tuning = SoundTuning.standard
+    private var vibratoPhase = 0.0
 
     private init() {}
 
@@ -39,8 +45,11 @@ final class SimonSynth {
     /// Starts a note at `frequency`. It sounds until `noteOff` for the same
     /// frequency, or `duration` seconds when given.
     func noteOn(_ frequency: Double, duration: Double? = nil) {
+        guard GameSounds.isEnabled else { return }
         prepare()
+        let tuning = SoundTuning.load()
         lock.withLock {
+            self.tuning = tuning
             if let index = voices.firstIndex(where: { $0.frequency == frequency }) {
                 voices[index].isHeld = true
                 voices[index].serial = nextSerial
@@ -123,7 +132,12 @@ final class SimonSynth {
         defer { lock.unlock() }
         let attackStep = 1 / (attackSeconds * sampleRate)
         let releaseStep = 1 / (releaseSeconds * sampleRate)
+        let transpose = pow(2, tuning.pitch / 12)
+        let level = gain * tuning.volume
         for frame in 0..<frames {
+            vibratoPhase += 5.5 / sampleRate
+            if vibratoPhase > 1 { vibratoPhase -= 1 }
+            let vibrato = 1 + 0.01 * tuning.vibrato * sin(vibratoPhase * 2 * .pi)
             var sample = 0.0
             for index in voices.indices {
                 var voice = voices[index]
@@ -132,10 +146,9 @@ final class SimonSynth {
                 } else {
                     voice.level = max(0, voice.level - releaseStep)
                 }
-                let phase = voice.phase
-                let tone = sin(phase) + 0.25 * sin(2 * phase) + 0.1 * sin(3 * phase)
-                sample += tone * voice.level * gain
-                voice.phase = (phase + 2 * .pi * voice.frequency / sampleRate).truncatingRemainder(dividingBy: 2 * .pi)
+                sample += Synth.sample(phase: voice.phase, warmth: tuning.warmth, edge: tuning.edge) * voice.level * level
+                voice.phase += voice.frequency * transpose * vibrato / sampleRate
+                if voice.phase > 1 { voice.phase -= 1 }
                 voices[index] = voice
             }
             output[frame] = Float(max(-1, min(1, sample)))
