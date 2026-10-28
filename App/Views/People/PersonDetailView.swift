@@ -284,22 +284,38 @@ struct PersonDetailView: View {
         HStack {
             Text("Notes").font(.tact(.headline))
             Spacer()
-            Button { showingAddNote = true } label: {
-                Image(systemName: "plus").font(.tact(.subheadline))
-            }
-            .accessibilityLabel("Add Note")
             Button { showingLinkNotes = true } label: {
-                Image(systemName: "link").font(.tact(.subheadline))
+                Image(systemName: "link")
+                    .font(.tact(.subheadline))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
             .accessibilityLabel("Link Existing Note")
         }
-        .buttonStyle(.plain)
+
+        // A full-width button, the height of a row, so a new note is one
+        // easy tap rather than a hunt for a small plus.
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            showingAddNote = true
+        } label: {
+            Label("New Note", systemImage: "square.and.pencil")
+                .font(.tact(.body).weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 50)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .accessibilityLabel("New Note")
+        .accessibilityHint("Writes a note about \(person.name).")
 
         if personNotes.isEmpty {
             Text("No notes yet")
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.vertical, 40)
+                .padding(.vertical, 24)
         } else {
             VStack(spacing: 0) {
                 ForEach(personNotes) { note in
