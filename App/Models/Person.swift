@@ -13,6 +13,8 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
     var contact: ContactSnapshot?
     /// The person's shape on the Tiles canvas.
     var tile: TileArt
+    /// The person's piece on the Tangram canvas, drawn in the tile colour.
+    var tangram: TangramPiece
 
     init(
         id: UUID = UUID(),
@@ -21,7 +23,8 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
         photoData: Data? = nil,
         contactIdentifier: String? = nil,
         contact: ContactSnapshot? = nil,
-        tile: TileArt? = nil
+        tile: TileArt? = nil,
+        tangram: TangramPiece? = nil
     ) {
         self.id = id
         self.name = name
@@ -30,6 +33,7 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
         self.contactIdentifier = contactIdentifier
         self.contact = contact
         self.tile = tile ?? TileArt(seed: self.colorSeed)
+        self.tangram = tangram ?? TangramPiece(seed: self.colorSeed)
     }
 
     var hasLinkedContact: Bool { contactIdentifier != nil }
@@ -39,11 +43,10 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
 
     // The on-disk keys are kept compatible with data written by earlier versions,
     // which stored the colour seed as `imageSection` and ignored unknown keys.
-    // A `tangram` key written by earlier builds is ignored.
     enum CodingKeys: String, CodingKey {
         case id, name
         case colorSeed = "imageSection"
-        case photoData, contactIdentifier, contact, tile
+        case photoData, contactIdentifier, contact, tile, tangram
     }
 
     init(from decoder: Decoder) throws {
@@ -55,6 +58,8 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
         contactIdentifier = try container.decodeIfPresent(String.self, forKey: .contactIdentifier)
         contact = try? container.decodeIfPresent(ContactSnapshot.self, forKey: .contact)
         tile = (try? container.decodeIfPresent(TileArt.self, forKey: .tile)) ?? nil ?? TileArt(seed: colorSeed)
+        tangram = (try? container.decodeIfPresent(TangramPiece.self, forKey: .tangram)) ?? nil
+            ?? TangramPiece(seed: colorSeed)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -68,6 +73,7 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
         try container.encodeIfPresent(contactIdentifier, forKey: .contactIdentifier)
         try container.encodeIfPresent(contact, forKey: .contact)
         try container.encode(tile, forKey: .tile)
+        try container.encode(tangram, forKey: .tangram)
     }
 }
 

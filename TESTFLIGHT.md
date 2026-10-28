@@ -40,7 +40,7 @@ Please try:
 • Tap the search icon and type: the grid and the list both narrow to matching people and notes.
 • Tag a note by typing #words in it, like #birthday. The tags appear as chips under the note; tap one to search for it. With the search field open, the tags you use are listed to tap, and typing # in a note offers them above the keyboard.
 • In the grid, each person is a tile showing their photo or a pattern; choose which under Tile on their screen. Tap a tile to open the person. Touch and hold a tile to pick its colour or turn it, or drag it anywhere. The round grid button brings the tiles together again.
-• Tap Games on the switch and pick a game: every tile flips over to it, and People flips them back. Sliding Puzzle: slide the pieces to rebuild the Tact tiles, or choose your own photo. Open Puzzle from a person's screen to play with their photo. Simon: the pads are a little keyboard (sound follows the silent switch; Settings > Games > Sound turns it off or tunes the volume, pitch and tone): low notes bottom left, hold to sustain, several fingers for a chord. Press the play button and repeat the sequence Simon plays, which gets one pad longer each round. Check it respects the silent switch and does not stop music playing in another app. Mosaic: pick a stamp from the strip, tap or drag on the canvas, tap a cell again to turn it; Fill and Clear are the round buttons. Your mosaic should still be there after relaunching.
+• Tap Games on the switch and pick a game: every tile flips over to it, and People flips them back. Sliding Puzzle: slide the pieces to rebuild the Tact tiles, or choose your own photo. Simon: the pads are a keyboard until you press play, then repeat what Simon plays; the tuning-fork button picks the scale and key and opens the synth settings. Mosaic: stamp everyone's motifs onto the canvas, or draw your own stamp with the pencil. Settings > Games > Sound tunes the notes (let go of a slider to hear a sample) or turns them off.
 ```
 
 ## Beta App Review notes
@@ -54,8 +54,10 @@ email and address are copied into the app's local storage. The Contacts usage st
 an optional refresh of those details, which only happens if access has been granted.
 The privacy policy is linked from Settings > About.
 
-To see the games: choose Games on the switch at the bottom and pick Sliding Puzzle, Simon or
-Mosaic from the menu; every tile turns over to it, and People turns them back.
+To see the games: on the People tab (Tiles), add 16 people with the + button, then tap the
+round puzzle-piece button at the bottom right; every tile turns over to the Woodblock Puzzle,
+and the selector at the bottom left switches to Tangram. A first-launch card explains this, and
+a "N more to unlock games" label counts down until then.
 
 The default puzzle picture is a 1-bit rendering of a public-domain Japanese woodblock print
 from Rawpixel's public-domain collection (CC0). Data is backed up to the user's own iCloud account (iCloud Drive app

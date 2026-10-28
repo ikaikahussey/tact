@@ -121,10 +121,8 @@ struct Simon: Equatable {
 
     // MARK: Notes
 
-    /// Semitones above the root for a major pentatonic scale.
-    static let scale = [0, 2, 4, 7, 9]
-    /// The root note of the lowest pad: C4, middle C.
-    static let rootFrequency = 261.6256
+    /// The scale the pads are laid out on, chosen under the tune button.
+    var tuning = SimonTuning.standard
 
     /// The scale degree of a pad, counting from the bottom-left pad across
     /// each row and up, so pitch rises left to right and bottom to top.
@@ -135,13 +133,12 @@ struct Simon: Equatable {
 
     /// The pitch of a pad in hertz.
     func frequency(forPad pad: Int) -> Double {
-        Self.frequency(noteIndex: noteIndex(forPad: pad))
+        tuning.frequency(noteIndex: noteIndex(forPad: pad))
     }
 
-    static func frequency(noteIndex: Int) -> Double {
-        let octave = noteIndex / scale.count
-        let semitones = octave * 12 + scale[noteIndex % scale.count]
-        return rootFrequency * pow(2, Double(semitones) / 12)
+    /// Where a pad's note is, for a label.
+    func noteName(forPad pad: Int) -> String {
+        tuning.noteName(noteIndex: noteIndex(forPad: pad))
     }
 
     /// Text for the round, for the status line.

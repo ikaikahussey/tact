@@ -111,12 +111,12 @@ final class SimonTests: XCTestCase {
     }
 
     func testScaleIsMajorPentatonicAcrossOctaves() {
-        XCTAssertEqual(Simon.frequency(noteIndex: 1), 293.665, accuracy: 0.01, "D4")
-        XCTAssertEqual(Simon.frequency(noteIndex: 2), 329.628, accuracy: 0.01, "E4")
-        XCTAssertEqual(Simon.frequency(noteIndex: 3), 391.995, accuracy: 0.01, "G4")
-        XCTAssertEqual(Simon.frequency(noteIndex: 4), 440, accuracy: 0.01, "A4")
-        XCTAssertEqual(Simon.frequency(noteIndex: 5), 523.251, accuracy: 0.01, "C5, an octave up")
-        XCTAssertEqual(Simon.frequency(noteIndex: 15), 2093.005, accuracy: 0.01, "C7, three octaves up")
+        XCTAssertEqual(SimonTuning.standard.frequency(noteIndex: 1), 293.665, accuracy: 0.01, "D4")
+        XCTAssertEqual(SimonTuning.standard.frequency(noteIndex: 2), 329.628, accuracy: 0.01, "E4")
+        XCTAssertEqual(SimonTuning.standard.frequency(noteIndex: 3), 391.995, accuracy: 0.01, "G4")
+        XCTAssertEqual(SimonTuning.standard.frequency(noteIndex: 4), 440, accuracy: 0.01, "A4")
+        XCTAssertEqual(SimonTuning.standard.frequency(noteIndex: 5), 523.251, accuracy: 0.01, "C5, an octave up")
+        XCTAssertEqual(SimonTuning.standard.frequency(noteIndex: 15), 2093.005, accuracy: 0.01, "C7, three octaves up")
     }
 
     func testRoundsText() {
