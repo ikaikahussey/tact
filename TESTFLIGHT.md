@@ -40,7 +40,7 @@ Please try:
 • Tap the search icon and type: the grid and the list both narrow to matching people and notes.
 • Tag a note by typing #words in it, like #birthday. The tags appear as chips under the note; tap one to search for it. With the search field open, the tags you use are listed to tap, and typing # in a note offers them above the keyboard.
 • In the grid, each person is a tile showing their photo or a pattern; choose which under Tile on their screen. Tap a tile to open the person. Touch and hold a tile to pick its colour or turn it, or drag it anywhere. The round grid button brings the tiles together again.
-• Tap Games on the switch and pick a game: every tile flips over to it, and People flips them back. Sliding Puzzle: slide the pieces to rebuild the Tact tiles, or choose your own photo. Simon: the pads are a keyboard until you press play, then repeat what Simon plays. Mosaic: stamp everyone's motifs onto the canvas, or draw your own stamp with the pencil. Settings > Games > Sound tunes the notes (let go of a slider to hear a sample) or turns them off.
+• Tap Games on the switch and pick a game: every tile flips over to it, and People flips them back. Sliding Puzzle: slide the pieces to rebuild the Tact tiles, or choose your own photo. Simon: the pads are a keyboard until you press play, then repeat what Simon plays; the tuning-fork button picks the scale and key and opens the synth settings. Mosaic: stamp everyone's motifs onto the canvas, or draw your own stamp with the pencil. Settings > Games > Sound tunes the notes (let go of a slider to hear a sample) or turns them off.
 ```
 
 ## Beta App Review notes

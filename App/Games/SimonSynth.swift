@@ -87,8 +87,8 @@ final class SimonSynth {
 
     /// A short low buzz for a wrong pad.
     func buzz() {
-        noteOn(Simon.rootFrequency / 4, duration: 0.35)
-        noteOn(Simon.rootFrequency / 4 * 1.06, duration: 0.35)
+        noteOn(SimonTuning.middleC / 4, duration: 0.35)
+        noteOn(SimonTuning.middleC / 4 * 1.06, duration: 0.35)
     }
 
     // MARK: Engine

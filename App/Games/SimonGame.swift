@@ -6,16 +6,20 @@ import SwiftUI
 /// to play it, hold it to sustain, and press several for a chord. The play
 /// button starts Simon: the pads light and sound a sequence, one longer each
 /// round, and the player plays it back. A wrong pad ends the game, and the
-/// pads are a keyboard again. The best run is remembered. Sound follows
-/// Settings > Games > Sound.
+/// pads are a keyboard again. The best run is remembered. The tune button
+/// picks the scale and key the pads are laid out on and opens the synth
+/// settings; sound follows Settings > Games > Sound.
 /// Played on the back of the tiles (`TileGame.simon`): the pads turn into
 /// view as the tiles turn over.
 struct SimonGame: View {
     @EnvironmentObject private var store: TactStore
     @Environment(\.appPalette) private var palette
     @AppStorage(SimonGame.bestKey) private var best = 0
+    @AppStorage(SimonTuning.scaleKey) private var scaleID = SimonTuning.standard.scale.rawValue
+    @AppStorage(SimonTuning.keyKey) private var keySemitone = SimonTuning.standard.key.semitone
     let context: TileGameContext
     @State private var game = Simon(columns: SimonGame.columns, rows: SimonGame.rows)
+    @State private var showingSound = false
     /// Pads lit and sounding now, by the game or the finger.
     @State private var sounding = Set<Int>()
     /// The pad under each finger, by the pad it started on.
@@ -26,6 +30,10 @@ struct SimonGame: View {
     static let rows = 4
     static let bestKey = "simonBest"
     private let synth = SimonSynth.shared
+
+    private var tuning: SimonTuning {
+        SimonTuning(scale: SimonScale(rawValue: scaleID) ?? .majorPentatonic, key: SimonKey(semitone: keySemitone))
+    }
 
     private var anchors: [Int: Person] {
         let byPerson = TileLayout.anchors(for: store.people)
@@ -53,16 +61,75 @@ struct SimonGame: View {
         .frame(width: context.size.width, height: context.size.height, alignment: .topLeading)
         .overlay(alignment: .bottomTrailing) {
             if context.isShowing {
-                playButton
-                    .padding(16)
-                    .transition(.opacity)
+                HStack(spacing: 12) {
+                    tuneMenu
+                    playButton
+                }
+                .padding(16)
+                .transition(.opacity)
             }
         }
         .animation(.easeInOut(duration: 0.2), value: context.isShowing)
         .onChange(of: context.isShowing) { _, showing in
             if !showing { quiet() }
         }
+        .onAppear { game.tuning = tuning }
+        .onChange(of: scaleID) { _, _ in retune() }
+        .onChange(of: keySemitone) { _, _ in retune() }
         .onDisappear(perform: quiet)
+        .sheet(isPresented: $showingSound) {
+            NavigationStack {
+                SoundSettingsView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showingSound = false }
+                        }
+                    }
+            }
+        }
+    }
+
+    // MARK: Tuning
+
+    /// Scale, key and the way to the synth, behind one round button.
+    private var tuneMenu: some View {
+        Menu {
+            Picker("Scale", selection: $scaleID) {
+                ForEach(SimonScale.allCases) { scale in
+                    Text(scale.title).tag(scale.rawValue)
+                }
+            }
+            .pickerStyle(.menu)
+            Picker("Key", selection: $keySemitone) {
+                ForEach(SimonKey.all) { key in
+                    Text(key.name(flats: tuning.scale.prefersFlats)).tag(key.semitone)
+                }
+            }
+            .pickerStyle(.menu)
+            Divider()
+            Button { showingSound = true } label: {
+                Label("Synth Settings…", systemImage: "slider.horizontal.3")
+            }
+        } label: {
+            Image(systemName: "tuningfork")
+                .font(.tact(.body).weight(.semibold))
+                .foregroundStyle(palette.onAccent)
+                .frame(width: 44, height: 44)
+                .background(.tint, in: Circle())
+                .shadow(color: .black.opacity(0.18), radius: 6, y: 3)
+        }
+        .accessibilityLabel("Tuning, \(tuning.title)")
+        .accessibilityHint("Chooses the scale and key, or opens the synth settings.")
+    }
+
+    /// A new scale or key: silence what is sounding (its pitches are gone)
+    /// and lay the pads out again. A game in progress keeps its sequence.
+    private func retune() {
+        quiet()
+        game.tuning = tuning
+        UISelectionFeedbackGenerator().selectionChanged()
+        // Sound the root so the change can be heard.
+        synth.noteOn(game.frequency(forPad: (Self.rows - 1) * Self.columns), duration: 0.3)
     }
 
     // MARK: Pads
@@ -204,9 +271,9 @@ struct SimonGame: View {
         VStack(alignment: .leading, spacing: 6) {
             switch game.phase {
             case .idle:
-                Text(best > 0 ? "Keyboard · best \(Simon.roundsText(best))" : "Keyboard")
+                Text(best > 0 ? "\(tuning.title) · best \(Simon.roundsText(best))" : tuning.title)
                     .foregroundStyle(.secondary)
-                Text("Play the pads; low notes at the bottom left. Press play for Simon.")
+                Text("Play the pads; \(game.noteName(forPad: (Self.rows - 1) * Self.columns)) at the bottom left, rising to \(game.noteName(forPad: Self.columns - 1)). Press play for Simon.")
                     .font(.tact(.footnote))
                     .foregroundStyle(.secondary)
             case .watching:
