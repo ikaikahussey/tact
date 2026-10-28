@@ -83,7 +83,7 @@ struct LightsOutGame: View {
         let shades = TileShades(colorIndex: colorIndex, palette: palette)
         return ZStack {
             Color.tactTileGray
-            TilePatternView(pattern: pattern, colorIndex: colorIndex)
+            TileMotifView(bits: person?.tile.bits, pattern: pattern, colorIndex: colorIndex)
                 .rotationEffect(.degrees(Double(turns) * 90))
                 .opacity(isLit ? 1 : 0)
             Rectangle()
