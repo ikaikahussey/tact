@@ -47,7 +47,7 @@ struct SoundSettingsView: View {
                         preview()
                     }
                 }
-                Text("SIMON AND THE GAMES · FOLLOWS THE SILENT SWITCH")
+                Text("BEEPS IN LIGHTS OUT · FOLLOWS THE SILENT SWITCH")
                     .font(Console.font(9))
                     .tracking(1.5)
                     .foregroundStyle(Console.dim)
