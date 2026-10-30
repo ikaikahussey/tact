@@ -36,6 +36,22 @@ struct FatBits: Codable, Equatable, Hashable {
         self = .cross
     }
 
+    private enum CodingKeys: String, CodingKey { case bits }
+
+    /// Decoding goes through `init(bits:)` so a bitmap saved on the 8×8 grid,
+    /// or one of any other length, is brought to `count` entries. The
+    /// synthesized decoder stored the array as-is, and drawing a short one
+    /// read past its end.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(bits: try container.decode([UInt8].self, forKey: .bits))
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(bits, forKey: .bits)
+    }
+
     /// The pixel rows and columns the band covers: the middle two.
     static let bandRange = (side / 2 - 1)...(side / 2)
 
@@ -55,11 +71,11 @@ struct FatBits: Codable, Equatable, Hashable {
 
     subscript(x: Int, y: Int) -> UInt8 {
         get {
-            guard Self.contains(x, y) else { return 0 }
+            guard Self.contains(x, y), bits.indices.contains(y * Self.side + x) else { return 0 }
             return bits[y * Self.side + x]
         }
         set {
-            guard Self.contains(x, y) else { return }
+            guard Self.contains(x, y), bits.indices.contains(y * Self.side + x) else { return }
             bits[y * Self.side + x] = min(newValue, Self.shadeCount - 1)
         }
     }

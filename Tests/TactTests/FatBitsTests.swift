@@ -109,6 +109,32 @@ final class FatBitsTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(FatBits.self, from: data), bits)
     }
 
+    func testBitmapsSavedOnTheOldGridDecodeToTheFullGrid() throws {
+        // TestFlight 202610282209 crashed at launch drawing a stamp saved
+        // with 64 bits: the synthesized decoder kept the short array and
+        // the 10×10 draw loop read past its end.
+        var old = [UInt8](repeating: 0, count: 64)
+        old[0] = 3
+        for i in 0..<8 { old[i * 8 + 3] = 2; old[i * 8 + 4] = 2 }
+        let json = try JSONEncoder().encode(["bits": old])
+        let bits = try JSONDecoder().decode(FatBits.self, from: json)
+        XCTAssertEqual(bits.bits.count, FatBits.count)
+        XCTAssertEqual(bits, FatBits(bits: old))
+        XCTAssertEqual(bits[0, 0], 3)
+        XCTAssertEqual(bits[FatBits.side - 1, FatBits.side - 1], 0)
+
+        let short = try JSONDecoder().decode(FatBits.self, from: Data(#"{"bits":[1,2]}"#.utf8))
+        XCTAssertEqual(short.bits.count, FatBits.count)
+        let long = try JSONDecoder().decode(FatBits.self, from: JSONEncoder().encode(["bits": [UInt8](repeating: 9, count: 150)]))
+        XCTAssertEqual(long.bits.count, FatBits.count)
+        XCTAssertEqual(long[0, 0], 3, "shades are clamped")
+
+        // Drawing every cell, as FatBitsView.draw does, must not trap.
+        for stamp in [bits, short, long] {
+            for y in 0..<FatBits.side { for x in 0..<FatBits.side { _ = stamp[x, y] } }
+        }
+    }
+
     // MARK: Stamps
 
     func testFatBitsStampLooksDifferentFromMotifsAndOtherBitmaps() {
