@@ -15,6 +15,9 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
     var tile: TileArt
     /// The person's piece on the Tangram canvas, drawn in the tile colour.
     var tangram: TangramPiece
+    /// Notes recorded on the Simon pads that identify the person by ear.
+    /// `nil` plays the one made from the seed (`resolvedDitty`).
+    var ditty: Ditty?
 
     init(
         id: UUID = UUID(),
@@ -24,7 +27,8 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
         contactIdentifier: String? = nil,
         contact: ContactSnapshot? = nil,
         tile: TileArt? = nil,
-        tangram: TangramPiece? = nil
+        tangram: TangramPiece? = nil,
+        ditty: Ditty? = nil
     ) {
         self.id = id
         self.name = name
@@ -34,6 +38,13 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
         self.contact = contact
         self.tile = tile ?? TileArt(seed: self.colorSeed)
         self.tangram = tangram ?? TangramPiece(seed: self.colorSeed)
+        self.ditty = ditty
+    }
+
+    /// The ditty to play: the recorded one, or the default from the seed.
+    var resolvedDitty: Ditty {
+        if let ditty, !ditty.isEmpty { return ditty }
+        return Ditty(seed: colorSeed)
     }
 
     var hasLinkedContact: Bool { contactIdentifier != nil }
@@ -46,7 +57,7 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, name
         case colorSeed = "imageSection"
-        case photoData, contactIdentifier, contact, tile, tangram
+        case photoData, contactIdentifier, contact, tile, tangram, ditty
     }
 
     init(from decoder: Decoder) throws {
@@ -60,6 +71,7 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
         tile = (try? container.decodeIfPresent(TileArt.self, forKey: .tile)) ?? nil ?? TileArt(seed: colorSeed)
         tangram = (try? container.decodeIfPresent(TangramPiece.self, forKey: .tangram)) ?? nil
             ?? TangramPiece(seed: colorSeed)
+        ditty = (try? container.decodeIfPresent(Ditty.self, forKey: .ditty)) ?? nil
     }
 
     func encode(to encoder: Encoder) throws {
@@ -74,6 +86,7 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
         try container.encodeIfPresent(contact, forKey: .contact)
         try container.encode(tile, forKey: .tile)
         try container.encode(tangram, forKey: .tangram)
+        try container.encodeIfPresent(ditty, forKey: .ditty)
     }
 }
 

@@ -92,6 +92,7 @@ struct PeopleListContent: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityAction(named: "Play ditty") { DittyPlayer.play(section.person) }
         .textCase(nil)
         .accessibilityElement(children: .contain)
         .accessibilityHint("Opens \(section.person.name)")
