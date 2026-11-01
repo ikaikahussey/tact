@@ -183,7 +183,15 @@ struct PersonDetailView: View {
                 }
                 .padding(.vertical, 2)
             }
+            colorChooser(for: person)
             HStack(spacing: 16) {
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    store.updateTile(forPersonID: personID) { $0.rotate() }
+                } label: {
+                    Label("Rotate", systemImage: "rotate.right")
+                }
+                .accessibilityHint("Turns the tile a quarter turn clockwise.")
                 Button {
                     showingFatBits = true
                 } label: {
@@ -224,6 +232,44 @@ struct PersonDetailView: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    /// A row of the palette colours; the person's colour is ringed. Picking
+    /// one recolours the pattern, the FatBits motif and the tile's pale
+    /// backing everywhere the person appears. The photo is not affected.
+    private func colorChooser(for person: Person) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Color").font(.tact(.subheadline)).foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(TilePalette.menuOrder, id: \.self) { index in
+                        let isSelected = person.tile.colorIndex == index
+                        Button {
+                            guard !isSelected else { return }
+                            UISelectionFeedbackGenerator().selectionChanged()
+                            store.updateTile(forPersonID: personID) { $0.colorIndex = index }
+                        } label: {
+                            Circle()
+                                .fill(TilePalette.color(index))
+                                .frame(width: 30, height: 30)
+                                .padding(3)
+                                .overlay {
+                                    Circle()
+                                        .strokeBorder(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear), lineWidth: 2.5)
+                                }
+                                .frame(minWidth: 44, minHeight: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(TilePalette.name(index).capitalized)
+                        .accessibilityAddTraits(isSelected ? .isSelected : [])
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Color, \(TilePalette.name(person.tile.colorIndex))")
     }
 
     // MARK: Contact
