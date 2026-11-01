@@ -35,7 +35,6 @@ struct PersonDetailView: View {
             VStack(alignment: .leading, spacing: 14) {
                 nameHeading(for: person)
                 header(for: person)
-                dittyRow(for: person)
                 tagsRow(for: person)
                 contactSection(for: person)
                 Divider()
@@ -137,8 +136,9 @@ struct PersonDetailView: View {
     // MARK: Header
 
     /// The tile at the left, the controls at the right: Tile and Color are
-    /// menus, then Rotate. FatBits is under Tile. The same choices are on
-    /// the tile's long-press menu; a tap on the tile picks a photo.
+    /// menus, then Rotate and the Ditty menu. FatBits is under Tile. The
+    /// tile choices are on the tile's long-press menu too; a tap on the
+    /// tile picks a photo.
     private func header(for person: Person) -> some View {
         HStack(alignment: .top, spacing: 14) {
             hero(for: person)
@@ -175,6 +175,13 @@ struct PersonDetailView: View {
                         control("Rotate", systemImage: "rotate.right")
                     }
                     .accessibilityHint("Turns the tile a quarter turn clockwise.")
+                    Menu {
+                        dittyMenu(for: person)
+                    } label: {
+                        control("Ditty", systemImage: "music.note")
+                    }
+                    .accessibilityLabel("Ditty")
+                    .accessibilityHint("Plays, records, or resets the notes that stand for \(person.name).")
                 }
             }
             .buttonStyle(.plain)
@@ -309,56 +316,28 @@ struct PersonDetailView: View {
 
     // MARK: Ditty
 
-    /// One row: the ditty's notes, Play, and a menu to record or change it
-    /// or go back to the default. Says when someone else sounds the same.
-    private func dittyRow(for person: Person) -> some View {
+    /// The Ditty menu: the notes as they sound (and who else sounds the
+    /// same), then Play, Record or Change, and Default when it is custom.
+    @ViewBuilder
+    private func dittyMenu(for person: Person) -> some View {
         let tuning = SimonTuning.load()
         let twins = store.peopleSharingDitty(with: personID)
         let names = person.resolvedDitty.noteNames(tuning: tuning)
-        return VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 12) {
-                Text("Ditty").font(.tact(.headline))
-                Text(names)
-                    .font(.tact(.caption).monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .accessibilityLabel("Notes: \(names)")
-                Spacer()
-                Button {
-                    DittyPlayer.play(person, tuning: tuning)
-                } label: {
-                    Image(systemName: "play.fill")
-                        .font(.tact(.subheadline))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel("Play")
-                .accessibilityHint("Plays the notes that stand for \(person.name).")
-                Menu {
-                    Button { showingDittyRecorder = true } label: {
-                        Label(person.ditty == nil ? "Record" : "Change", systemImage: "music.note")
-                    }
-                    if person.ditty != nil {
-                        Button {
-                            store.updateDitty(forPersonID: personID, nil)
-                        } label: {
-                            Label("Default", systemImage: "arrow.uturn.backward")
-                        }
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.tact(.subheadline))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel("Ditty options")
-            }
-            .buttonStyle(.plain)
+        Section {
+            Text(names)
             if !twins.isEmpty {
-                Label("Sounds the same as \(ListFormatter.localizedString(byJoining: twins.map(\.name))).",
-                      systemImage: "exclamationmark.triangle")
-                    .font(.tact(.caption))
-                    .foregroundStyle(.secondary)
+                Text("Sounds the same as \(ListFormatter.localizedString(byJoining: twins.map(\.name))).")
+            }
+        }
+        Button { DittyPlayer.play(person, tuning: tuning) } label: {
+            Label("Play", systemImage: "play.fill")
+        }
+        Button { showingDittyRecorder = true } label: {
+            Label(person.ditty == nil ? "Record" : "Change", systemImage: "music.note")
+        }
+        if person.ditty != nil {
+            Button { store.updateDitty(forPersonID: personID, nil) } label: {
+                Label("Default", systemImage: "arrow.uturn.backward")
             }
         }
     }
