@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A FatBits stamp drawn at any size: each bit a square of one of the
-/// four shades of its colour.
+/// four shades of its colour, with the stamp's circles drawn clean on top.
 struct FatBitsView: View {
     let bits: FatBits
     let colorIndex: Int
@@ -25,6 +25,9 @@ struct FatBitsView: View {
                 context.fill(Path(square), with: .color(colors[Int(bits[x, y])]))
             }
         }
+        var clipped = context
+        clipped.clip(to: Path(rect))
+        TilePatternView.drawCircles(bits.circles, shades: shades, in: rect, context: &clipped)
     }
 }
 
@@ -75,19 +78,21 @@ extension Person {
 }
 
 extension FatBits {
-    /// A pattern traced into bits: the pattern is drawn and each bit takes
-    /// the shade nearest the colour at its middle. The starting point for
-    /// editing a tile in FatBits, so the person's motif is forked, not lost.
+    /// A pattern traced into bits: the pattern is drawn without its circles
+    /// and each bit takes the shade nearest the colour at its middle; the
+    /// circles are then laid over as vectors, so the Pinwheel's dot stays a
+    /// round dot. The starting point for editing a tile in FatBits, so the
+    /// person's motif is forked, not lost.
     @MainActor
     init(tracing pattern: TilePattern, colorIndex: Int, palette: AppPalette = .current) {
         let scale = 8  // sample points per bit
         let side = FatBits.side * scale
-        let renderer = ImageRenderer(content: TilePatternView(pattern: pattern, colorIndex: colorIndex)
+        let renderer = ImageRenderer(content: TilePatternView(pattern: pattern, colorIndex: colorIndex, drawsCircles: false)
             .environment(\.appPalette, palette)
             .frame(width: CGFloat(side), height: CGFloat(side)))
         renderer.scale = 1
         guard let image = renderer.cgImage, let samples = FatBits.rgba(of: image) else {
-            self = .cross
+            self = FatBits(bits: FatBits.cross.bits, circles: pattern.circles)
             return
         }
         let shades = TileShades(colorIndex: colorIndex, palette: palette)
@@ -110,7 +115,7 @@ extension FatBits {
                 bits[y * FatBits.side + x] = UInt8(best)
             }
         }
-        self.init(bits: bits)
+        self.init(bits: bits, circles: pattern.circles)
     }
 
     /// The image's pixels as RGBA bytes, four per pixel, row by row.
@@ -130,10 +135,13 @@ extension FatBits {
 }
 
 /// The FatBits editor: the motif blown up so each bit is a square the size
-/// of a fingertip. Tap a square to paint it the chosen shade, drag to paint
-/// a run. The row above the canvas picks the shade, the row below the
-/// colour; a strip of the motif tiled three by three shows how it joins up
-/// with itself in the mosaic. Edits a mosaic stamp, or a person's tile.
+/// of a fingertip. With the Bits tool, tap a square to paint it the chosen
+/// shade, drag to paint a run. With the Circle tool, press where the
+/// circle's middle goes and drag out to its edge, for a clean round shape
+/// no grid of bits can make; a tap drops a dot the size of the Pinwheel's.
+/// The row above the canvas picks the shade, the row below the colour; a
+/// strip of the motif tiled three by three shows how it joins up with
+/// itself in the mosaic. Edits a mosaic stamp, or a person's tile.
 struct FatBitsEditor: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.appPalette) private var palette
@@ -153,6 +161,16 @@ struct FatBitsEditor: View {
     @State private var colorIndex: Int
     @State private var shade: UInt8 = 2
     @State private var painted = Set<Int>()
+    @State private var tool: Tool = .bits
+    /// The circle being dragged out, before it is laid down.
+    @State private var draftCircle: FatBitsCircle?
+
+    enum Tool: String, CaseIterable, Identifiable {
+        case bits, circle
+        var id: String { rawValue }
+        var title: String { self == .bits ? "Bits" : "Circle" }
+        var systemImage: String { self == .bits ? "square.grid.3x3.fill" : "circle.fill" }
+    }
 
     init(title: String = "FatBits", startingBits: FatBits = .cross, startingColor: Int = TilePalette.menuOrder[0],
          revertBits: FatBits? = nil, choosesColor: Bool = true,
@@ -188,6 +206,7 @@ struct FatBitsEditor: View {
                 VStack(spacing: 20) {
                     shadePicker
                     canvas
+                    toolPicker
                     tools
                     if choosesColor { colorPicker }
                     tiledPreview
@@ -221,12 +240,14 @@ struct FatBitsEditor: View {
             ZStack {
                 FatBitsView(bits: bits, colorIndex: colorIndex)
                 gridLines(pitch: pitch)
+                if let draftCircle { draftOutline(draftCircle, side: proxy.size.width) }
             }
             .contentShape(Rectangle())
-            .gesture(paintGesture(pitch: pitch))
+            .gesture(canvasGesture(pitch: pitch, side: proxy.size.width))
             .accessibilityElement()
             .accessibilityLabel("FatBits canvas, \(FatBits.side) by \(FatBits.side)")
-            .accessibilityHint("Tap or drag to paint with the chosen shade.")
+            .accessibilityHint(tool == .bits ? "Tap or drag to paint with the chosen shade."
+                                             : "Press where the circle's middle goes and drag out to its edge.")
         }
         .aspectRatio(1, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -256,18 +277,50 @@ struct FatBitsEditor: View {
         .allowsHitTesting(false)
     }
 
-    private func paintGesture(pitch: CGFloat) -> some Gesture {
+    /// The circle being dragged, in its shade, with a dashed edge so it can
+    /// be seen over bits of the same shade.
+    private func draftOutline(_ circle: FatBitsCircle, side: CGFloat) -> some View {
+        let radius = CGFloat(circle.radius) * side
+        return Circle()
+            .fill(shadeColors[Int(circle.shade)].opacity(0.7))
+            .overlay(Circle().strokeBorder(.black.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+            .frame(width: radius * 2, height: radius * 2)
+            .position(x: CGFloat(circle.x) * side, y: CGFloat(circle.y) * side)
+            .allowsHitTesting(false)
+    }
+
+    /// One drag gesture for both tools, so switching tools mid-session does
+    /// not rebuild the gesture under a finger. Bits: each square the drag
+    /// passes over takes the shade. Circle: press at the middle, drag out to
+    /// the edge; a tap, with no drag to speak of, drops a dot of the default
+    /// size.
+    private func canvasGesture(pitch: CGFloat, side: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
-                let x = Int(value.location.x / pitch), y = Int(value.location.y / pitch)
-                guard FatBits.contains(x, y) else { return }
-                let index = y * FatBits.side + x
-                guard !painted.contains(index) else { return }
-                if painted.isEmpty { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
-                painted.insert(index)
-                bits[x, y] = shade
+                switch tool {
+                case .bits:
+                    let x = Int(value.location.x / pitch), y = Int(value.location.y / pitch)
+                    guard FatBits.contains(x, y) else { return }
+                    let index = y * FatBits.side + x
+                    guard !painted.contains(index) else { return }
+                    if painted.isEmpty { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+                    painted.insert(index)
+                    bits[x, y] = shade
+                case .circle:
+                    let centre = value.startLocation
+                    let dx = value.location.x - centre.x, dy = value.location.y - centre.y
+                    let distance = Double(sqrt(dx * dx + dy * dy) / side)
+                    let radius = distance < FatBitsCircle.minimumRadius ? FatBitsCircle.defaultRadius : distance
+                    if draftCircle == nil { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+                    draftCircle = FatBitsCircle.snapped(x: Double(centre.x / side), y: Double(centre.y / side),
+                                                        radius: radius, shade: shade)
+                }
             }
-            .onEnded { _ in painted = [] }
+            .onEnded { _ in
+                painted = []
+                if let draftCircle { bits.addCircle(draftCircle) }
+                draftCircle = nil
+            }
     }
 
     // MARK: Pickers
@@ -320,12 +373,23 @@ struct FatBitsEditor: View {
 
     // MARK: Tools
 
+    private var toolPicker: some View {
+        Picker("Tool", selection: $tool) {
+            ForEach(Tool.allCases) { tool in
+                Label(tool.title, systemImage: tool.systemImage).tag(tool)
+            }
+        }
+        .pickerStyle(.segmented)
+        .onChange(of: tool) { _, _ in UISelectionFeedbackGenerator().selectionChanged() }
+    }
+
     private var tools: some View {
         HStack(spacing: 10) {
             tool("Flip Left and Right", "arrow.left.and.right") { bits = bits.flippedHorizontally }
             tool("Flip Up and Down", "arrow.up.and.down") { bits = bits.flippedVertically }
             tool("Invert", "circle.lefthalf.filled") { bits = bits.inverted }
             tool("Band", "plus") { bits = .cross }
+            tool("Remove Last Circle", "circle.slash", isEnabled: !bits.circles.isEmpty) { bits.removeLastCircle() }
             tool("Clear", "trash", isEnabled: !bits.isBlank) { bits.clear() }
             if let revertBits {
                 tool("Revert", "arrow.uturn.backward", isEnabled: bits != revertBits) { bits = revertBits }

@@ -135,6 +135,96 @@ final class FatBitsTests: XCTestCase {
         }
     }
 
+    // MARK: Circles
+
+    func testCirclesSnapToTheGridAndStayVisible() {
+        let step = FatBitsCircle.centreStep
+        let circle = FatBitsCircle.snapped(x: 0.512, y: 0.263, radius: 0.1234, shade: 3)
+        XCTAssertEqual(circle.x, 0.5, accuracy: 1e-9)
+        XCTAssertEqual(circle.y, (0.263 / step).rounded() * step, accuracy: 1e-9)
+        XCTAssertEqual(circle.radius, 0.125, accuracy: 1e-9, "radii snap to a quarter bit")
+        XCTAssertEqual(FatBitsCircle.snapped(x: 1.4, y: -0.3, radius: 0, shade: 9).x, 1, "centres stay on the tile")
+        XCTAssertEqual(FatBitsCircle.snapped(x: 1.4, y: -0.3, radius: 0, shade: 9).y, 0)
+        XCTAssertEqual(FatBitsCircle.snapped(x: 0, y: 0, radius: 0, shade: 9).radius, FatBitsCircle.minimumRadius)
+        XCTAssertEqual(FatBitsCircle.snapped(x: 0, y: 0, radius: 5, shade: 9).radius, FatBitsCircle.maximumRadius)
+        XCTAssertEqual(FatBitsCircle.snapped(x: 0, y: 0, radius: 0, shade: 9).shade, 3, "shades are clamped")
+    }
+
+    func testCirclesAreAddedRemovedAndLimited() throws {
+        var bits = FatBits.blank
+        XCTAssertTrue(bits.isBlank)
+        bits.addCircle(FatBitsCircle(x: 0.5, y: 0.5, radius: 0.12, shade: 3))
+        XCTAssertFalse(bits.isBlank, "a circle alone is not blank")
+        XCTAssertEqual(bits.circles.count, 1)
+        bits.removeLastCircle()
+        XCTAssertTrue(bits.isBlank)
+        bits.removeLastCircle()
+        XCTAssertTrue(bits.circles.isEmpty, "removing from none is harmless")
+        for index in 0..<(FatBits.circleLimit + 3) {
+            bits.addCircle(FatBitsCircle(x: 0.5, y: 0.5, radius: Double(index + 1) * 0.01, shade: 1))
+        }
+        XCTAssertEqual(bits.circles.count, FatBits.circleLimit)
+        XCTAssertEqual(try XCTUnwrap(bits.circles.first).radius, 0.04, accuracy: 1e-9, "the oldest make room")
+        bits.clear()
+        XCTAssertTrue(bits.circles.isEmpty, "clear takes the circles too")
+    }
+
+    func testCirclesFollowFlipsAndInvert() {
+        var bits = FatBits.blank
+        bits.addCircle(FatBitsCircle(x: 0.2, y: 0.3, radius: 0.1, shade: 3))
+        let horizontal = bits.flippedHorizontally
+        XCTAssertEqual(horizontal.circles[0].x, 0.8, accuracy: 1e-9)
+        XCTAssertEqual(horizontal.circles[0].y, 0.3, accuracy: 1e-9)
+        let vertical = bits.flippedVertically
+        XCTAssertEqual(vertical.circles[0].x, 0.2, accuracy: 1e-9)
+        XCTAssertEqual(vertical.circles[0].y, 0.7, accuracy: 1e-9)
+        XCTAssertEqual(bits.inverted.circles[0].shade, 0)
+        XCTAssertEqual(bits.inverted.inverted, bits)
+        XCTAssertEqual(bits.flippedVertically.flippedVertically, bits)
+    }
+
+    func testCirclesRoundTripThroughJSONAndAreOptional() throws {
+        var bits = FatBits.cross
+        bits.addCircle(FatBitsCircle(x: 0.5, y: 0.5, radius: 0.12, shade: 3))
+        let data = try JSONEncoder().encode(bits)
+        XCTAssertEqual(try JSONDecoder().decode(FatBits.self, from: data), bits)
+
+        let plain = try JSONEncoder().encode(FatBits.cross)
+        XCTAssertFalse(String(decoding: plain, as: UTF8.self).contains("circles"),
+                       "a stamp without circles is saved as before")
+        XCTAssertEqual(try JSONDecoder().decode(FatBits.self, from: plain), .cross)
+
+        let broken = Data(#"{"bits":[2,2,2],"circles":"nonsense"}"#.utf8)
+        let decoded = try JSONDecoder().decode(FatBits.self, from: broken)
+        XCTAssertTrue(decoded.circles.isEmpty, "broken circles are dropped, not fatal")
+        XCTAssertEqual(decoded[0, 0], 2)
+    }
+
+    func testPatternCirclesStayWithinTheTileShades() {
+        for pattern in TilePattern.allCases {
+            for circle in pattern.circles {
+                XCTAssertLessThan(circle.shade, FatBits.shadeCount, "\(pattern)")
+                XCTAssertGreaterThan(circle.radius, 0, "\(pattern)")
+                XCTAssertTrue((0...1).contains(circle.x) && (0...1).contains(circle.y), "\(pattern)")
+            }
+        }
+        XCTAssertEqual(TilePattern.pinwheel.circles, [FatBitsCircle(x: 0.5, y: 0.5, radius: 0.12, shade: 3)])
+        XCTAssertEqual(TilePattern.bullseye.circles.count, 3)
+        XCTAssertTrue(TilePattern.cross.circles.isEmpty)
+    }
+
+    @MainActor
+    func testTracingKeepsThePatternsCirclesAsVectors() {
+        let pinwheel = FatBits(tracing: .pinwheel, colorIndex: 5)
+        XCTAssertEqual(pinwheel.circles, TilePattern.pinwheel.circles, "the dot is a circle, not bits")
+        let middle = FatBits.side / 2
+        XCTAssertEqual(pinwheel[middle, middle], 2, "under the dot the band is the colour itself")
+        let bullseye = FatBits(tracing: .bullseye, colorIndex: 5)
+        XCTAssertEqual(bullseye.circles.count, 3)
+        XCTAssertFalse(bullseye.bits.contains(3), "the rings are not traced into dark bits")
+        XCTAssertTrue(FatBits(tracing: .cross, colorIndex: 0).circles.isEmpty)
+    }
+
     // MARK: Stamps
 
     func testFatBitsStampLooksDifferentFromMotifsAndOtherBitmaps() {

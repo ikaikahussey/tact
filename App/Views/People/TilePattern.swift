@@ -35,6 +35,25 @@ enum TilePattern: Int, CaseIterable {
         case .petals:   "Petals"
         }
     }
+
+    /// The circles the motif ends with, drawn over everything else: as
+    /// vectors, so they are the same clean circles when the motif is traced
+    /// into FatBits. Shades are 0 pale, 1 light, 2 the colour, 3 dark.
+    var circles: [FatBitsCircle] {
+        func circle(_ x: Double, _ y: Double, _ radius: Double, _ shade: UInt8) -> FatBitsCircle {
+            FatBitsCircle(x: x, y: y, radius: radius, shade: shade)
+        }
+        switch self {
+        case .arcs:     return [circle(1, 0, 0.14, 3), circle(0, 1, 0.14, 3)]
+        case .cross:    return []
+        case .pinwheel: return [circle(0.5, 0.5, 0.12, 3)]
+        case .bullseye: return [circle(0.5, 0.5, 0.34, 3), circle(0.5, 0.5, 0.24, 1), circle(0.5, 0.5, 0.12, 2)]
+        case .diamond:  return [circle(0.5, 0.5, 0.07, 2)]
+        case .checker:  return []
+        case .frame:    return [circle(0.5, 0.5, 0.1, 1)]
+        case .petals:   return [circle(0.5, 0.5, 0.12, 3)]
+        }
+    }
 }
 
 extension Person {
@@ -72,6 +91,8 @@ struct TileShades {
 struct TilePatternView: View {
     let pattern: TilePattern
     let colorIndex: Int
+    /// Off when tracing: the circles are kept as vectors instead.
+    var drawsCircles = true
     @Environment(\.appPalette) private var palette
 
     /// Width of the connecting band, as a fraction of the tile. The band
@@ -81,12 +102,15 @@ struct TilePatternView: View {
     var body: some View {
         Canvas { context, size in
             Self.draw(pattern, shades: TileShades(colorIndex: colorIndex, palette: palette),
-                      in: CGRect(origin: .zero, size: size), context: &context)
+                      in: CGRect(origin: .zero, size: size), context: &context, drawsCircles: drawsCircles)
         }
     }
 
+    /// Draws the motif. With `drawsCircles` false the motif's `circles` are
+    /// left off, for tracing the rest into bits while the circles stay
+    /// vectors.
     static func draw(_ pattern: TilePattern, shades: TileShades, in rect: CGRect,
-                     context: inout GraphicsContext) {
+                     context: inout GraphicsContext, drawsCircles: Bool = true) {
         let s = rect.width
         let half = bandWidth / 2
         context.clip(to: Path(rect))
@@ -112,7 +136,6 @@ struct TilePatternView: View {
             path.addPath(circle(corner, 0.5 - half))
             return path
         }
-        let centre = point(0.5, 0.5)
         /// The band straight across and straight down.
         func cross() {
             fill(box(0, 0.5 - half, 1, 0.5 + half), shades.base)
@@ -128,8 +151,6 @@ struct TilePatternView: View {
             fill(circle(point(1, 1), 0.5 - half), shades.light)
             context.fill(cornerArc(point(0, 0)), with: .color(shades.base), style: FillStyle(eoFill: true))
             context.fill(cornerArc(point(1, 1)), with: .color(shades.base), style: FillStyle(eoFill: true))
-            fill(circle(point(1, 0), 0.14), shades.dark)
-            fill(circle(point(0, 1), 0.14), shades.dark)
 
         case .cross:
             cross()
@@ -143,19 +164,14 @@ struct TilePatternView: View {
             fill(polygon([point(1, 1), point(0.5 + half, 1), point(0.5 + half, 0.5 + half)]), shades.light)
             fill(polygon([point(0, 1), point(0, 0.5 + half), point(0.5 - half, 0.5 + half)]), shades.light)
             cross()
-            fill(circle(centre, 0.12), shades.dark)
 
         case .bullseye:
             cross()
-            fill(circle(centre, 0.34), shades.dark)
-            fill(circle(centre, 0.24), shades.light)
-            fill(circle(centre, 0.12), shades.base)
 
         case .diamond:
             cross()
             fill(polygon([point(0.5, 0.1), point(0.9, 0.5), point(0.5, 0.9), point(0.1, 0.5)]), shades.dark)
             fill(polygon([point(0.5, 0.26), point(0.74, 0.5), point(0.5, 0.74), point(0.26, 0.5)]), shades.light)
-            fill(circle(centre, 0.07), shades.base)
 
         case .checker:
             // Two light quarters on the diagonal, the band laid over them.
@@ -169,7 +185,6 @@ struct TilePatternView: View {
             fill(box(0.14, 0.14, 0.86, 0.86), shades.dark)
             fill(box(0.26, 0.26, 0.74, 0.74), shades.pale)
             cross()
-            fill(circle(centre, 0.1), shades.light)
 
         case .petals:
             // The band bends round every corner, leaving a four-petal flower.
@@ -179,7 +194,22 @@ struct TilePatternView: View {
             for corner in [point(0, 0), point(1, 0), point(1, 1), point(0, 1)] {
                 context.fill(cornerArc(corner), with: .color(shades.base), style: FillStyle(eoFill: true))
             }
-            fill(circle(centre, 0.12), shades.dark)
+        }
+
+        if drawsCircles { drawCircles(pattern.circles, shades: shades, in: rect, context: &context) }
+    }
+
+    /// Fills vector circles over a tile, in its shades: the motifs' circles,
+    /// and the circles of a FatBits stamp.
+    static func drawCircles(_ circles: [FatBitsCircle], shades: TileShades, in rect: CGRect,
+                            context: inout GraphicsContext) {
+        let s = rect.width
+        let colors = [shades.pale, shades.light, shades.base, shades.dark]
+        for circle in circles {
+            let radius = CGFloat(circle.radius) * s
+            let bounds = CGRect(x: rect.minX + CGFloat(circle.x) * s - radius, y: rect.minY + CGFloat(circle.y) * s - radius,
+                                width: radius * 2, height: radius * 2)
+            context.fill(Path(ellipseIn: bounds), with: .color(colors[Int(min(circle.shade, FatBits.shadeCount - 1))]))
         }
     }
 }
