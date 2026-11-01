@@ -4,6 +4,7 @@ import Contacts
 
 struct PersonDetailView: View {
     @EnvironmentObject private var store: TactStore
+    @Environment(\.appPalette) private var palette
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let personID: UUID
@@ -468,6 +469,9 @@ struct PersonDetailView: View {
         } label: {
             Label("New Note", systemImage: "square.and.pencil")
                 .font(.tact(.body).weight(.semibold))
+                // Classic's accent is white in dark mode; the button's own
+                // white label would vanish on it.
+                .foregroundStyle(palette.onAccent)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 50)
                 .contentShape(Rectangle())
