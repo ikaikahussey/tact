@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Records a person's ditty on the Simon pads. The sixteen pads are laid
-/// out as on the back of the tiles, in the person's colour; a tap adds a
+/// out as on the back of the tiles, in the person's colour, each labelled
+/// with its note; a tap adds a
 /// short note, a held pad a long one, up to `Ditty.maxNotes`. The notes
 /// so far are listed above the pads by name, with the last one removable.
 /// Done keeps the ditty; Default goes back to the one from the seed.
@@ -139,6 +140,7 @@ struct DittyRecorderView: View {
                                 .opacity(isSounding ? 1 : noteIndexes.contains(degree) ? 0.55 : 0.3)
                             Rectangle()
                                 .strokeBorder(shades.dark.opacity(isSounding ? 0 : 0.2), lineWidth: 1)
+                            PadNoteLabel(name: tuning.noteName(noteIndex: degree), shades: shades)
                         }
                         .aspectRatio(1, contentMode: .fit)
                         .scaleEffect(isSounding ? 0.94 : 1)

@@ -6,7 +6,8 @@ import SwiftUI
 /// to play it, hold it to sustain, and press several for a chord. The play
 /// button starts Simon: the pads light and sound a sequence, one longer each
 /// round, and the player plays it back. A wrong pad ends the game, and the
-/// pads are a keyboard again. The best run is remembered. The tune button
+/// pads are a keyboard again. As a keyboard each pad is labelled with its
+/// note; the labels go while Simon plays. The best run is remembered. The tune button
 /// picks the scale and key the pads are laid out on and opens the synth
 /// settings; sound follows Settings > Games > Sound.
 /// Played on the back of the tiles (`TileGame.simon`): the pads turn into
@@ -121,6 +122,12 @@ struct SimonGame: View {
 
     // MARK: Pads
 
+    /// Whether the pads are a keyboard rather than Simon's: before a game
+    /// and after one.
+    private var isKeyboard: Bool {
+        game.phase == .idle || game.phase == .over
+    }
+
     /// One pad. With a person on the cell it is their motif in their
     /// colour; otherwise a motif and colour picked from the cell number. Dim
     /// at rest, full when sounding.
@@ -137,6 +144,7 @@ struct SimonGame: View {
                 .opacity(isSounding ? 1 : 0.3)
             Rectangle()
                 .strokeBorder(shades.dark.opacity(isSounding ? 0 : 0.2), lineWidth: 1)
+            PadNoteLabel(name: game.noteName(forPad: pad), shades: shades, isShowing: isKeyboard)
         }
         .frame(width: context.cellSize, height: context.cellSize)
         .scaleEffect(isSounding ? 0.94 : 1)
@@ -144,7 +152,7 @@ struct SimonGame: View {
         .contentShape(Rectangle())
         .gesture(touch(pad))
         .accessibilityElement()
-        .accessibilityLabel(person.map { "\($0.name)" } ?? "Pad \(pad + 1)")
+        .accessibilityLabel(person.map { "\($0.name), \(game.noteName(forPad: pad))" } ?? "Pad \(pad + 1), \(game.noteName(forPad: pad))")
         .accessibilityHint(game.phase == .listening ? "Plays this pad as the next of the sequence." : "Plays a note.")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { tap(pad) }
