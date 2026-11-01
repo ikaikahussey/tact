@@ -32,6 +32,7 @@ struct PersonDetailView: View {
     private func content(for person: Person) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                nameHeading(for: person)
                 header(for: person)
                 dittyRow(for: person)
                 tagsRow(for: person)
@@ -42,7 +43,7 @@ struct PersonDetailView: View {
             .padding()
         }
         .navigationTitle(person.name)
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
@@ -112,6 +113,24 @@ struct PersonDetailView: View {
         } message: {
             Text("This contact is no longer available in Contacts.")
         }
+    }
+
+    // MARK: Name
+
+    /// The name, large, at the top of the page. Touch and hold it to edit
+    /// it; the bar's title stays small so the name is not shown twice.
+    private func nameHeading(for person: Person) -> some View {
+        Text(person.name)
+            .font(.tact(.largeTitle).weight(.bold))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onLongPressGesture(minimumDuration: 0.4) {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                editing = .name
+            }
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityHint("Touch and hold to edit the name.")
+            .accessibilityAction(named: "Edit name") { editing = .name }
     }
 
     // MARK: Header
