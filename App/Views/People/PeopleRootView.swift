@@ -12,6 +12,8 @@ struct PeopleRootView: View {
     @State private var searchText = ""
     @State private var isSearching = false
     @State private var editMode: EditMode = .inactive
+    /// Listen mode: tapping a person plays their ditty instead of opening them.
+    @State private var listening = false
     @State private var showingAddPerson = false
     @State private var showingAddNote = false
     @State private var showingSettings = false
@@ -58,6 +60,7 @@ struct PeopleRootView: View {
                     // the list are hidden and the overlay carries the tiles.
                     ZStack {
                         PeopleGridContent(query: query, isEditing: editMode.isEditing && !showsList,
+                                          isListening: listening && !showsList,
                                           showingGames: canvasShowsGames) { cell in
                             addPersonCell = cell
                             showingAddPerson = true
@@ -68,7 +71,7 @@ struct PeopleRootView: View {
                     .allowsHitTesting(!showsList && flight == nil)
                     .accessibilityHidden(showsList)
                     if showsList {
-                        PeopleListContent(query: query, editMode: $editMode)
+                        PeopleListContent(query: query, editMode: $editMode, isListening: listening)
                             .opacity(listVisible ? 1 : 0)
                             .allowsHitTesting(listVisible)
                     }
@@ -123,6 +126,7 @@ struct PeopleRootView: View {
             .onChange(of: layout) { from, to in
                 stage(from: from, to: to)
                 editMode = .inactive
+                stopListening()
                 // A search brings its view with it; any other change of
                 // view ends the search.
                 if switchingForSearch {
@@ -178,11 +182,37 @@ struct PeopleRootView: View {
                     switch item {
                     case .edit:
                         Button {
-                            withAnimation(.snappy) { editMode = editMode.isEditing ? .inactive : .active }
+                            withAnimation(.snappy) {
+                                stopListening()
+                                editMode = editMode.isEditing ? .inactive : .active
+                            }
                         } label: {
                             Label(editMode.isEditing ? "Done" : "Edit",
                                   systemImage: editMode.isEditing ? "checkmark.circle" : "pencil")
                         }
+                    case .listen:
+                        Button {
+                            withAnimation(.snappy) {
+                                if listening {
+                                    stopListening()
+                                } else {
+                                    editMode = .inactive
+                                    listening = true
+                                }
+                            }
+                        } label: {
+                            Label(listening ? "Stop Listening" : "Listen",
+                                  systemImage: listening ? "ear.trianglebadge.exclamationmark" : "ear")
+                        }
+                    case .bringTogether:
+                        Button {
+                            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                                store.bringTilesTogether()
+                            }
+                        } label: {
+                            Label("Bring Together", systemImage: "square.grid.3x3.topleft.filled")
+                        }
+                        .disabled(store.people.count < 2 || !query.isEmpty || TileLayout.isCompact(store.people))
                     case .settings:
                         Button { showingSettings = true } label: {
                             Label("Settings", systemImage: "gearshape")
@@ -190,11 +220,14 @@ struct PeopleRootView: View {
                     }
                 }
             } label: {
-                HeaderIconButton(title: "More", systemImage: editMode.isEditing ? "checkmark.circle" : action.systemImage,
-                                 isActive: editMode.isEditing) {}
+                HeaderIconButton(title: "More",
+                                 systemImage: editMode.isEditing ? "checkmark.circle" : listening ? "ear" : action.systemImage,
+                                 isActive: editMode.isEditing || listening) {}
             }
             .accessibilityLabel("More")
-            .accessibilityHint(editMode.isEditing ? "Done editing, or settings" : "Edit or settings")
+            .accessibilityHint(editMode.isEditing ? "Done editing, or settings"
+                               : listening ? "Stop listening, or settings"
+                               : "Edit, listen, or settings")
         }
     }
 
@@ -282,6 +315,13 @@ struct PeopleRootView: View {
             .background(Color.tactBackground)
             .transition(.move(edge: .top).combined(with: .opacity))
         }
+    }
+
+    /// Ends Listen mode and any ditty that is sounding.
+    private func stopListening() {
+        guard listening else { return }
+        listening = false
+        DittyPlayer.stop()
     }
 
     private var layoutBinding: Binding<PeopleLayout> {

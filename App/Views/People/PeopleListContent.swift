@@ -7,6 +7,9 @@ import SwiftUI
 struct PeopleListContent: View {
     let query: String
     @Binding var editMode: EditMode
+    /// Listen mode: tapping a person's row plays their ditty instead of
+    /// opening them.
+    var isListening = false
 
     @EnvironmentObject private var store: TactStore
     @Environment(\.pushRoute) private var pushRoute
@@ -59,7 +62,12 @@ struct PeopleListContent: View {
     /// the button's taps, so the push is done by hand.)
     private func sectionHeader(_ section: PersonSection) -> some View {
         Button {
-            pushRoute(.person(section.person.id))
+            if isListening {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                DittyPlayer.play(section.person)
+            } else {
+                pushRoute(.person(section.person.id))
+            }
         } label: {
             HStack(spacing: 10) {
                 PersonAvatar(person: section.person, size: 28)
@@ -95,7 +103,7 @@ struct PeopleListContent: View {
         .accessibilityAction(named: "Play ditty") { DittyPlayer.play(section.person) }
         .textCase(nil)
         .accessibilityElement(children: .contain)
-        .accessibilityHint("Opens \(section.person.name)")
+        .accessibilityHint(isListening ? "Plays \(section.person.name)'s ditty" : "Opens \(section.person.name)")
     }
 
     /// Edit mode: everyone as one row, to drag into order or delete.

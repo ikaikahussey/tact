@@ -4,14 +4,18 @@ import SwiftUI
 /// their geometric pattern. Tap a tile to open the person; touch and hold to
 /// start a note, change its color, turn it or delete the person, or drag
 /// it to any cell (gaps allowed). Touch and hold an empty cell to add
-/// someone there. Edit puts a delete badge on every tile.
+/// someone there. Edit puts a delete badge on every tile; Listen makes a
+/// tap play the person's ditty instead of opening them, the tile pulsing
+/// while it sounds. Both are on the header's More menu, with Bring
+/// Together, which closes the gaps.
 /// Choosing a game turns every tile over (`TileFlipFace`) to the game on
 /// the back (`GamesSurface`).
-/// Bring Together closes the gaps.
 struct PeopleGridContent: View {
     let query: String
     /// Edit mode: each tile wears a delete badge instead of opening.
     var isEditing = false
+    /// Listen mode: a tap plays the ditty instead of opening the person.
+    var isListening = false
     /// The tiles are turned over to a game (`GamesSurface` draws the back).
     var showingGames = false
     /// Touch and hold an empty cell to add someone there.
@@ -21,6 +25,8 @@ struct PeopleGridContent: View {
     @State private var dropTarget: Int?
     @State private var addingNoteFor: Person?
     @State private var deleting: Person?
+    /// The person whose ditty is sounding in Listen mode, for the pulse.
+    @State private var sounding: UUID?
 
     private let columns = TileLayout.columns
     private let spacing: CGFloat = 1
@@ -35,17 +41,8 @@ struct PeopleGridContent: View {
     var body: some View {
         tiles
             .background(Color.tactBackground)
-            .overlay(alignment: .bottomTrailing) {
-                if store.people.count > 1 && query.isEmpty && !showingGames {
-                    CanvasActionButton(title: "Bring Together", systemImage: "square.grid.3x3.topleft.filled",
-                                       hint: "Closes the gaps between tiles, keeping their order.",
-                                       isEnabled: !TileLayout.isCompact(store.people)) {
-                        withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
-                            store.bringTilesTogether()
-                        }
-                    }
-                    .padding(16)
-                }
+            .onChange(of: isListening) { _, listening in
+                if !listening { sounding = nil }
             }
             .sheet(item: $addingNoteFor) { person in
                 AddNoteView(personID: person.id)
@@ -159,6 +156,15 @@ struct PeopleGridContent: View {
         if targeted { dropTarget = cell } else if dropTarget == cell { dropTarget = nil }
     }
 
+    /// Listen mode's tap: the ditty, with the tile pressed while it sounds.
+    private func listen(to person: Person) {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        sounding = person.id
+        DittyPlayer.play(person) { index in
+            if index == nil, sounding == person.id { sounding = nil }
+        }
+    }
+
     private func tile(for person: Person, size: CGFloat) -> some View {
         let colorIndex = Binding(
             get: { person.tile.colorIndex },
@@ -167,12 +173,23 @@ struct PeopleGridContent: View {
                 store.updateTile(forPersonID: person.id) { $0.colorIndex = newValue }
             }
         )
-        return NavigationLink(value: Route.person(person.id)) {
-            PersonTile(person: person, size: size)
-                .contentShape(Rectangle())
+        return Group {
+            if isListening {
+                Button { listen(to: person) } label: {
+                    PersonTile(person: person, size: size)
+                        .contentShape(Rectangle())
+                }
+            } else {
+                NavigationLink(value: Route.person(person.id)) {
+                    PersonTile(person: person, size: size)
+                        .contentShape(Rectangle())
+                }
+            }
         }
         .buttonStyle(.plain)
         .disabled(isEditing)
+        .scaleEffect(sounding == person.id ? 0.92 : 1)
+        .animation(.spring(response: 0.25, dampingFraction: 0.6), value: sounding == person.id)
         .overlay(alignment: .topLeading) {
             if isEditing {
                 Button { deleting = person } label: {
@@ -221,7 +238,8 @@ struct PeopleGridContent: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(person.name), \(TilePalette.name(person.tile.colorIndex)) tile")
-        .accessibilityHint("Opens \(person.name). Touch and hold for a new note, the ditty, the color, turning, or deleting; drag to move it.")
+        .accessibilityHint(isListening ? "Plays \(person.name)'s ditty."
+                           : "Opens \(person.name). Touch and hold for a new note, the ditty, the color, turning, or deleting; drag to move it.")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction(named: "Change color") {
             let order = TilePalette.menuOrder
