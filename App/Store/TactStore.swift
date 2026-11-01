@@ -164,6 +164,45 @@ final class TactStore: ObservableObject {
         people = Self.pinningTile(people, moving: id, to: target, anchors: anchors, vacated: source)
     }
 
+    /// Moves a group of tiles together: the one dragged (`id`) lands on
+    /// `target`, and the rest of `ids` keep their positions relative to it.
+    /// Nothing moves when the group would run off the side or above the
+    /// top. Everyone pinned stays put; people the group lands on go to the
+    /// cells it left, in order, and anyone still without a cell takes the
+    /// first free one.
+    func moveTiles(personIDs ids: Set<UUID>, dragging id: UUID, toCell target: Int) {
+        guard ids.count > 1, ids.contains(id) else { return moveTile(personID: id, toCell: target) }
+        let anchors = TileLayout.anchors(for: people)
+        guard let source = anchors[id], source != target,
+              let moved = TileLayout.shifted(ids, from: source, to: target, anchors: anchors)
+        else { return }
+        var updated = people
+        var taken = Set(moved.values)
+        var displaced: [Int] = []
+        for index in updated.indices {
+            let person = updated[index]
+            if let cell = moved[person.id] {
+                updated[index].tile.cell = cell
+            } else if let current = anchors[person.id], !taken.contains(current) {
+                updated[index].tile.cell = current
+                taken.insert(current)
+            } else {
+                displaced.append(index)
+            }
+        }
+        var vacated = ids.compactMap { anchors[$0] }.filter { !taken.contains($0) }.sorted()
+        for index in displaced {
+            if !vacated.isEmpty {
+                let cell = vacated.removeFirst()
+                updated[index].tile.cell = cell
+                taken.insert(cell)
+            } else {
+                updated[index].tile.cell = nil
+            }
+        }
+        people = updated
+    }
+
     /// Closes the gaps on the Tiles canvas, keeping everyone's order.
     func bringTilesTogether() {
         let cells = TileLayout.compacted(people)

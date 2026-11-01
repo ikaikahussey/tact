@@ -105,6 +105,23 @@ enum TileLayout {
         Set(anchors(for: people).values) == Set(0..<people.count)
     }
 
+    /// Where `ids` land when the one at `source` is dragged to `target` and
+    /// the others follow by the same offset; nil when any of them would
+    /// cross the side of the board or go above the top.
+    static func shifted(_ ids: Set<UUID>, from source: Int, to target: Int, anchors: [UUID: Int]) -> [UUID: Int]? {
+        let rowDelta = target / columns - source / columns
+        let columnDelta = target % columns - source % columns
+        var moved: [UUID: Int] = [:]
+        for id in ids {
+            guard let cell = anchors[id] else { continue }
+            let column = cell % columns + columnDelta
+            let row = cell / columns + rowDelta
+            guard (0..<columns).contains(column), row >= 0 else { return nil }
+            moved[id] = row * columns + column
+        }
+        return moved
+    }
+
     static func footprint(of person: Person, at anchor: Int) -> Set<Int>? {
         anchor >= 0 ? [anchor] : nil
     }

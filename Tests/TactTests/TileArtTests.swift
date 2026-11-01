@@ -150,6 +150,40 @@ extension TactStoreTests {
         XCTAssertEqual(layout[2], ada.id)
     }
 
+    func testMovingSelectedTilesTogetherKeepsTheirShape() {
+        let store = TestSupport.makeStore(directory: TestSupport.temporaryDirectory(), defaults: TestSupport.defaults())
+        let ada = store.addPerson(named: "Ada")!      // cell 0
+        let grace = store.addPerson(named: "Grace")!  // cell 1
+        let kai = store.addPerson(named: "Kai")!      // cell 2
+        let mei = store.addPerson(named: "Mei")!      // cell 3
+
+        // Ada and Grace, side by side, dragged by Ada down a row and right one.
+        store.moveTiles(personIDs: [ada.id, grace.id], dragging: ada.id, toCell: 5)
+        var layout = TileLayout.cells(for: store.people)
+        XCTAssertEqual(layout[5], ada.id)
+        XCTAssertEqual(layout[6], grace.id, "Grace keeps her place beside Ada")
+        XCTAssertEqual(layout[2], kai.id, "the others are pinned")
+        XCTAssertEqual(layout[3], mei.id)
+        XCTAssertNil(layout[0]); XCTAssertNil(layout[1])
+
+        // Dragged onto Kai and Mei: they take the cells the group leaves.
+        store.moveTiles(personIDs: [ada.id, grace.id], dragging: grace.id, toCell: 3)
+        layout = TileLayout.cells(for: store.people)
+        XCTAssertEqual(layout[2], ada.id)
+        XCTAssertEqual(layout[3], grace.id)
+        XCTAssertEqual(Set([layout[5], layout[6]]), Set([kai.id, mei.id]), "the displaced pair moves into the vacated cells")
+
+        // A move that would run off the right edge does nothing.
+        let before = TileLayout.cells(for: store.people)
+        store.moveTiles(personIDs: [ada.id, grace.id], dragging: ada.id, toCell: 7)
+        XCTAssertEqual(TileLayout.cells(for: store.people), before)
+        XCTAssertNil(TileLayout.shifted([ada.id, grace.id], from: 2, to: 7, anchors: TileLayout.anchors(for: store.people)))
+
+        // One id falls back to a plain move.
+        store.moveTiles(personIDs: [kai.id], dragging: kai.id, toCell: 12)
+        XCTAssertEqual(TileLayout.cells(for: store.people)[12], kai.id)
+    }
+
     func testBringingTilesTogetherClosesGapsAndKeepsOrder() {
         let store = TestSupport.makeStore(directory: TestSupport.temporaryDirectory(), defaults: TestSupport.defaults())
         let ada = store.addPerson(named: "Ada")!
