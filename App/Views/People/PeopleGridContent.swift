@@ -252,49 +252,8 @@ struct PeopleGridContent: View {
         .disabled(isEditing)
         .scaleEffect(sounding == person.id ? 0.92 : 1)
         .animation(.spring(response: 0.25, dampingFraction: 0.6), value: sounding == person.id)
-        .overlay(alignment: .topLeading) {
-            if isEditing {
-                Button { deleting = person } label: {
-                    Image(systemName: "minus.circle.fill")
-                        .font(.tact(.title2))
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(.white, .red)
-                        .padding(6)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Delete \(person.name)")
-                .transition(.scale.combined(with: .opacity))
-            }
-        }
-        .contextMenu {
-            Button { addingNoteFor = person } label: {
-                Label("New Note", systemImage: "square.and.pencil")
-            }
-            Button { DittyPlayer.play(person) } label: {
-                Label("Play Ditty", systemImage: "music.note")
-            }
-            Divider()
-            Menu {
-                // Just the colours, no names; VoiceOver still gets them.
-                Picker("Color", selection: colorIndex) {
-                    ForEach(TilePalette.menuOrder, id: \.self) { index in
-                        Image(uiImage: TilePalette.swatch(index))
-                            .accessibilityLabel(TilePalette.name(index).capitalized)
-                            .tag(index)
-                    }
-                }
-            } label: {
-                Label("Color", systemImage: "paintpalette")
-            }
-            Button { store.updateTile(forPersonID: person.id) { $0.rotate() } } label: {
-                Label("Rotate", systemImage: "rotate.right")
-            }
-            Divider()
-            Button(role: .destructive) { deleting = person } label: {
-                Label("Delete", systemImage: "trash")
-            }
-        }
+        .overlay(alignment: .topLeading) { deleteBadge(for: person) }
+        .contextMenu { tileMenu(for: person, colorIndex: colorIndex) }
         .draggable(person.id.uuidString) {
             PersonTile(person: person, size: size)
         }
@@ -314,5 +273,52 @@ struct PeopleGridContent: View {
         .accessibilityAction(named: "Play ditty") { DittyPlayer.play(person) }
         .accessibilityAction(named: "New note") { addingNoteFor = person }
         .accessibilityAction(named: "Delete") { deleting = person }
+    }
+
+    @ViewBuilder
+    private func deleteBadge(for person: Person) -> some View {
+        if isEditing {
+            Button { deleting = person } label: {
+                Image(systemName: "minus.circle.fill")
+                    .font(.tact(.title2))
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(.white, .red)
+                    .padding(6)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Delete \(person.name)")
+            .transition(.scale.combined(with: .opacity))
+        }
+    }
+
+    @ViewBuilder
+    private func tileMenu(for person: Person, colorIndex: Binding<Int>) -> some View {
+        Button { addingNoteFor = person } label: {
+            Label("New Note", systemImage: "square.and.pencil")
+        }
+        Button { DittyPlayer.play(person) } label: {
+            Label("Play Ditty", systemImage: "music.note")
+        }
+        Divider()
+        Menu {
+            // Just the colours, no names; VoiceOver still gets them.
+            Picker("Color", selection: colorIndex) {
+                ForEach(TilePalette.menuOrder, id: \.self) { index in
+                    Image(uiImage: TilePalette.swatch(index))
+                        .accessibilityLabel(TilePalette.name(index).capitalized)
+                        .tag(index)
+                }
+            }
+        } label: {
+            Label("Color", systemImage: "paintpalette")
+        }
+        Button { store.updateTile(forPersonID: person.id) { $0.rotate() } } label: {
+            Label("Rotate", systemImage: "rotate.right")
+        }
+        Divider()
+        Button(role: .destructive) { deleting = person } label: {
+            Label("Delete", systemImage: "trash")
+        }
     }
 }
