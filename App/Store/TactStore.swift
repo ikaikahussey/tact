@@ -100,7 +100,6 @@ final class TactStore: ObservableObject {
 
     // MARK: People
 
-    @discardableResult
     /// Adds a person. Their tile is drawn from a fresh seed unless a
     /// colour and pattern are given, as from the New Person sheet.
     @discardableResult
