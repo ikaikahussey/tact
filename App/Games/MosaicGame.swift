@@ -240,25 +240,12 @@ struct MosaicGame: View {
 
     /// Opens FatBits on a new stamp.
     private var fatBitsButton: some View {
-        Button {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        FatBitsPencilSwatch(isEnabled: !shelf.isFull,
+                            label: "New FatBits stamp",
+                            hint: shelf.isFull ? "The palette is full. Remove a stamp to draw another."
+                                               : "Opens FatBits to draw a stamp of your own.") {
             editing = .shelf(nil)
-        } label: {
-            Image(systemName: "pencil.and.outline")
-                .font(.tact(.body).weight(.semibold))
-                .foregroundStyle(shelf.isFull ? Color.secondary : palette.accent)
-                .frame(width: 40, height: 40)
-                .background(Color.tactCardBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .strokeBorder(Color.tactTileGray, style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
-                .shadow(color: .black.opacity(0.12), radius: 3, y: 2)
         }
-        .buttonStyle(.plain)
-        .disabled(shelf.isFull)
-        .accessibilityLabel("New FatBits stamp")
-        .accessibilityHint(shelf.isFull ? "The palette is full. Remove a stamp to draw another."
-                                        : "Opens FatBits to draw a stamp of your own.")
     }
 
     // MARK: Geometry

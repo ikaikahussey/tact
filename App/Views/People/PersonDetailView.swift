@@ -171,7 +171,15 @@ struct PersonDetailView: View {
                             FatBitsView(bits: bits, colorIndex: person.tile.colorIndex)
                                 .rotationEffect(.degrees(Double(person.tile.quarterTurns) * 90))
                         }
+                        // Held, as a stamp on the Mosaic palette is.
+                        .contextMenu {
+                            Button("Edit in FatBits", systemImage: "pencil") { showingFatBits = true }
+                            Button("Revert to Original", systemImage: "arrow.uturn.backward", role: .destructive) {
+                                store.updateTile(forPersonID: personID) { $0.revertToPattern() }
+                            }
+                        }
                         .accessibilityLabel("FatBits tile")
+                        .accessibilityHint("Hold to edit or revert.")
                     }
 
                     ForEach(TilePattern.allCases, id: \.self) { pattern in
@@ -187,6 +195,15 @@ struct PersonDetailView: View {
                         }
                         .accessibilityLabel(pattern.title)
                     }
+
+                    // The pencil at the end of the strip opens FatBits on
+                    // this tile, as it does on the Mosaic palette.
+                    FatBitsPencilSwatch(size: 52, cornerRadius: 8,
+                                        label: person.tile.isFatBits ? "Edit in FatBits" : "Draw in FatBits",
+                                        hint: "Opens FatBits to draw \(person.name)'s tile bit by bit.") {
+                        showingFatBits = true
+                    }
+                    .padding(3)
                 }
                 .padding(.vertical, 2)
             }
@@ -199,11 +216,6 @@ struct PersonDetailView: View {
                     Label("Rotate", systemImage: "rotate.right")
                 }
                 .accessibilityHint("Turns the tile a quarter turn clockwise.")
-                Button {
-                    showingFatBits = true
-                } label: {
-                    Label(person.tile.isFatBits ? "Edit in FatBits" : "Draw in FatBits", systemImage: "pencil.and.outline")
-                }
                 if person.tile.isFatBits {
                     Button {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
