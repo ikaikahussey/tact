@@ -16,6 +16,7 @@ struct PersonDetailView: View {
     @State private var showingContactPicker = false
     @State private var showingContactInfo = false
     @State private var showingEditSheet = false
+    @State private var showingDittyRecorder = false
     @State private var showingContactMissingAlert = false
     @State private var pickedPhoto: PhotosPickerItem?
 
@@ -57,6 +58,7 @@ struct PersonDetailView: View {
                     .accessibilityHint("Adds a photo")
                 }
                 tileChooser(for: person)
+                dittySection(for: person)
                 contactSection(for: person)
                 Divider()
                 notesSection(for: person)
@@ -96,6 +98,11 @@ struct PersonDetailView: View {
             Task { await importPhoto(item) }
         }
         .sheet(isPresented: $showingEditSheet) { EditPersonView(personID: personID) }
+        .sheet(isPresented: $showingDittyRecorder) { DittyRecorderView(person: person) }
+        .onAppear {
+            if DittyPlayer.playsOnOpen { DittyPlayer.play(person) }
+        }
+        .onDisappear { DittyPlayer.stop() }
         .sheet(isPresented: $showingAddNote) { AddNoteView(personID: personID) }
         .sheet(isPresented: $showingLinkNotes) { LinkNotesView(personID: personID) }
         .sheet(isPresented: $showingContactPicker) {
@@ -270,6 +277,51 @@ struct PersonDetailView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Color, \(TilePalette.name(person.tile.colorIndex))")
+    }
+
+    // MARK: Ditty
+
+    /// The person's earcon: play it, record a new one on the Simon pads, or
+    /// go back to the default. Says when someone else sounds the same.
+    private func dittySection(for person: Person) -> some View {
+        let tuning = SimonTuning.load()
+        let twins = store.peopleSharingDitty(with: personID)
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Ditty").font(.tact(.headline))
+            HStack(spacing: 16) {
+                Button {
+                    DittyPlayer.play(person, tuning: tuning)
+                } label: {
+                    Label("Play", systemImage: "play.fill")
+                }
+                .accessibilityHint("Plays the notes that stand for \(person.name).")
+                Button {
+                    showingDittyRecorder = true
+                } label: {
+                    Label(person.ditty == nil ? "Record" : "Change", systemImage: "music.note")
+                }
+                if person.ditty != nil {
+                    Button {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        store.updateDitty(forPersonID: personID, nil)
+                    } label: {
+                        Label("Default", systemImage: "arrow.uturn.backward")
+                    }
+                }
+            }
+            .font(.tact(.subheadline))
+            .buttonStyle(.borderless)
+            Text(person.resolvedDitty.noteNames(tuning: tuning))
+                .font(.tact(.caption).monospacedDigit())
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Notes: \(person.resolvedDitty.noteNames(tuning: tuning))")
+            if !twins.isEmpty {
+                Label("Sounds the same as \(ListFormatter.localizedString(byJoining: twins.map(\.name))).",
+                      systemImage: "exclamationmark.triangle")
+                    .font(.tact(.caption))
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     // MARK: Contact

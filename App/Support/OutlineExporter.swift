@@ -4,7 +4,8 @@ import Foundation
 enum OutlineExporter {
     static let previewLength = 100
 
-    static func outline(people: [Person], notes: [Note], now: Date = Date()) -> String {
+    static func outline(people: [Person], notes: [Note], now: Date = Date(),
+                        tuning: SimonTuning = SimonTuning.load()) -> String {
         var outline = "TACT OUTLINE\n"
         outline += "Generated: \(now.formatted(date: .long, time: .shortened))\n\n"
         outline += String(repeating: "=", count: 51) + "\n\n"
@@ -15,6 +16,7 @@ enum OutlineExporter {
             outline += "PEOPLE (\(people.count))\n\n"
             for person in people {
                 outline += "• \(person.name)\n"
+                outline += "  Ditty: \(person.resolvedDitty.noteNames(tuning: tuning))\n"
                 let personNotes = notes.filter { $0.isLinked(to: person.id) }.sorted { $0.date > $1.date }
                 if !personNotes.isEmpty {
                     outline += "  Notes (\(personNotes.count)):\n"

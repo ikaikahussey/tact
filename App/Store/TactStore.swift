@@ -170,6 +170,23 @@ final class TactStore: ObservableObject {
                               cell: \.tile.cell, footprint: TileLayout.footprint(of:at:))
     }
 
+    // MARK: Ditties
+
+    /// Sets a person's ditty. `nil` or an empty ditty goes back to the one
+    /// made from their seed.
+    func updateDitty(forPersonID id: UUID, _ ditty: Ditty?) {
+        guard let index = people.firstIndex(where: { $0.id == id }) else { return }
+        people[index].ditty = ditty.flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    /// Everyone else whose ditty sounds the same as `id`'s, so it can be
+    /// told apart by ear.
+    func peopleSharingDitty(with id: UUID) -> [Person] {
+        guard let person = person(id: id) else { return [] }
+        let ditty = person.resolvedDitty
+        return people.filter { $0.id != id && $0.resolvedDitty == ditty }
+    }
+
     // MARK: Tangram
 
     /// Changes a person's Tangram piece. If the piece now overlaps others,

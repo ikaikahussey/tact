@@ -192,6 +192,9 @@ struct PeopleGridContent: View {
             Button { addingNoteFor = person } label: {
                 Label("New Note", systemImage: "square.and.pencil")
             }
+            Button { DittyPlayer.play(person) } label: {
+                Label("Play Ditty", systemImage: "music.note")
+            }
             Divider()
             Menu {
                 // Just the colours, no names; VoiceOver still gets them.
@@ -218,7 +221,7 @@ struct PeopleGridContent: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(person.name), \(TilePalette.name(person.tile.colorIndex)) tile")
-        .accessibilityHint("Opens \(person.name). Touch and hold for a new note, the color, turning, or deleting; drag to move it.")
+        .accessibilityHint("Opens \(person.name). Touch and hold for a new note, the ditty, the color, turning, or deleting; drag to move it.")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction(named: "Change color") {
             let order = TilePalette.menuOrder
@@ -228,6 +231,7 @@ struct PeopleGridContent: View {
         .accessibilityAction(named: "Rotate") {
             store.updateTile(forPersonID: person.id) { $0.rotate() }
         }
+        .accessibilityAction(named: "Play ditty") { DittyPlayer.play(person) }
         .accessibilityAction(named: "New note") { addingNoteFor = person }
         .accessibilityAction(named: "Delete") { deleting = person }
     }

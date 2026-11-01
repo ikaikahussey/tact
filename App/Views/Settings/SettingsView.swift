@@ -6,6 +6,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(AppPalette.storageKey) private var palette: AppPalette = .classic
     @AppStorage(GameSounds.enabledKey) private var gameSoundsOn = true
+    @AppStorage(DittyPlayer.playOnOpenKey) private var dittyOnOpen = DittyPlayer.playsOnOpen
 
     var body: some View {
         NavigationStack {
@@ -51,6 +52,15 @@ struct SettingsView: View {
                     }
                 } header: {
                     Text("Games")
+                }
+
+                Section {
+                    Toggle("Play Ditty When Opening a Person", isOn: $dittyOnOpen)
+                        .disabled(!gameSoundsOn)
+                } header: {
+                    Text("Ditties")
+                } footer: {
+                    Text("Everyone has a few notes on the Simon synth that stand for them. Record one on a person's page. Ditties also play from the Play Ditty action on tiles and in the list, and follow the Sound settings and the silent switch.")
                 }
 
                 Section {
