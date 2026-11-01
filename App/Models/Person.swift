@@ -18,6 +18,12 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
     /// Notes recorded on the Simon pads that identify the person by ear.
     /// `nil` plays the one made from the seed (`resolvedDitty`).
     var ditty: Ditty?
+    /// Tags on the person themself, as typed: `birthday`, `work` (no `#`).
+    /// Kept each once, case-insensitively, in the order given. A tag search
+    /// finds a person by these as well as by the tags in their notes.
+    var tags: [String] {
+        didSet { tags = NoteTags.unique(tags) }
+    }
 
     init(
         id: UUID = UUID(),
@@ -28,7 +34,8 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
         contact: ContactSnapshot? = nil,
         tile: TileArt? = nil,
         tangram: TangramPiece? = nil,
-        ditty: Ditty? = nil
+        ditty: Ditty? = nil,
+        tags: [String] = []
     ) {
         self.id = id
         self.name = name
@@ -39,6 +46,11 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
         self.tile = tile ?? TileArt(seed: self.colorSeed)
         self.tangram = tangram ?? TangramPiece(seed: self.colorSeed)
         self.ditty = ditty
+        self.tags = NoteTags.unique(tags)
+    }
+
+    func hasTag(_ normalized: String) -> Bool {
+        tags.contains { NoteTags.normalized($0) == normalized }
     }
 
     /// The ditty to play: the recorded one, or the default from the seed.
@@ -57,7 +69,7 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, name
         case colorSeed = "imageSection"
-        case photoData, contactIdentifier, contact, tile, tangram, ditty
+        case photoData, contactIdentifier, contact, tile, tangram, ditty, tags
     }
 
     init(from decoder: Decoder) throws {
@@ -72,6 +84,7 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
         tangram = (try? container.decodeIfPresent(TangramPiece.self, forKey: .tangram)) ?? nil
             ?? TangramPiece(seed: colorSeed)
         ditty = (try? container.decodeIfPresent(Ditty.self, forKey: .ditty)) ?? nil
+        tags = NoteTags.unique((try? container.decodeIfPresent([String].self, forKey: .tags)) ?? nil ?? [])
     }
 
     func encode(to encoder: Encoder) throws {
@@ -87,6 +100,7 @@ struct Person: Identifiable, Codable, Equatable, Hashable {
         try container.encode(tile, forKey: .tile)
         try container.encode(tangram, forKey: .tangram)
         try container.encodeIfPresent(ditty, forKey: .ditty)
+        if !tags.isEmpty { try container.encode(tags, forKey: .tags) }
     }
 }
 

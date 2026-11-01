@@ -15,7 +15,8 @@ struct PersonDetailView: View {
     @State private var showingLinkNotes = false
     @State private var showingContactPicker = false
     @State private var showingContactInfo = false
-    @State private var showingEditSheet = false
+    /// The edit sheet, opened on the name or on the tags.
+    @State private var editing: EditPersonView.Field?
     @State private var showingDittyRecorder = false
     @State private var showingContactMissingAlert = false
     @State private var pickedPhoto: PhotosPickerItem?
@@ -59,6 +60,7 @@ struct PersonDetailView: View {
                 }
                 tileChooser(for: person)
                 dittySection(for: person)
+                tagsSection(for: person)
                 contactSection(for: person)
                 Divider()
                 notesSection(for: person)
@@ -70,8 +72,11 @@ struct PersonDetailView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
-                    Button { showingEditSheet = true } label: {
+                    Button { editing = .name } label: {
                         Label("Edit Name", systemImage: "pencil")
+                    }
+                    Button { editing = .tags } label: {
+                        Label("Edit Tags", systemImage: "number")
                     }
                     Button { showingPhotoPicker = true } label: {
                         Label(person.photoData == nil ? "Add Photo" : "Change Photo", systemImage: "photo")
@@ -97,7 +102,7 @@ struct PersonDetailView: View {
             guard let item else { return }
             Task { await importPhoto(item) }
         }
-        .sheet(isPresented: $showingEditSheet) { EditPersonView(personID: personID) }
+        .sheet(item: $editing) { field in EditPersonView(personID: personID, focus: field) }
         .sheet(isPresented: $showingDittyRecorder) { DittyRecorderView(person: person) }
         .onAppear {
             if DittyPlayer.playsOnOpen { DittyPlayer.play(person) }
@@ -332,6 +337,34 @@ struct PersonDetailView: View {
                       systemImage: "exclamationmark.triangle")
                     .font(.tact(.caption))
                     .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: Tags
+
+    /// The person's own tags as chips, each a search; an edit button beside
+    /// them, or a single button to add the first.
+    private func tagsSection(for person: Person) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Tags").font(.tact(.headline))
+                Spacer()
+                Button { editing = .tags } label: {
+                    Image(systemName: person.tags.isEmpty ? "plus" : "pencil")
+                        .font(.tact(.subheadline))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(person.tags.isEmpty ? "Add Tags" : "Edit Tags")
+            }
+            if person.tags.isEmpty {
+                Text("No tags. Tags on a person turn up in tag searches alongside their notes.")
+                    .font(.tact(.caption))
+                    .foregroundStyle(.secondary)
+            } else {
+                TagChips(tags: person.tags)
             }
         }
     }

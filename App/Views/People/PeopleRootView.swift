@@ -198,18 +198,12 @@ struct PeopleRootView: View {
         }
     }
 
-    /// A search for a tag is a search through notes, so it always shows
-    /// the list; any other search over a game turns the tiles back so the
-    /// matching people can be seen.
+    /// A search over a game turns the tiles back so the matching people can
+    /// be seen. A tag search shows people too, tagged themselves or through
+    /// their notes, so it stays in whichever of People or Notes is open.
     private func followSearch(_ text: String) {
-        let wanted: PeopleLayout
-        if NoteTags.queryTag(text) != nil {
-            wanted = .list
-        } else if layout == .games, !PeopleSearch.normalized(text).isEmpty, !NoteTags.isTagQuery(text) {
-            wanted = .grid
-        } else {
-            return
-        }
+        guard layout == .games, !PeopleSearch.normalized(text).isEmpty else { return }
+        let wanted = PeopleLayout.grid
         guard layout != wanted else { return }
         switchingForSearch = true
         withAnimation(.snappy) { rememberedLayout = wanted }

@@ -89,9 +89,9 @@ final class TactStore: ObservableObject {
         notes.sorted { $0.date > $1.date }
     }
 
-    /// Every tag typed in any note, most used first.
+    /// Every tag typed in any note or put on any person, most used first.
     var tagCounts: [TagCount] {
-        TagCount.counts(in: notes)
+        TagCount.counts(in: notes, people: people)
     }
 
     func names(forPersonIDs ids: [UUID]) -> [String] {
@@ -113,6 +113,11 @@ final class TactStore: ObservableObject {
         let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, let index = people.firstIndex(where: { $0.id == id }) else { return }
         people[index].name = name
+    }
+
+    func updateTags(forPersonID id: UUID, _ tags: [String]) {
+        guard let index = people.firstIndex(where: { $0.id == id }) else { return }
+        people[index].tags = tags
     }
 
     func updatePhoto(forPersonID id: UUID, data: Data?) {

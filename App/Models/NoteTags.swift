@@ -22,6 +22,17 @@ enum NoteTags {
         return tags
     }
 
+    /// `tags` cleaned for keeping on a person: each a tag as typed in a
+    /// note would be (no `#`, no spaces), once, case-insensitively, in order.
+    static func unique(_ tags: [String]) -> [String] {
+        var seen = Set<String>()
+        return tags.compactMap { raw in
+            let tag = raw.trimmingCharacters(in: .whitespacesAndNewlines).drop { $0 == "#" }
+            guard !tag.isEmpty, seen.insert(normalized(String(tag))).inserted else { return nil }
+            return String(tag)
+        }
+    }
+
     /// The form tags are compared in.
     static func normalized(_ tag: String) -> String {
         tag.lowercased()
@@ -74,12 +85,12 @@ struct TagCount: Identifiable, Equatable {
     let count: Int
     var id: String { NoteTags.normalized(tag) }
 
-    /// Every tag across `notes`, most used first, then alphabetical. Each
-    /// is shown as it was first typed.
-    static func counts(in notes: [Note]) -> [TagCount] {
+    /// Every tag across `notes` and on `people`, most used first, then
+    /// alphabetical. Each is shown as it was first typed.
+    static func counts(in notes: [Note], people: [Person] = []) -> [TagCount] {
         var counts: [String: (tag: String, count: Int)] = [:]
-        for note in notes {
-            for tag in note.tags {
+        for tags in notes.map(\.tags) + people.map(\.tags) {
+            for tag in tags {
                 let key = NoteTags.normalized(tag)
                 counts[key] = (counts[key]?.tag ?? tag, (counts[key]?.count ?? 0) + 1)
             }
