@@ -113,3 +113,35 @@ struct PersonAvatar: View {
         .accessibilityHidden(true)
     }
 }
+
+/// Small pictures of tiles for menus, which otherwise draw symbols in one
+/// colour: the person's tile as it would look with each choice.
+@MainActor
+enum TileMenuImage {
+    static let side: CGFloat = 28
+    static let cornerRadius: CGFloat = 6
+
+    /// A pattern, or a FatBits drawing when `bits` is given, in the colour.
+    static func motif(bits: FatBits? = nil, pattern: TilePattern, colorIndex: Int,
+                      palette: AppPalette = .current) -> UIImage {
+        let renderer = ImageRenderer(content: TileMotifView(bits: bits, pattern: pattern, colorIndex: colorIndex)
+            .environment(\.appPalette, palette)
+            .frame(width: side, height: side)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius)))
+        renderer.scale = UIScreen.main.scale
+        return (renderer.uiImage ?? UIImage()).withRenderingMode(.alwaysOriginal)
+    }
+
+    /// The middle square of a photo, at menu size.
+    static func photo(_ image: UIImage) -> UIImage {
+        let size = CGSize(width: side, height: side)
+        let scale = max(side / image.size.width, side / image.size.height)
+        let drawn = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let origin = CGPoint(x: (side - drawn.width) / 2, y: (side - drawn.height) / 2)
+        return UIGraphicsImageRenderer(size: size).image { _ in
+            UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: cornerRadius).addClip()
+            image.draw(in: CGRect(origin: origin, size: drawn))
+        }
+        .withRenderingMode(.alwaysOriginal)
+    }
+}

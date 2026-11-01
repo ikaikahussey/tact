@@ -251,13 +251,24 @@ struct PersonDetailView: View {
                 }
             }
         })
+        let colorIndex = person.tile.colorIndex
         return Picker("Tile", selection: choice) {
-            Label(person.photoData == nil ? "Add Photo…" : "Photo", systemImage: "photo").tag(photo)
-            if person.tile.isFatBits {
-                Label("FatBits", systemImage: "pencil.and.outline").tag(fatBits)
+            if let thumbnail = person.thumbnail(maxPixelSize: 128) {
+                Label { Text("Photo") } icon: { Image(uiImage: TileMenuImage.photo(thumbnail)) }.tag(photo)
+            } else {
+                Label("Add Photo…", systemImage: "photo").tag(photo)
+            }
+            if let bits = person.tile.bits {
+                Label { Text("FatBits") } icon: {
+                    Image(uiImage: TileMenuImage.motif(bits: bits, pattern: person.tilePattern, colorIndex: colorIndex))
+                }
+                .tag(fatBits)
             }
             ForEach(TilePattern.allCases, id: \.self) { pattern in
-                Text(pattern.title).tag(pattern.rawValue)
+                Label { Text(pattern.title) } icon: {
+                    Image(uiImage: TileMenuImage.motif(pattern: pattern, colorIndex: colorIndex))
+                }
+                .tag(pattern.rawValue)
             }
         }
     }
