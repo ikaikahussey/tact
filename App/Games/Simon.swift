@@ -1,10 +1,11 @@
 import Foundation
 
-/// The state of a game of Simon on a grid of pads. Each round the game
-/// plays its sequence, one pad longer than the last, and the player plays it
-/// back. A wrong pad ends the game. The same pads are also a keyboard: each
-/// has a note, rising from the bottom-left pad to the top-right, on a
-/// pentatonic scale so that anything played on them sounds in tune.
+/// The state of a game of Simon on a set of pads, one per cell of the
+/// grid that has a tile. Each round the game plays its sequence, one pad
+/// longer than the last, and the player plays it back. A wrong pad ends the
+/// game. The same pads are also a keyboard: each has a note, rising from
+/// the lowest, leftmost pad to the highest, rightmost, on a pentatonic
+/// scale so that anything played on them sounds in tune.
 struct Simon: Equatable {
     enum Phase: Equatable {
         /// No game in progress; the pads are a free keyboard.
@@ -26,18 +27,39 @@ struct Simon: Equatable {
     }
 
     let columns: Int
-    let rows: Int
+    /// The grid cells the pads sit on, in cell order. A pad is its index
+    /// in this list.
+    private(set) var cells: [Int]
     private(set) var sequence: [Int] = []
     /// How many pads of the sequence the player has matched this round.
     private(set) var position = 0
     private(set) var phase: Phase = .idle
 
+    /// Pads on every cell of a `columns` × `rows` grid.
     init(columns: Int = 4, rows: Int = 4) {
-        self.columns = max(1, columns)
-        self.rows = max(1, rows)
+        self.init(cells: Array(0..<(max(1, columns) * max(1, rows))), columns: columns)
     }
 
-    var padCount: Int { columns * rows }
+    /// Pads on the given cells of a grid `columns` wide.
+    init(cells: [Int], columns: Int = 4) {
+        self.columns = max(1, columns)
+        self.cells = cells.sorted()
+        noteIndices = Self.noteIndices(for: self.cells, columns: self.columns)
+    }
+
+    var padCount: Int { cells.count }
+    /// Rows the pads span: down to the lowest cell.
+    var rows: Int { cells.last.map { $0 / columns + 1 } ?? 0 }
+
+    /// Moves the pads to `cells`. Different cells end any game in
+    /// progress, since its sequence was on the old pads.
+    mutating func setCells(_ newCells: [Int]) {
+        let sorted = newCells.sorted()
+        guard sorted != cells else { return }
+        cells = sorted
+        noteIndices = Self.noteIndices(for: cells, columns: columns)
+        stop()
+    }
     /// The length of the sequence being played back; 0 before a game.
     var round: Int { sequence.count }
     /// The last round the player completed. During a round that is the
@@ -53,6 +75,7 @@ struct Simon: Equatable {
 
     /// Starts a new game with a one-pad sequence, ready to be shown.
     mutating func start<G: RandomNumberGenerator>(using generator: inout G) {
+        guard padCount > 0 else { return }
         sequence = [Int.random(in: 0..<padCount, using: &generator)]
         position = 0
         phase = .watching
@@ -124,11 +147,34 @@ struct Simon: Equatable {
     /// The scale the pads are laid out on, chosen under the tune button.
     var tuning = SimonTuning.standard
 
-    /// The scale degree of a pad, counting from the bottom-left pad across
-    /// each row and up, so pitch rises left to right and bottom to top.
+    /// Each pad's scale degree, counting from the lowest row's leftmost pad
+    /// across the row and up, so pitch rises left to right and bottom to
+    /// top over the pads there are.
+    private var noteIndices: [Int]
+
+    private static func noteIndices(for cells: [Int], columns: Int) -> [Int] {
+        let rising = cells.indices.sorted { a, b in
+            let (rowA, rowB) = (cells[a] / columns, cells[b] / columns)
+            return rowA != rowB ? rowA > rowB : cells[a] < cells[b]
+        }
+        var indices = Array(repeating: 0, count: cells.count)
+        for (degree, pad) in rising.enumerated() { indices[pad] = degree }
+        return indices
+    }
+
+    /// The scale degree of a pad: 0 for the lowest-leftmost pad, rising to
+    /// the right and up.
     func noteIndex(forPad pad: Int) -> Int {
-        let row = pad / columns, column = pad % columns
-        return (rows - 1 - row) * columns + column
+        noteIndices.indices.contains(pad) ? noteIndices[pad] : 0
+    }
+
+    /// The pad with the lowest note, and the one with the highest.
+    var lowestPad: Int? { noteIndices.firstIndex(of: 0) }
+    var highestPad: Int? { noteIndices.firstIndex(of: padCount - 1) }
+
+    /// The grid cell a pad sits on.
+    func cell(forPad pad: Int) -> Int {
+        cells.indices.contains(pad) ? cells[pad] : 0
     }
 
     /// The pitch of a pad in hertz.

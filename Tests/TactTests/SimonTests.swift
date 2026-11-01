@@ -119,6 +119,37 @@ final class SimonTests: XCTestCase {
         XCTAssertEqual(SimonTuning.standard.frequency(noteIndex: 15), 2093.005, accuracy: 0.01, "C7, three octaves up")
     }
 
+    func testPadsFollowTheTilesCells() {
+        // Tiles on cells 1, 2, 5 and 9: three rows, with gaps.
+        var game = Simon(cells: [9, 1, 5, 2], columns: 4)
+        XCTAssertEqual(game.cells, [1, 2, 5, 9], "pads sit in cell order")
+        XCTAssertEqual(game.padCount, 4)
+        XCTAssertEqual(game.rows, 3)
+        XCTAssertEqual(game.cell(forPad: 3), 9)
+        XCTAssertEqual(game.noteIndex(forPad: 3), 0, "the lowest row's pad is the lowest note")
+        XCTAssertEqual(game.noteIndex(forPad: 2), 1)
+        XCTAssertEqual(game.noteIndex(forPad: 0), 2, "the top row rises left to right")
+        XCTAssertEqual(game.noteIndex(forPad: 1), 3)
+        XCTAssertEqual(game.lowestPad, 3)
+        XCTAssertEqual(game.highestPad, 1)
+        var generator = SeededGenerator(seed: 4)
+        game.start(using: &generator)
+        XCTAssertTrue((0..<4).contains(game.sequence[0]), "the sequence is over the pads there are")
+        game.setCells([1, 2, 5, 9])
+        XCTAssertEqual(game.phase, .watching, "the same cells leave the game alone")
+        game.setCells([1, 2])
+        XCTAssertEqual(game.phase, .idle, "new cells end the game")
+        XCTAssertEqual(game.padCount, 2)
+        XCTAssertNil(Simon(cells: [], columns: 4).lowestPad)
+    }
+
+    func testStartWithNoPadsDoesNothing() {
+        var game = Simon(cells: [])
+        game.start()
+        XCTAssertEqual(game.phase, .idle)
+        XCTAssertEqual(game.rows, 0)
+    }
+
     func testRoundsText() {
         XCTAssertEqual(Simon.roundsText(1), "1 round")
         XCTAssertEqual(Simon.roundsText(7), "7 rounds")

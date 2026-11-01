@@ -80,6 +80,17 @@ final class MosaicTests: XCTestCase {
         }
     }
 
+    func testFillCanKeepToSomeCells() {
+        var generator = SeededGenerator(seed: 5)
+        var mosaic = Mosaic(columns: 4, rows: 4)
+        mosaic.fill(from: [coral], in: [0, 5, 10, 99], using: &generator)
+        XCTAssertEqual(mosaic.filledCount, 3, "only the given cells, and none outside the canvas")
+        XCTAssertNotNil(mosaic[0])
+        XCTAssertNotNil(mosaic[5])
+        XCTAssertNotNil(mosaic[10])
+        XCTAssertNil(mosaic[1])
+    }
+
     func testFillWithEmptyPaletteDoesNothing() {
         var mosaic = Mosaic()
         mosaic.fill(from: [])

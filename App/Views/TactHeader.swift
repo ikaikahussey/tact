@@ -119,7 +119,8 @@ struct HeaderIconButton: View {
 /// The bottom navigation, in two parts at the thumbs: People and Notes
 /// in one capsule at the far left, Games in its own capsule at the far
 /// right, so switching views and turning the tiles over are separate
-/// gestures. Pushed screens cover it.
+/// gestures. Games shows only over the Tiles view, whose backs the games
+/// are. Pushed screens cover it.
 struct ViewSwitch: View {
     @Binding var layout: PeopleLayout
     /// The game on the back of the tiles; Games pops up a menu to pick one.
@@ -145,6 +146,9 @@ struct ViewSwitch: View {
             }
             .accessibilityLabel("View")
             Spacer()
+            // Games are the back of the tiles, so the button shows only
+            // over the Tiles view (and while a game is up), not the list.
+            if layout.resolved != .list {
             capsule {
                 let isSelected = layout.resolved == .games
                 Menu {
@@ -163,8 +167,11 @@ struct ViewSwitch: View {
                 .accessibilityLabel(isSelected ? "Games, \(TileGame.named(selectedGameID).title)" : "Games")
                 .accessibilityHint("Turns the tiles over to a game")
             }
+            .transition(.scale(scale: 0.8).combined(with: .opacity))
+            }
         }
         .padding(.horizontal, 16)
+        .animation(.snappy, value: layout.resolved == .list)
     }
 
     private func capsule(@ViewBuilder _ content: () -> some View) -> some View {

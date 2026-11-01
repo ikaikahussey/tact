@@ -118,20 +118,22 @@ struct Mosaic: Codable, Equatable {
         }
     }
 
-    /// Fills every cell with a random stamp from `palette`, each with a
-    /// random turn. Does nothing with an empty palette.
-    mutating func fill<G: RandomNumberGenerator>(from palette: [MosaicStamp], using generator: inout G) {
+    /// Fills every cell, or just `indices`, with a random stamp from
+    /// `palette`, each with a random turn. Does nothing with an empty
+    /// palette.
+    mutating func fill<G: RandomNumberGenerator>(from palette: [MosaicStamp], in indices: [Int]? = nil,
+                                                 using generator: inout G) {
         guard !palette.isEmpty else { return }
-        for index in cells.indices {
+        for index in indices ?? Array(cells.indices) where cells.indices.contains(index) {
             var pick = palette[Int.random(in: 0..<palette.count, using: &generator)]
             pick.quarterTurns = Int.random(in: 0..<4, using: &generator)
             cells[index] = pick
         }
     }
 
-    mutating func fill(from palette: [MosaicStamp]) {
+    mutating func fill(from palette: [MosaicStamp], in indices: [Int]? = nil) {
         var generator = SystemRandomNumberGenerator()
-        fill(from: palette, using: &generator)
+        fill(from: palette, in: indices, using: &generator)
     }
 
     /// The same canvas with `rows` rows: cells that still fit are kept, new

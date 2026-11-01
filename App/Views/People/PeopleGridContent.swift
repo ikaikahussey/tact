@@ -12,8 +12,10 @@ import SwiftUI
 /// for the bar below to change together, and they too drag as one. All
 /// are on the header's More menu, with Bring Together, which closes the
 /// gaps.
-/// Choosing a game turns every tile over (`TileFlipFace`) to the game on
-/// the back (`GamesSurface`).
+/// Choosing a game turns the tiles over (`TileFlipFace`) to the game on
+/// the back (`GamesSurface`); only the tiles turn, so the game's pieces
+/// are the tiles. A game short of tiles leaves them face up under its
+/// notice.
 struct PeopleGridContent: View {
     let query: String
     /// Edit mode: each tile wears a delete badge instead of opening.
@@ -23,13 +25,17 @@ struct PeopleGridContent: View {
     /// Select mode: a tap adds the tile to `selection` or takes it out.
     var isSelecting = false
     @Binding var selection: Set<UUID>
-    /// The tiles are turned over to a game (`GamesSurface` draws the back).
+    /// The canvas shows a game (`GamesSurface` draws the back): the tiles
+    /// are locked and the view sits at the top.
     var showingGames = false
+    /// Whether the tiles turn over while a game shows; false when the game
+    /// has too few tiles to play and shows a notice instead.
+    var tilesTurned = true
     /// Touch and hold an empty cell to add someone there.
     var onAddPerson: (_ cell: Int) -> Void = { _ in }
 
     init(query: String, isEditing: Bool = false, isListening: Bool = false, isSelecting: Bool = false,
-         selection: Binding<Set<UUID>> = .constant([]), showingGames: Bool = false,
+         selection: Binding<Set<UUID>> = .constant([]), showingGames: Bool = false, tilesTurned: Bool = true,
          onAddPerson: @escaping (_ cell: Int) -> Void = { _ in }) {
         self.query = query
         self.isEditing = isEditing
@@ -37,6 +43,7 @@ struct PeopleGridContent: View {
         self.isSelecting = isSelecting
         _selection = selection
         self.showingGames = showingGames
+        self.tilesTurned = tilesTurned
         self.onAddPerson = onAddPerson
     }
 
@@ -156,7 +163,7 @@ struct PeopleGridContent: View {
                     ForEach(items.tiles, id: \.person.id) { placed in
                         tile(for: placed.person, size: squareSize)
                             .anchorPreference(key: TileAnchors.self, value: .bounds) { [placed.person.id: $0] }
-                            .modifier(TileFlipFace(side: .front, showingBack: showingGames,
+                            .modifier(TileFlipFace(side: .front, showingBack: showingGames && tilesTurned,
                                                    delay: TileFlipFace.delay(forCell: placed.cell, columns: columns)))
                             .dropDestination(for: String.self) { items, _ in
                                 drop(items, at: placed.cell)

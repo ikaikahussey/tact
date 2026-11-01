@@ -65,7 +65,8 @@ struct PeopleRootView: View {
                         PeopleGridContent(query: query, isEditing: editMode.isEditing && !showsList,
                                           isListening: listening && !showsList,
                                           isSelecting: selecting && !showsList, selection: $selectedIDs,
-                                          showingGames: canvasShowsGames) { cell in
+                                          showingGames: canvasShowsGames,
+                                          tilesTurned: GamesSurface.isAvailable(gameID: selectedGameID, tileCount: store.people.count)) { cell in
                             addPersonCell = cell
                             showingAddPerson = true
                         }

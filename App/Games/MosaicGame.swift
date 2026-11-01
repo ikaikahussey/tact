@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// Mosaic on the back of the tiles: a quilt you lay out from everyone's
-/// motifs. The palette along the bottom holds one stamp per person (their
-/// motif in their colour) and an eraser. Tap a cell to stamp it; tap the
+/// motifs, over the cells that have a tile, so the canvas is the tiles
+/// turned over. The palette along the bottom holds one stamp per person
+/// (their motif in their colour) and an eraser. Tap a cell to stamp it; tap the
 /// same stamp again to turn it a quarter turn; drag across cells to paint a
 /// run. Fill lays a random quilt from the palette, Clear empties the canvas.
 /// The pencil at the end of the palette opens FatBits, where a stamp of
@@ -51,18 +52,22 @@ struct MosaicGame: View {
     /// Everything on the palette strip: everyone's looks, then FatBits stamps.
     private var allStamps: [MosaicStamp] { stamps + shelf.stamps }
 
-    private var rows: Int {
-        max(4, Int(((context.size.height - Self.stripHeight) / context.pitch).rounded(.down)))
-    }
+    /// Rows the canvas keeps: down to the lowest tile. Stamps on cells
+    /// without a tile are kept, out of sight, for when a tile comes back.
+    private var rows: Int { max(1, context.activeRows) }
+
+    /// The cells with a tile: the ones drawn, stamped and filled.
+    private var activeCells: [Int] { context.activeCells }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            ForEach(0..<mosaic.count, id: \.self) { cell in
+            ForEach(activeCells, id: \.self) { cell in
                 cellView(cell)
                     .modifier(TileFlipFace(side: .back, showingBack: context.isShowing, delay: context.flipDelay(cell)))
-                    .position(center(of: cell))
+                    .position(context.center(of: cell))
             }
         }
+        .animation(.snappy, value: activeCells)
         .frame(width: context.size.width, height: context.size.height, alignment: .topLeading)
         .contentShape(Rectangle())
         .coordinateSpace(name: "mosaic")
@@ -159,7 +164,8 @@ struct MosaicGame: View {
     private var paintGesture: some Gesture {
         DragGesture(minimumDistance: 8, coordinateSpace: .named("mosaic"))
             .onChanged { value in
-                guard context.isShowing, let cell = cell(at: value.location), !painted.contains(cell) else { return }
+                guard context.isShowing, let cell = cell(at: value.location), !painted.contains(cell),
+                      activeCells.contains(cell) else { return }
                 if painted.isEmpty { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
                 painted.insert(cell)
                 mosaic.place(selected, at: cell)
@@ -181,7 +187,7 @@ struct MosaicGame: View {
             }
             CanvasActionButton(title: "Fill", systemImage: "shuffle",
                                hint: "Lays a random quilt from the palette.") {
-                withAnimation(.easeInOut(duration: 0.3)) { mosaic.fill(from: allStamps) }
+                withAnimation(.easeInOut(duration: 0.3)) { mosaic.fill(from: allStamps, in: activeCells) }
             }
             CanvasActionButton(title: "Clear", systemImage: "trash",
                                hint: "Empties the canvas.", isEnabled: !mosaic.isEmpty) {
@@ -249,11 +255,6 @@ struct MosaicGame: View {
     }
 
     // MARK: Geometry
-
-    private func center(of cell: Int) -> CGPoint {
-        CGPoint(x: CGFloat(cell % Self.columns) * context.pitch + context.cellSize / 2,
-                y: CGFloat(cell / Self.columns) * context.pitch + context.cellSize / 2)
-    }
 
     private func cell(at point: CGPoint) -> Int? {
         guard point.x >= 0, point.y >= 0 else { return nil }

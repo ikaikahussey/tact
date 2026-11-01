@@ -20,7 +20,7 @@ struct DittyRecorderView: View {
 
     private let synth = SimonSynth.shared
     private static let columns = SimonGame.columns
-    private static let rows = SimonGame.rows
+    private static let rows = 4
     /// A pad held this long records a long note.
     private static let longPressSeconds = 0.35
 

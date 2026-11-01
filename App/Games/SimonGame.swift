@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Simon on the back of the tiles: the top four rows are sixteen pads, one
-/// per cell, each showing the motif of the person whose tile sits there and
-/// sounding its own note. Between games the pads are a keyboard: touch one
+/// Simon on the back of the tiles: every tile is a pad, showing the motif
+/// of the person whose tile it is and sounding its own note, so there are
+/// as many pads as people. Between games the pads are a keyboard: touch one
 /// to play it, hold it to sustain, and press several for a chord. The play
 /// button starts Simon: the pads light and sound a sequence, one longer each
 /// round, and the player plays it back. A wrong pad ends the game, and the
@@ -19,7 +19,7 @@ struct SimonGame: View {
     @AppStorage(SimonTuning.scaleKey) private var scaleID = SimonTuning.standard.scale.rawValue
     @AppStorage(SimonTuning.keyKey) private var keySemitone = SimonTuning.standard.key.semitone
     let context: TileGameContext
-    @State private var game = Simon(columns: SimonGame.columns, rows: SimonGame.rows)
+    @State private var game = Simon(cells: [], columns: SimonGame.columns)
     @State private var showingSound = false
     /// Pads lit and sounding now, by the game or the finger.
     @State private var sounding = Set<Int>()
@@ -28,7 +28,6 @@ struct SimonGame: View {
     @State private var playback: Task<Void, Never>?
 
     static let columns = TileLayout.columns
-    static let rows = 4
     static let bestKey = "simonBest"
     private let synth = SimonSynth.shared
 
@@ -47,14 +46,15 @@ struct SimonGame: View {
         let people = anchors
         ZStack(alignment: .topLeading) {
             ForEach(0..<game.padCount, id: \.self) { pad in
-                padView(pad, person: people[pad])
-                    .modifier(TileFlipFace(side: .back, showingBack: context.isShowing, delay: context.flipDelay(pad)))
-                    .position(center(of: pad))
+                let cell = game.cell(forPad: pad)
+                padView(pad, person: people[cell])
+                    .modifier(TileFlipFace(side: .back, showingBack: context.isShowing, delay: context.flipDelay(cell)))
+                    .position(context.center(of: cell))
             }
 
             status
                 .frame(width: context.size.width - 32, alignment: .leading)
-                .offset(x: 16, y: CGFloat(Self.rows) * context.pitch + 12)
+                .offset(x: 16, y: CGFloat(context.activeRows) * context.pitch + 12)
                 .opacity(context.isShowing ? 1 : 0)
                 .animation(.easeInOut(duration: 0.2).delay(context.isShowing ? 0.35 : 0), value: context.isShowing)
                 .accessibilityHidden(!context.isShowing)
@@ -74,7 +74,15 @@ struct SimonGame: View {
         .onChange(of: context.isShowing) { _, showing in
             if !showing { quiet() }
         }
-        .onAppear { game.tuning = tuning }
+        .onAppear {
+            game.tuning = tuning
+            game.setCells(context.activeCells)
+        }
+        .onChange(of: context.activeCells) { _, cells in
+            // The pads follow the tiles; a game in progress ends with them.
+            if game.cells != cells.sorted() { quiet() }
+            game.setCells(cells)
+        }
         .onChange(of: scaleID) { _, _ in retune() }
         .onChange(of: keySemitone) { _, _ in retune() }
         .onDisappear(perform: quiet)
@@ -117,7 +125,7 @@ struct SimonGame: View {
         game.tuning = tuning
         UISelectionFeedbackGenerator().selectionChanged()
         // Sound the root so the change can be heard.
-        synth.noteOn(game.frequency(forPad: (Self.rows - 1) * Self.columns), duration: 0.3)
+        if let lowest = game.lowestPad { synth.noteOn(game.frequency(forPad: lowest), duration: 0.3) }
     }
 
     // MARK: Pads
@@ -268,7 +276,7 @@ struct SimonGame: View {
             case .idle:
                 Text(best > 0 ? "\(tuning.title) · best \(Simon.roundsText(best))" : tuning.title)
                     .foregroundStyle(.secondary)
-                Text("Play the pads; \(game.noteName(forPad: (Self.rows - 1) * Self.columns)) at the bottom left, rising to \(game.noteName(forPad: Self.columns - 1)). Press play for Simon.")
+                Text(keyboardText)
                     .font(.tact(.footnote))
                     .foregroundStyle(.secondary)
             case .watching:
@@ -290,8 +298,10 @@ struct SimonGame: View {
         .animation(.easeInOut(duration: 0.2), value: game.phase)
     }
 
-    private func center(of pad: Int) -> CGPoint {
-        CGPoint(x: CGFloat(pad % Self.columns) * context.pitch + context.cellSize / 2,
-                y: CGFloat(pad / Self.columns) * context.pitch + context.cellSize / 2)
+    /// How the keyboard is laid out, for the status line.
+    private var keyboardText: String {
+        guard let lowest = game.lowestPad, let highest = game.highestPad else { return "Press play for Simon." }
+        if game.padCount == 1 { return "One pad, \(game.noteName(forPad: lowest)). Press play for Simon." }
+        return "Play the pads; \(game.noteName(forPad: lowest)) at the bottom left, rising to \(game.noteName(forPad: highest)). Press play for Simon."
     }
 }
