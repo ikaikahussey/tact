@@ -31,36 +31,10 @@ struct PersonDetailView: View {
 
     private func content(for person: Person) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if person.showsPhoto, let image = person.fullPhoto {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 220)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .onTapGesture { showingPhotoPicker = true }
-                        .accessibilityLabel("Photo of \(person.name)")
-                        .accessibilityAddTraits(.isButton)
-                        .accessibilityHint("Changes the photo")
-                } else {
-                    ZStack {
-                        TileShades(colorIndex: person.tile.colorIndex).pale
-                        TileArtView(art: person.tile, pattern: person.tilePattern, side: 150)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 220)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .contentShape(Rectangle())
-                    .onTapGesture { showingPhotoPicker = true }
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("Tile for \(person.name)")
-                    .accessibilityAddTraits(.isButton)
-                    .accessibilityHint("Adds a photo")
-                }
-                tileChooser(for: person)
-                dittySection(for: person)
-                tagsSection(for: person)
+            VStack(alignment: .leading, spacing: 14) {
+                header(for: person)
+                dittyRow(for: person)
+                tagsRow(for: person)
                 contactSection(for: person)
                 Divider()
                 notesSection(for: person)
@@ -140,198 +114,221 @@ struct PersonDetailView: View {
         }
     }
 
-    // MARK: Tile
+    // MARK: Header
 
-    /// A row of choices for what the person's tile shows: their photo or one
-    /// of the patterns, in their colour.
-    private func tileChooser(for person: Person) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Tile").font(.tact(.headline))
-            ScrollView(.horizontal, showsIndicators: false) {
+    /// The tile at the left, the controls at the right: Tile and Color are
+    /// menus, then Rotate and the FatBits pencil. The same choices are on
+    /// the tile's long-press menu; a tap on the tile picks a photo.
+    private func header(for person: Person) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            hero(for: person)
+                .frame(width: 132, height: 132)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .contentShape(Rectangle())
+                .onTapGesture { showingPhotoPicker = true }
+                .contextMenu { tileMenuItems(for: person) }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(person.showsPhoto ? "Photo of \(person.name)" : "Tile for \(person.name)")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint("Changes the photo. Touch and hold for the tile, color, turning, and FatBits.")
+            VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
-                    tileChoice(isSelected: person.showsPhoto) {
-                        if person.photoData == nil {
-                            showingPhotoPicker = true
-                        } else {
-                            store.updateTile(forPersonID: personID) { $0.showsPhoto = true }
-                        }
+                    Menu {
+                        tilePicker(for: person)
                     } label: {
-                        if let image = person.thumbnail(maxPixelSize: 256) {
-                            Image(uiImage: image).resizable().scaledToFill()
-                        } else {
-                            ZStack {
-                                Color.tactTileGray.opacity(0.5)
-                                Image(systemName: "photo.badge.plus")
-                                    .font(.tact(.title3))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+                        control("Tile", systemImage: "square.on.square")
                     }
-                    .accessibilityLabel(person.photoData == nil ? "Add Photo" : "Photo")
-
-                    if let bits = person.tile.bits {
-                        tileChoice(isSelected: !person.showsPhoto) {
-                            store.updateTile(forPersonID: personID) { $0.showsPhoto = false }
-                        } label: {
-                            FatBitsView(bits: bits, colorIndex: person.tile.colorIndex)
-                                .rotationEffect(.degrees(Double(person.tile.quarterTurns) * 90))
-                        }
-                        // Held, as a stamp on the Mosaic palette is.
-                        .contextMenu {
-                            Button("Edit in FatBits", systemImage: "pencil") { showingFatBits = true }
-                            Button("Revert to Original", systemImage: "arrow.uturn.backward", role: .destructive) {
-                                store.updateTile(forPersonID: personID) { $0.revertToPattern() }
-                            }
-                        }
-                        .accessibilityLabel("FatBits tile")
-                        .accessibilityHint("Hold to edit or revert.")
+                    .accessibilityLabel("Tile")
+                    .accessibilityHint("Photo, FatBits, or a pattern")
+                    Menu {
+                        colorPicker(for: person)
+                    } label: {
+                        control("Color", systemImage: "paintpalette", tint: TilePalette.color(person.tile.colorIndex))
                     }
-
-                    ForEach(TilePattern.allCases, id: \.self) { pattern in
-                        tileChoice(isSelected: !person.showsPhoto && !person.tile.isFatBits && person.tilePattern == pattern) {
-                            store.updateTile(forPersonID: personID) {
-                                $0.pattern = pattern.rawValue
-                                $0.showsPhoto = false
-                                $0.revertToPattern()
-                            }
-                        } label: {
-                            TilePatternView(pattern: pattern, colorIndex: person.tile.colorIndex)
-                                .rotationEffect(.degrees(Double(person.tile.quarterTurns) * 90))
-                        }
-                        .accessibilityLabel(pattern.title)
+                    .accessibilityLabel("Color, \(TilePalette.name(person.tile.colorIndex))")
+                }
+                HStack(spacing: 8) {
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        store.updateTile(forPersonID: personID) { $0.rotate() }
+                    } label: {
+                        control("Rotate", systemImage: "rotate.right")
                     }
-
-                    // The pencil at the end of the strip opens FatBits on
-                    // this tile, as it does on the Mosaic palette.
-                    FatBitsPencilSwatch(size: 52, cornerRadius: 8,
+                    .accessibilityHint("Turns the tile a quarter turn clockwise.")
+                    FatBitsPencilSwatch(size: 36, cornerRadius: 8,
                                         label: person.tile.isFatBits ? "Edit in FatBits" : "Draw in FatBits",
                                         hint: "Opens FatBits to draw \(person.name)'s tile bit by bit.") {
                         showingFatBits = true
                     }
-                    .padding(3)
-                }
-                .padding(.vertical, 2)
-            }
-            colorChooser(for: person)
-            HStack(spacing: 16) {
-                Button {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    store.updateTile(forPersonID: personID) { $0.rotate() }
-                } label: {
-                    Label("Rotate", systemImage: "rotate.right")
-                }
-                .accessibilityHint("Turns the tile a quarter turn clockwise.")
-                if person.tile.isFatBits {
-                    Button {
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        store.updateTile(forPersonID: personID) { $0.revertToPattern() }
-                    } label: {
-                        Label("Revert to Original", systemImage: "arrow.uturn.backward")
+                    if person.tile.isFatBits {
+                        Button {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            store.updateTile(forPersonID: personID) { $0.revertToPattern() }
+                        } label: {
+                            control("Revert", systemImage: "arrow.uturn.backward")
+                        }
+                        .accessibilityHint("Takes the FatBits drawing off, back to the pattern.")
                     }
                 }
             }
-            .font(.tact(.subheadline))
-            .buttonStyle(.borderless)
+            .buttonStyle(.plain)
         }
-        .padding(.top, 4)
         .sheet(isPresented: $showingFatBits) {
             PersonFatBitsEditor(person: person)
         }
     }
 
-    private func tileChoice(isSelected: Bool, action: @escaping () -> Void,
-                            @ViewBuilder label: () -> some View) -> some View {
-        Button {
-            UISelectionFeedbackGenerator().selectionChanged()
-            action()
-        } label: {
-            label()
-                .frame(width: 52, height: 52)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .padding(3)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 11)
-                        .strokeBorder(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear), lineWidth: 2.5)
-                }
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-
-    /// A row of the palette colours; the person's colour is ringed. Picking
-    /// one recolours the pattern, the FatBits motif and the tile's pale
-    /// backing everywhere the person appears. The photo is not affected.
-    private func colorChooser(for person: Person) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Color").font(.tact(.subheadline)).foregroundStyle(.secondary)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(TilePalette.menuOrder, id: \.self) { index in
-                        let isSelected = person.tile.colorIndex == index
-                        Button {
-                            guard !isSelected else { return }
-                            UISelectionFeedbackGenerator().selectionChanged()
-                            store.updateTile(forPersonID: personID) { $0.colorIndex = index }
-                        } label: {
-                            Circle()
-                                .fill(TilePalette.color(index))
-                                .frame(width: 30, height: 30)
-                                .padding(3)
-                                .overlay {
-                                    Circle()
-                                        .strokeBorder(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear), lineWidth: 2.5)
-                                }
-                                .frame(minWidth: 44, minHeight: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(TilePalette.name(index).capitalized)
-                        .accessibilityAddTraits(isSelected ? .isSelected : [])
-                    }
-                }
-                .padding(.vertical, 2)
+    @ViewBuilder
+    private func hero(for person: Person) -> some View {
+        if person.showsPhoto, let image = person.fullPhoto {
+            Image(uiImage: image).resizable().scaledToFill()
+        } else {
+            ZStack {
+                TileShades(colorIndex: person.tile.colorIndex).pale
+                TileArtView(art: person.tile, pattern: person.tilePattern, side: 100)
             }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Color, \(TilePalette.name(person.tile.colorIndex))")
+    }
+
+    /// A small bordered control: an icon with a short title under it.
+    private func control(_ title: String, systemImage: String, tint: Color? = nil) -> some View {
+        VStack(spacing: 2) {
+            Image(systemName: systemImage)
+                .font(.tact(.body).weight(.semibold))
+                .foregroundStyle(tint ?? .primary)
+            Text(title)
+                .font(.tact(.caption2))
+                .foregroundStyle(.secondary)
+        }
+        .frame(minWidth: 56, minHeight: 44)
+        .padding(.horizontal, 6)
+        .background(Color.tactTileGray.opacity(0.25), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .contentShape(Rectangle())
+    }
+
+    // MARK: Tile and color menus
+
+    /// What the tile shows: the photo, the FatBits drawing when there is
+    /// one, or a pattern. The current choice is checked.
+    private func tilePicker(for person: Person) -> some View {
+        let fatBits = -1, photo = -2
+        let current = person.showsPhoto ? photo : person.tile.isFatBits ? fatBits : person.tilePattern.rawValue
+        let choice = Binding<Int>(get: { current }, set: { value in
+            UISelectionFeedbackGenerator().selectionChanged()
+            switch value {
+            case photo:
+                if person.photoData == nil {
+                    showingPhotoPicker = true
+                } else {
+                    store.updateTile(forPersonID: personID) { $0.showsPhoto = true }
+                }
+            case fatBits:
+                store.updateTile(forPersonID: personID) { $0.showsPhoto = false }
+            default:
+                store.updateTile(forPersonID: personID) {
+                    $0.pattern = value
+                    $0.showsPhoto = false
+                    $0.revertToPattern()
+                }
+            }
+        })
+        return Picker("Tile", selection: choice) {
+            Label(person.photoData == nil ? "Add Photo…" : "Photo", systemImage: "photo").tag(photo)
+            if person.tile.isFatBits {
+                Label("FatBits", systemImage: "pencil.and.outline").tag(fatBits)
+            }
+            ForEach(TilePattern.allCases, id: \.self) { pattern in
+                Text(pattern.title).tag(pattern.rawValue)
+            }
+        }
+    }
+
+    /// The palette as swatches; picking one recolours the pattern, the
+    /// FatBits motif and the pale backing everywhere the person appears.
+    private func colorPicker(for person: Person) -> some View {
+        let choice = Binding<Int>(get: { person.tile.colorIndex }, set: { index in
+            guard index != person.tile.colorIndex else { return }
+            UISelectionFeedbackGenerator().selectionChanged()
+            store.updateTile(forPersonID: personID) { $0.colorIndex = index }
+        })
+        return Picker("Color", selection: choice) {
+            ForEach(TilePalette.menuOrder, id: \.self) { index in
+                Image(uiImage: TilePalette.swatch(index))
+                    .accessibilityLabel(TilePalette.name(index).capitalized)
+                    .tag(index)
+            }
+        }
+    }
+
+    /// The long-press menu on the tile: the same choices as the controls.
+    @ViewBuilder
+    private func tileMenuItems(for person: Person) -> some View {
+        Menu { tilePicker(for: person) } label: { Label("Tile", systemImage: "square.on.square") }
+        Menu { colorPicker(for: person) } label: { Label("Color", systemImage: "paintpalette") }
+        Button { store.updateTile(forPersonID: personID) { $0.rotate() } } label: {
+            Label("Rotate", systemImage: "rotate.right")
+        }
+        Button { showingFatBits = true } label: {
+            Label(person.tile.isFatBits ? "Edit in FatBits" : "Draw in FatBits", systemImage: "pencil.and.outline")
+        }
+        if person.tile.isFatBits {
+            Button { store.updateTile(forPersonID: personID) { $0.revertToPattern() } } label: {
+                Label("Revert to Original", systemImage: "arrow.uturn.backward")
+            }
+        }
+        Divider()
+        Button { showingPhotoPicker = true } label: {
+            Label(person.photoData == nil ? "Add Photo" : "Change Photo", systemImage: "photo")
+        }
     }
 
     // MARK: Ditty
 
-    /// The person's earcon: play it, record a new one on the Simon pads, or
-    /// go back to the default. Says when someone else sounds the same.
-    private func dittySection(for person: Person) -> some View {
+    /// One row: the ditty's notes, Play, and a menu to record or change it
+    /// or go back to the default. Says when someone else sounds the same.
+    private func dittyRow(for person: Person) -> some View {
         let tuning = SimonTuning.load()
         let twins = store.peopleSharingDitty(with: personID)
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("Ditty").font(.tact(.headline))
-            HStack(spacing: 16) {
+        let names = person.resolvedDitty.noteNames(tuning: tuning)
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 12) {
+                Text("Ditty").font(.tact(.headline))
+                Text(names)
+                    .font(.tact(.caption).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .accessibilityLabel("Notes: \(names)")
+                Spacer()
                 Button {
                     DittyPlayer.play(person, tuning: tuning)
                 } label: {
-                    Label("Play", systemImage: "play.fill")
+                    Image(systemName: "play.fill")
+                        .font(.tact(.subheadline))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
+                .accessibilityLabel("Play")
                 .accessibilityHint("Plays the notes that stand for \(person.name).")
-                Button {
-                    showingDittyRecorder = true
-                } label: {
-                    Label(person.ditty == nil ? "Record" : "Change", systemImage: "music.note")
-                }
-                if person.ditty != nil {
-                    Button {
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        store.updateDitty(forPersonID: personID, nil)
-                    } label: {
-                        Label("Default", systemImage: "arrow.uturn.backward")
+                Menu {
+                    Button { showingDittyRecorder = true } label: {
+                        Label(person.ditty == nil ? "Record" : "Change", systemImage: "music.note")
                     }
+                    if person.ditty != nil {
+                        Button {
+                            store.updateDitty(forPersonID: personID, nil)
+                        } label: {
+                            Label("Default", systemImage: "arrow.uturn.backward")
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.tact(.subheadline))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
+                .accessibilityLabel("Ditty options")
             }
-            .font(.tact(.subheadline))
-            .buttonStyle(.borderless)
-            Text(person.resolvedDitty.noteNames(tuning: tuning))
-                .font(.tact(.caption).monospacedDigit())
-                .foregroundStyle(.secondary)
-                .accessibilityLabel("Notes: \(person.resolvedDitty.noteNames(tuning: tuning))")
+            .buttonStyle(.plain)
             if !twins.isEmpty {
                 Label("Sounds the same as \(ListFormatter.localizedString(byJoining: twins.map(\.name))).",
                       systemImage: "exclamationmark.triangle")
@@ -343,29 +340,25 @@ struct PersonDetailView: View {
 
     // MARK: Tags
 
-    /// The person's own tags as chips, each a search; an edit button beside
-    /// them, or a single button to add the first.
-    private func tagsSection(for person: Person) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Tags").font(.tact(.headline))
-                Spacer()
-                Button { editing = .tags } label: {
-                    Image(systemName: person.tags.isEmpty ? "plus" : "pencil")
-                        .font(.tact(.subheadline))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(person.tags.isEmpty ? "Add Tags" : "Edit Tags")
-            }
+    /// One row: the person's tags as chips, each a search, with an edit
+    /// button; or a single Add Tags button.
+    private func tagsRow(for person: Person) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text("Tags").font(.tact(.headline)).frame(minHeight: 44)
             if person.tags.isEmpty {
-                Text("No tags. Tags on a person turn up in tag searches alongside their notes.")
-                    .font(.tact(.caption))
-                    .foregroundStyle(.secondary)
+                Text("None").foregroundStyle(.secondary).font(.tact(.subheadline)).frame(minHeight: 44)
             } else {
-                TagChips(tags: person.tags)
+                TagChips(tags: person.tags).padding(.vertical, 10)
             }
+            Spacer()
+            Button { editing = .tags } label: {
+                Image(systemName: person.tags.isEmpty ? "plus" : "pencil")
+                    .font(.tact(.subheadline))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(person.tags.isEmpty ? "Add Tags" : "Edit Tags")
         }
     }
 
