@@ -10,7 +10,7 @@ enum DittyPlayer {
     /// surprised by a sound and VoiceOver users get the earcon by default.
     nonisolated static let playOnOpenKey = "dittyPlaysOnOpen"
 
-    nonisolated static var playsOnOpen: Bool {
+    static var playsOnOpen: Bool {
         UserDefaults.standard.object(forKey: playOnOpenKey) as? Bool ?? UIAccessibility.isVoiceOverRunning
     }
 
