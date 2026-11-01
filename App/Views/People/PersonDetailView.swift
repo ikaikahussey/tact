@@ -7,6 +7,7 @@ struct PersonDetailView: View {
     @Environment(\.appPalette) private var palette
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.openURL) private var openURL
     let personID: UUID
 
     @State private var showingAddNote = false
@@ -402,6 +403,9 @@ struct PersonDetailView: View {
             }
             .buttonStyle(.plain)
             .padding(.vertical, 12)
+            if let contact = person.contact {
+                contactActions(for: contact)
+            }
         } else {
             Button { showingContactPicker = true } label: {
                 HStack(spacing: 12) {
@@ -413,6 +417,59 @@ struct PersonDetailView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+        }
+    }
+
+    /// Ways to reach the linked contact: Call, Message and FaceTime for
+    /// their phones, Email, and Maps for their addresses. Each shows only
+    /// when the contact has the detail; with several, the button is a menu
+    /// of them.
+    private func contactActions(for contact: ContactSnapshot) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                reachControl("Call", systemImage: "phone.fill", choices: contact.phones) {
+                    LinkedContactInfoView.phoneURL(scheme: "tel", $0)
+                }
+                reachControl("Message", systemImage: "message.fill", choices: contact.phones) {
+                    LinkedContactInfoView.phoneURL(scheme: "sms", $0)
+                }
+                reachControl("FaceTime", systemImage: "video.fill", choices: contact.phones) {
+                    LinkedContactInfoView.phoneURL(scheme: "facetime", $0)
+                }
+                reachControl("Email", systemImage: "envelope.fill", choices: contact.emails) {
+                    LinkedContactInfoView.mailURL($0)
+                }
+                reachControl("Maps", systemImage: "map.fill", choices: contact.addresses) {
+                    LinkedContactInfoView.mapURL($0)
+                }
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.bottom, 4)
+    }
+
+    /// A control that opens `url(choice)`: a button for one choice, a menu
+    /// of them for several, nothing for none.
+    @ViewBuilder
+    private func reachControl(_ title: String, systemImage: String, choices: [String],
+                              url: @escaping (String) -> URL?) -> some View {
+        let reachable = choices.filter { url($0) != nil }
+        if reachable.count == 1, let only = reachable.first, let destination = url(only) {
+            Button { openURL(destination) } label: {
+                control(title, systemImage: systemImage)
+            }
+            .accessibilityLabel("\(title) \(only)")
+        } else if reachable.count > 1 {
+            Menu {
+                ForEach(reachable, id: \.self) { choice in
+                    Button(choice.replacingOccurrences(of: "\n", with: ", ")) {
+                        if let destination = url(choice) { openURL(destination) }
+                    }
+                }
+            } label: {
+                control(title, systemImage: systemImage)
+            }
+            .accessibilityLabel(title)
         }
     }
 
