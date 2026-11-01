@@ -137,7 +137,7 @@ struct PersonDetailView: View {
     // MARK: Header
 
     /// The tile at the left, the controls at the right: Tile and Color are
-    /// menus, then Rotate and the FatBits pencil. The same choices are on
+    /// menus, then Rotate. FatBits is under Tile. The same choices are on
     /// the tile's long-press menu; a tap on the tile picks a photo.
     private func header(for person: Person) -> some View {
         HStack(alignment: .top, spacing: 14) {
@@ -154,12 +154,12 @@ struct PersonDetailView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     Menu {
-                        tilePicker(for: person)
+                        tileMenu(for: person)
                     } label: {
                         control("Tile", systemImage: "square.on.square")
                     }
                     .accessibilityLabel("Tile")
-                    .accessibilityHint("Photo, FatBits, or a pattern")
+                    .accessibilityHint("Photo, a pattern, or drawing in FatBits")
                     Menu {
                         colorPicker(for: person)
                     } label: {
@@ -175,20 +175,6 @@ struct PersonDetailView: View {
                         control("Rotate", systemImage: "rotate.right")
                     }
                     .accessibilityHint("Turns the tile a quarter turn clockwise.")
-                    FatBitsPencilSwatch(size: 36, cornerRadius: 8,
-                                        label: person.tile.isFatBits ? "Edit in FatBits" : "Draw in FatBits",
-                                        hint: "Opens FatBits to draw \(person.name)'s tile bit by bit.") {
-                        showingFatBits = true
-                    }
-                    if person.tile.isFatBits {
-                        Button {
-                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                            store.updateTile(forPersonID: personID) { $0.revertToPattern() }
-                        } label: {
-                            control("Revert", systemImage: "arrow.uturn.backward")
-                        }
-                        .accessibilityHint("Takes the FatBits drawing off, back to the pattern.")
-                    }
                 }
             }
             .buttonStyle(.plain)
@@ -274,6 +260,22 @@ struct PersonDetailView: View {
         }
     }
 
+    /// The Tile menu: the picker, then drawing the tile in FatBits and,
+    /// when it is drawn, going back to the pattern.
+    @ViewBuilder
+    private func tileMenu(for person: Person) -> some View {
+        tilePicker(for: person)
+        Divider()
+        Button { showingFatBits = true } label: {
+            Label(person.tile.isFatBits ? "Edit in FatBits" : "Draw in FatBits", systemImage: "pencil.and.outline")
+        }
+        if person.tile.isFatBits {
+            Button { store.updateTile(forPersonID: personID) { $0.revertToPattern() } } label: {
+                Label("Revert to Pattern", systemImage: "arrow.uturn.backward")
+            }
+        }
+    }
+
     /// The palette as swatches; picking one recolours the pattern, the
     /// FatBits motif and the pale backing everywhere the person appears.
     private func colorPicker(for person: Person) -> some View {
@@ -294,18 +296,10 @@ struct PersonDetailView: View {
     /// The long-press menu on the tile: the same choices as the controls.
     @ViewBuilder
     private func tileMenuItems(for person: Person) -> some View {
-        Menu { tilePicker(for: person) } label: { Label("Tile", systemImage: "square.on.square") }
+        Menu { tileMenu(for: person) } label: { Label("Tile", systemImage: "square.on.square") }
         Menu { colorPicker(for: person) } label: { Label("Color", systemImage: "paintpalette") }
         Button { store.updateTile(forPersonID: personID) { $0.rotate() } } label: {
             Label("Rotate", systemImage: "rotate.right")
-        }
-        Button { showingFatBits = true } label: {
-            Label(person.tile.isFatBits ? "Edit in FatBits" : "Draw in FatBits", systemImage: "pencil.and.outline")
-        }
-        if person.tile.isFatBits {
-            Button { store.updateTile(forPersonID: personID) { $0.revertToPattern() } } label: {
-                Label("Revert to Original", systemImage: "arrow.uturn.backward")
-            }
         }
         Divider()
         Button { showingPhotoPicker = true } label: {
