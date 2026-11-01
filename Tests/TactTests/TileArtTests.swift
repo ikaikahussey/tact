@@ -115,6 +115,14 @@ final class TileArtTests: XCTestCase {
         XCTAssertEqual(PeopleGridContent.cellCount(occupied: [0, 3], visibleRows: 0, columns: 4), 8)
         XCTAssertEqual(PeopleGridContent.cellCount(occupied: [0, 29], visibleRows: 6, columns: 4), 36)
     }
+
+    func testZoomControlsAppearPastEightRows() {
+        XCTAssertEqual(PeopleGridContent.rows(occupied: [Int](), columns: 4), 0)
+        XCTAssertEqual(PeopleGridContent.rows(occupied: [0, 31], columns: 4), 8, "eight rows: no zoom yet")
+        XCTAssertEqual(PeopleGridContent.rows(occupied: [32], columns: 4), 9, "a tile in the ninth row brings the controls")
+        XCTAssertEqual(PeopleGridContent.zoomRows, 8)
+        XCTAssertEqual(PeopleGridContent.zoomLevels.first, 1, "full size first; each step shows more rows")
+    }
 }
 
 extension TactStoreTests {
