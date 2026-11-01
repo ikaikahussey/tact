@@ -101,10 +101,15 @@ final class TactStore: ObservableObject {
     // MARK: People
 
     @discardableResult
-    func addPerson(named rawName: String) -> Person? {
+    /// Adds a person. Their tile is drawn from a fresh seed unless a
+    /// colour and pattern are given, as from the New Person sheet.
+    @discardableResult
+    func addPerson(named rawName: String, colorIndex: Int? = nil, pattern: TilePattern? = nil) -> Person? {
         let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return nil }
-        let person = Person(name: name)
+        var person = Person(name: name)
+        if let colorIndex { person.tile.colorIndex = colorIndex }
+        if let pattern { person.tile.pattern = pattern.rawValue }
         people.append(person)
         return person
     }

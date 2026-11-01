@@ -17,7 +17,6 @@ struct PeopleRootView: View {
     @State private var showingAddPerson = false
     @State private var showingAddNote = false
     @State private var showingSettings = false
-    @State private var newPersonName = ""
     /// The empty cell that was held to add someone; their tile goes there.
     @State private var addPersonCell: Int?
     /// What the canvas shows right now. Mode changes are staged through the
@@ -101,18 +100,12 @@ struct PeopleRootView: View {
             .navigationDestination(for: Route.self) { route in
                 destination(for: route)
             }
-            .alert("Add Person", isPresented: $showingAddPerson) {
-                TextField("Name", text: $newPersonName)
-                    .textInputAutocapitalization(.words)
-                Button("Cancel", role: .cancel) {
-                    newPersonName = ""
-                    addPersonCell = nil
-                }
-                Button("Add") {
-                    if let person = store.addPerson(named: newPersonName), let cell = addPersonCell {
+            .sheet(isPresented: $showingAddPerson) {
+                NewPersonSheet { name, colorIndex, pattern in
+                    if let person = store.addPerson(named: name, colorIndex: colorIndex, pattern: pattern),
+                       let cell = addPersonCell {
                         store.moveTile(personID: person.id, toCell: cell)
                     }
-                    newPersonName = ""
                     addPersonCell = nil
                 }
             }

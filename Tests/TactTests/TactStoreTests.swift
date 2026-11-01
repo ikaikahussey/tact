@@ -20,6 +20,15 @@ final class TactStoreTests: XCTestCase {
         XCTAssertEqual(store.people.map(\.name), ["Ada"])
     }
 
+    func testAddPersonTakesAChosenColorAndPattern() {
+        let chosen = store.addPerson(named: "Ada", colorIndex: 3, pattern: .petals)!
+        XCTAssertEqual(chosen.tile.colorIndex, 3)
+        XCTAssertEqual(chosen.tilePattern, .petals)
+        XCTAssertEqual(store.person(id: chosen.id)?.tilePattern, .petals, "the choice is kept in the store")
+        let plain = store.addPerson(named: "Grace")!
+        XCTAssertEqual(plain.tile, TileArt(seed: plain.colorSeed), "with nothing chosen the tile comes from the seed as before")
+    }
+
     func testDeletingAPersonKeepsSharedNotesAndDeletesExclusiveOnes() {
         let ada = store.addPerson(named: "Ada")!
         let grace = store.addPerson(named: "Grace")!
