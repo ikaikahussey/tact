@@ -20,15 +20,23 @@ enum HeaderAction: CaseIterable {
         allCases
     }
 
-    /// What More offers: Edit only where there is something to edit.
+    /// What More offers: Edit and Listen where there are people to edit
+    /// and hear, Bring Together only over the grid, Settings always.
     static func moreItems(for layout: PeopleLayout) -> [MoreItem] {
-        layout.resolved == .games ? [.settings] : [.edit, .settings]
+        switch layout.resolved {
+        case .games: return [.settings]
+        case .list:  return [.edit, .listen, .settings]
+        default:     return [.edit, .listen, .bringTogether, .settings]
+        }
     }
 }
 
-/// The entries of the header's More menu.
+/// The entries of the header's More menu. Listen is a mode, like Edit:
+/// while it is on, tapping a person plays their ditty instead of opening
+/// them, so the earcons can be heard and compared without leaving the
+/// grid or list. Bring Together closes the gaps between tiles.
 enum MoreItem: CaseIterable {
-    case edit, settings
+    case edit, listen, bringTogether, settings
 }
 
 extension PeopleLayout {
@@ -64,7 +72,8 @@ extension PeopleLayout {
 /// Filters people and notes by the header search field. A person matches
 /// when their name (or linked contact's name) or any of their notes contains
 /// the query. A query starting with `#` is a tag search: a note matches
-/// only when it carries exactly that tag, and names are not searched.
+/// only when it carries exactly that tag, a person when they carry it
+/// themself or one of their notes does, and names are not searched.
 enum PeopleSearch {
     static func normalized(_ query: String) -> String {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -82,24 +91,34 @@ enum PeopleSearch {
             || (person.contact?.name.localizedCaseInsensitiveContains(query) ?? false)
     }
 
+    /// Whether the person themself is a hit for the (normalized, non-empty)
+    /// query, before their notes are looked at: their name for a plain
+    /// query, their own tags for a tag query.
+    static func personMatches(_ person: Person, query: String) -> Bool {
+        if let tag = NoteTags.queryTag(query) { return person.hasTag(tag) }
+        if NoteTags.isTagQuery(query) { return false }
+        return nameMatches(person, query: query)
+    }
+
     /// People shown in the grid for `query`; everyone when it is empty.
     static func people(_ people: [Person], notes: [Note], query rawQuery: String) -> [Person] {
         let query = normalized(rawQuery)
         guard !query.isEmpty else { return people }
         return people.filter { person in
-            (!NoteTags.isTagQuery(query) && nameMatches(person, query: query))
+            personMatches(person, query: query)
                 || notes.contains { $0.isLinked(to: person.id) && noteMatches($0, query: query) }
         }
     }
 
     /// One section per person for the list: their notes newest first. With a
-    /// query, people whose name matches keep all their notes; otherwise only
-    /// the matching notes are shown, and people with none are left out.
+    /// query, people who match themselves (by name, or by their own tags)
+    /// keep all their notes; otherwise only the matching notes are shown,
+    /// and people with none are left out.
     static func sections(people: [Person], notes: [Note], query rawQuery: String) -> [PersonSection] {
         let query = normalized(rawQuery)
         return people.compactMap { person in
             let own = notes.filter { $0.isLinked(to: person.id) }.sorted { $0.date > $1.date }
-            if query.isEmpty || (!NoteTags.isTagQuery(query) && nameMatches(person, query: query)) {
+            if query.isEmpty || personMatches(person, query: query) {
                 return PersonSection(person: person, notes: own)
             }
             let matching = own.filter { noteMatches($0, query: query) }

@@ -382,6 +382,41 @@ struct FatBitsEditor: View {
     }
 }
 
+/// The pencil that opens FatBits, as on the Mosaic palette strip: a dashed
+/// swatch at the end of a row of stamps, in the accent colour. The same
+/// control on the person page, so drawing a tile is found the same way
+/// everywhere.
+struct FatBitsPencilSwatch: View {
+    @Environment(\.appPalette) private var palette
+    var size: CGFloat = 40
+    var cornerRadius: CGFloat = 6
+    var isEnabled = true
+    let label: String
+    let hint: String
+    let action: () -> Void
+
+    var body: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            action()
+        } label: {
+            Image(systemName: "pencil.and.outline")
+                .font(.tact(.body).weight(.semibold))
+                .foregroundStyle(isEnabled ? palette.accent : Color.secondary)
+                .frame(width: size, height: size)
+                .background(Color.tactCardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(Color.tactTileGray, style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+                .shadow(color: .black.opacity(0.12), radius: 3, y: 2)
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .accessibilityLabel(label)
+        .accessibilityHint(hint)
+    }
+}
+
 /// FatBits opened on a person's tile. The canvas starts as their tile looks
 /// now: their FatBits motif, or their pattern traced into bits, so the
 /// drawing is a fork of the original. Revert in the tools brings the

@@ -44,7 +44,7 @@ struct TagChips: View {
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Tag \(tag)")
-                .accessibilityHint("Searches for notes with this tag")
+                .accessibilityHint("Searches for people and notes with this tag")
             }
         }
     }
@@ -65,7 +65,7 @@ struct TagRow: View {
                         TagChip(tag: entry.tag, isSelected: selected == entry.id)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Tag \(entry.tag), \(entry.count) notes")
+                    .accessibilityLabel("Tag \(entry.tag), used \(entry.count) times")
                     .accessibilityAddTraits(selected == entry.id ? [.isSelected] : [])
                 }
             }

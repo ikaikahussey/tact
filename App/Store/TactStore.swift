@@ -89,9 +89,9 @@ final class TactStore: ObservableObject {
         notes.sorted { $0.date > $1.date }
     }
 
-    /// Every tag typed in any note, most used first.
+    /// Every tag typed in any note or put on any person, most used first.
     var tagCounts: [TagCount] {
-        TagCount.counts(in: notes)
+        TagCount.counts(in: notes, people: people)
     }
 
     func names(forPersonIDs ids: [UUID]) -> [String] {
@@ -101,10 +101,15 @@ final class TactStore: ObservableObject {
     // MARK: People
 
     @discardableResult
-    func addPerson(named rawName: String) -> Person? {
+    /// Adds a person. Their tile is drawn from a fresh seed unless a
+    /// colour and pattern are given, as from the New Person sheet.
+    @discardableResult
+    func addPerson(named rawName: String, colorIndex: Int? = nil, pattern: TilePattern? = nil) -> Person? {
         let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return nil }
-        let person = Person(name: name)
+        var person = Person(name: name)
+        if let colorIndex { person.tile.colorIndex = colorIndex }
+        if let pattern { person.tile.pattern = pattern.rawValue }
         people.append(person)
         return person
     }
@@ -113,6 +118,11 @@ final class TactStore: ObservableObject {
         let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, let index = people.firstIndex(where: { $0.id == id }) else { return }
         people[index].name = name
+    }
+
+    func updateTags(forPersonID id: UUID, _ tags: [String]) {
+        guard let index = people.firstIndex(where: { $0.id == id }) else { return }
+        people[index].tags = tags
     }
 
     func updatePhoto(forPersonID id: UUID, data: Data?) {

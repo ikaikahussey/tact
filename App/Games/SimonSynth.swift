@@ -93,11 +93,19 @@ final class SimonSynth {
 
     // MARK: Engine
 
+    /// Has the engine running. iOS stops it when the app goes to the
+    /// background or the audio is interrupted (a call, Siri, another app
+    /// taking the output), so a built engine is started again whenever it
+    /// is found stopped, as the games' `Synth` does on every note.
     private func prepare() {
-        guard engine == nil else { return }
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
         try? session.setActive(true)
+
+        if let engine {
+            if !engine.isRunning { try? engine.start() }
+            return
+        }
 
         let engine = AVAudioEngine()
         let outputFormat = engine.outputNode.inputFormat(forBus: 0)

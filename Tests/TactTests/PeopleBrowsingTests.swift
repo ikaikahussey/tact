@@ -84,8 +84,8 @@ final class PeopleBrowsingTests: XCTestCase {
         XCTAssertEqual(HeaderAction.actions(for: .grid), [.search, .add, .more])
         XCTAssertEqual(HeaderAction.actions(for: .list), [.search, .add, .more])
         XCTAssertEqual(HeaderAction.actions(for: .games), [.search, .add, .more], "search stays available over a game")
-        XCTAssertEqual(HeaderAction.moreItems(for: .grid), [.edit, .settings])
-        XCTAssertEqual(HeaderAction.moreItems(for: .list), [.edit, .settings])
+        XCTAssertEqual(HeaderAction.moreItems(for: .grid), [.edit, .listen, .bringTogether, .settings])
+        XCTAssertEqual(HeaderAction.moreItems(for: .list), [.edit, .listen, .settings], "no gaps to close in the list")
         XCTAssertEqual(HeaderAction.moreItems(for: .games), [.settings], "nothing to edit in the games")
     }
 
