@@ -33,6 +33,15 @@ enum NoteTags {
         }
     }
 
+    /// A word start that has no `#`: not inside a word, not after a `#`.
+    private static let bareWord = try! NSRegularExpression(pattern: #"(?<![\p{L}\p{N}_#-])(?=[\p{L}\p{N}_])"#)
+
+    /// `text` with a `#` put before every word that lacks one, so tags on a
+    /// person can be typed plain: `birthday work` reads as `#birthday #work`.
+    static func hashingWords(_ text: String) -> String {
+        bareWord.stringByReplacingMatches(in: text, range: NSRange(text.startIndex..., in: text), withTemplate: "#")
+    }
+
     /// The form tags are compared in.
     static func normalized(_ tag: String) -> String {
         tag.lowercased()

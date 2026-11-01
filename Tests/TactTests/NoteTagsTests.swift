@@ -66,6 +66,13 @@ final class NoteTagsTests: XCTestCase {
 
     // MARK: Tags on people
 
+    func testWordsTypedWithoutAHashGetOne() {
+        XCTAssertEqual(NoteTags.hashingWords("birthday #work, friend-of-bo"), "#birthday #work, #friend-of-bo")
+        XCTAssertEqual(NoteTags.hashingWords("#a #b "), "#a #b ")
+        XCTAssertEqual(NoteTags.hashingWords(""), "")
+        XCTAssertEqual(NoteTags.tags(in: NoteTags.hashingWords("birthday work")), ["birthday", "work"])
+    }
+
     func testPersonTagsAreCleanedAndKeptOnce() {
         var person = Person(name: "Ada", tags: ["#Work", " work ", "", "#", "birthday"])
         XCTAssertEqual(person.tags, ["Work", "birthday"], "the # and spaces are dropped; repeats are kept once, case-insensitively")

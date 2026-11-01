@@ -16,7 +16,9 @@ struct EditPersonView: View {
     enum Field { case name, tags }
 
     private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var tags: [String] { NoteTags.tags(in: tagText) }
+    /// The tags typed, a `#` put on any word that lacks one. The field is
+    /// left as typed: rewriting it while typing loses keystrokes.
+    private var tags: [String] { NoteTags.tags(in: NoteTags.hashingWords(tagText)) }
 
     var body: some View {
         NavigationStack {
@@ -44,7 +46,7 @@ struct EditPersonView: View {
                 } header: {
                     Text("Tags")
                 } footer: {
-                    Text("Type tags with a #, as in a note. Searching for a tag finds this person by them.")
+                    Text("Type tags as words; each gets a #, as in a note. Searching for a tag finds this person by them.")
                 }
             }
             .navigationTitle("Edit Person")
