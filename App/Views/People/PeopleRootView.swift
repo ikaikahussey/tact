@@ -154,7 +154,9 @@ struct PeopleRootView: View {
     }
 
     private var header: some View {
-        TactHeader(title: "", searchText: $searchText, isSearching: $isSearching, onLogoTap: popToRoot) {
+        TactHeader(title: "", searchText: $searchText, isSearching: $isSearching,
+                   badge: layout.resolved == .games ? TileGame.named(selectedGameID).headerBadge : nil,
+                   onLogoTap: popToRoot) {
             ForEach(HeaderAction.actions(for: layout), id: \.self) { action in
                 button(for: action)
             }
@@ -242,6 +244,12 @@ struct PeopleRootView: View {
                             Label("Bring Together", systemImage: "square.grid.3x3.topleft.filled")
                         }
                         .disabled(store.people.count < 2 || !query.isEmpty || TileLayout.isCompact(store.people))
+                    case .turnOver:
+                        Button {
+                            withAnimation(.snappy) { rememberedLayout = .grid }
+                        } label: {
+                            Label("Turn Tiles Over", systemImage: "arrow.trianglehead.2.clockwise.rotate.90")
+                        }
                     case .settings:
                         Button { showingSettings = true } label: {
                             Label("Settings", systemImage: "gearshape")
@@ -257,6 +265,7 @@ struct PeopleRootView: View {
             .accessibilityHint(editMode.isEditing ? "Done editing, or settings"
                                : selecting ? "Done selecting, or settings"
                                : listening ? "Stop listening, or settings"
+                               : layout.resolved == .games ? "Turn the tiles over, or settings"
                                : "Edit, select, listen, or settings")
         }
     }

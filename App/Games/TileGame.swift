@@ -22,6 +22,10 @@ struct TileGame: Identifiable {
     var minimumTiles = 1
     let board: (TileGameContext) -> AnyView
 
+    /// The pill beside the wordmark while the game is up: the tiles are
+    /// turned over to it.
+    var headerBadge: HeaderBadge { HeaderBadge(title: title, systemImage: systemImage) }
+
     /// Whether the game can be played with `tileCount` people tiles.
     func isAvailable(tileCount: Int) -> Bool { tileCount >= minimumTiles }
 

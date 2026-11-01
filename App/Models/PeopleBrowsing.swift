@@ -21,11 +21,11 @@ enum HeaderAction: CaseIterable {
     }
 
     /// What More offers: Edit and Listen where there are people to edit
-    /// and hear, Select and Bring Together only over the grid, Settings
-    /// always.
+    /// and hear, Select and Bring Together only over the grid, Turn Tiles
+    /// Over while a game is on their back, Settings always.
     static func moreItems(for layout: PeopleLayout) -> [MoreItem] {
         switch layout.resolved {
-        case .games: return [.settings]
+        case .games: return [.turnOver, .settings]
         case .list:  return [.edit, .listen, .settings]
         default:     return [.edit, .select, .listen, .bringTogether, .settings]
         }
@@ -37,9 +37,9 @@ enum HeaderAction: CaseIterable {
 /// them, so the earcons can be heard and compared without leaving the
 /// grid or list. Select is a mode too: tapping tiles gathers them, and a
 /// bar below changes all of them at once. Bring Together closes the gaps
-/// between tiles.
+/// between tiles. Turn Tiles Over ends a game, turning the tiles face up.
 enum MoreItem: CaseIterable {
-    case edit, select, listen, bringTogether, settings
+    case edit, select, listen, bringTogether, turnOver, settings
 }
 
 extension PeopleLayout {

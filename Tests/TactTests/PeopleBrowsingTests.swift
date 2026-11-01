@@ -86,7 +86,7 @@ final class PeopleBrowsingTests: XCTestCase {
         XCTAssertEqual(HeaderAction.actions(for: .games), [.search, .add, .more], "search stays available over a game")
         XCTAssertEqual(HeaderAction.moreItems(for: .grid), [.edit, .select, .listen, .bringTogether, .settings])
         XCTAssertEqual(HeaderAction.moreItems(for: .list), [.edit, .listen, .settings], "no gaps to close and no tiles to select in the list")
-        XCTAssertEqual(HeaderAction.moreItems(for: .games), [.settings], "nothing to edit in the games")
+        XCTAssertEqual(HeaderAction.moreItems(for: .games), [.turnOver, .settings], "a game offers the way back, nothing to edit")
     }
 
     // MARK: Search
