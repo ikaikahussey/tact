@@ -14,6 +14,9 @@ struct PersonDetailView: View {
     @State private var showingDeleteAlert = false
     @State private var showingPhotoPicker = false
     @State private var showingFatBits = false
+    @State private var showingSavePattern = false
+    @State private var showingSavedPatterns = false
+    @State private var savePatternName = ""
     @State private var showingLinkNotes = false
     @State private var showingContactPicker = false
     @State private var showingContactInfo = false
@@ -187,6 +190,22 @@ struct PersonDetailView: View {
             }
             .buttonStyle(.plain)
         }
+        .sheet(isPresented: $showingSavedPatterns) {
+            SavedPatternsSheet(colorIndex: person.tile.colorIndex) { pattern in
+                store.applyPattern(id: pattern.id, toPersonID: personID)
+            }
+        }
+        .alert("Save Pattern", isPresented: $showingSavePattern) {
+            TextField("Name", text: $savePatternName)
+                .textInputAutocapitalization(.words)
+            Button("Save") {
+                if let bits = person.tile.bits { store.savePattern(bits, named: savePatternName) }
+                savePatternName = ""
+            }
+            Button("Cancel", role: .cancel) { savePatternName = "" }
+        } message: {
+            Text("Keeps \(person.name)'s tile under a name so other people can wear it in their own color.")
+        }
         .sheet(isPresented: $showingFatBits) {
             PersonFatBitsEditor(person: person)
         }
@@ -224,46 +243,74 @@ struct PersonDetailView: View {
 
     /// What the tile shows: the photo, the FatBits drawing when there is
     /// one, or a pattern. The current choice is checked.
+    /// One entry of the Tile picker.
+    private enum TileChoice: Hashable {
+        case photo
+        /// The person's own FatBits drawing, when it is not a saved pattern.
+        case fatBits
+        case pattern(Int)
+        /// A pattern from the library, by its id.
+        case saved(UUID)
+    }
+
     private func tilePicker(for person: Person) -> some View {
-        let fatBits = -1, photo = -2
-        let current = person.showsPhoto ? photo : person.tile.isFatBits ? fatBits : person.tilePattern.rawValue
-        let choice = Binding<Int>(get: { current }, set: { value in
+        let library = store.patternLibrary
+        let current: TileChoice
+        if person.showsPhoto {
+            current = .photo
+        } else if let bits = person.tile.bits {
+            current = library.pattern(matching: bits).map { .saved($0.id) } ?? .fatBits
+        } else {
+            current = .pattern(person.tilePattern.rawValue)
+        }
+        let choice = Binding<TileChoice>(get: { current }, set: { value in
             UISelectionFeedbackGenerator().selectionChanged()
             switch value {
-            case photo:
+            case .photo:
                 if person.photoData == nil {
                     showingPhotoPicker = true
                 } else {
                     store.updateTile(forPersonID: personID) { $0.showsPhoto = true }
                 }
-            case fatBits:
+            case .fatBits:
                 store.updateTile(forPersonID: personID) { $0.showsPhoto = false }
-            default:
+            case .pattern(let value):
                 store.updateTile(forPersonID: personID) {
                     $0.pattern = value
                     $0.showsPhoto = false
                     $0.revertToPattern()
                 }
+            case .saved(let id):
+                store.applyPattern(id: id, toPersonID: personID)
             }
         })
         let colorIndex = person.tile.colorIndex
         return Picker("Tile", selection: choice) {
             if let thumbnail = person.thumbnail(maxPixelSize: 128) {
-                Label { Text("Photo") } icon: { Image(uiImage: TileMenuImage.photo(thumbnail)) }.tag(photo)
+                Label { Text("Photo") } icon: { Image(uiImage: TileMenuImage.photo(thumbnail)) }.tag(TileChoice.photo)
             } else {
-                Label("Add Photo…", systemImage: "photo").tag(photo)
+                Label("Add Photo…", systemImage: "photo").tag(TileChoice.photo)
             }
-            if let bits = person.tile.bits {
+            if let bits = person.tile.bits, library.pattern(matching: bits) == nil {
                 Label { Text("FatBits") } icon: {
                     Image(uiImage: TileMenuImage.motif(bits: bits, pattern: person.tilePattern, colorIndex: colorIndex))
                 }
-                .tag(fatBits)
+                .tag(TileChoice.fatBits)
             }
             ForEach(TilePattern.allCases, id: \.self) { pattern in
                 Label { Text(pattern.title) } icon: {
                     Image(uiImage: TileMenuImage.motif(pattern: pattern, colorIndex: colorIndex))
                 }
-                .tag(pattern.rawValue)
+                .tag(TileChoice.pattern(pattern.rawValue))
+            }
+            if !library.isEmpty {
+                Divider()
+                ForEach(library.patterns) { saved in
+                    Label { Text(saved.name) } icon: {
+                        Image(uiImage: TileMenuImage.motif(bits: saved.bits, pattern: person.tilePattern, colorIndex: colorIndex))
+                    }
+                    .tag(TileChoice.saved(saved.id))
+                }
             }
         }
     }
@@ -280,6 +327,16 @@ struct PersonDetailView: View {
         if person.tile.isFatBits {
             Button { store.updateTile(forPersonID: personID) { $0.revertToPattern() } } label: {
                 Label("Revert to Pattern", systemImage: "arrow.uturn.backward")
+            }
+        }
+        if let bits = person.tile.bits, store.patternLibrary.pattern(matching: bits) == nil {
+            Button { showingSavePattern = true } label: {
+                Label("Save Pattern…", systemImage: "square.and.arrow.down.on.square")
+            }
+        }
+        if !store.patternLibrary.isEmpty {
+            Button { showingSavedPatterns = true } label: {
+                Label("Saved Patterns…", systemImage: "square.on.square.dashed")
             }
         }
     }

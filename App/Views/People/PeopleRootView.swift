@@ -101,8 +101,8 @@ struct PeopleRootView: View {
                 destination(for: route)
             }
             .sheet(isPresented: $showingAddPerson) {
-                NewPersonSheet { name, colorIndex, pattern in
-                    if let person = store.addPerson(named: name, colorIndex: colorIndex, pattern: pattern),
+                NewPersonSheet { name, colorIndex, pattern, bits in
+                    if let person = store.addPerson(named: name, colorIndex: colorIndex, pattern: pattern, bits: bits),
                        let cell = addPersonCell {
                         store.moveTile(personID: person.id, toCell: cell)
                     }

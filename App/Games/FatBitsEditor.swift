@@ -145,6 +145,7 @@ extension FatBits {
 struct FatBitsEditor: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.appPalette) private var palette
+    @EnvironmentObject private var store: TactStore
     var title = "FatBits"
     /// What the canvas starts as.
     let startingBits: FatBits
@@ -164,6 +165,9 @@ struct FatBitsEditor: View {
     @State private var tool: Tool = .bits
     /// The circle being dragged out, before it is laid down.
     @State private var draftCircle: FatBitsCircle?
+    @State private var namingPattern = false
+    @State private var patternName = ""
+    @State private var managingPatterns = false
 
     enum Tool: String, CaseIterable, Identifiable {
         case bits, circle
@@ -208,6 +212,7 @@ struct FatBitsEditor: View {
                     canvas
                     toolPicker
                     tools
+                    savedPatternsRow
                     if choosesColor { colorPicker }
                     tiledPreview
                 }
@@ -229,8 +234,25 @@ struct FatBitsEditor: View {
                     .disabled(isUnchanged && revertBits != nil)
                 }
             }
+            .alert(savedMatch == nil ? "Save Pattern" : "Rename Pattern", isPresented: $namingPattern) {
+                TextField("Name", text: $patternName)
+                    .textInputAutocapitalization(.words)
+                Button("Save") {
+                    store.savePattern(bits, named: patternName)
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("A saved pattern can be given to anyone from their Tile menu, in their own color.")
+            }
+            .sheet(isPresented: $managingPatterns) {
+                SavedPatternsSheet(colorIndex: colorIndex) { pattern in bits = pattern.bits }
+            }
         }
     }
+
+    /// The saved pattern this drawing is, when it is one.
+    private var savedMatch: SavedPattern? { store.patternLibrary.pattern(matching: bits) }
 
     // MARK: Canvas
 
@@ -419,6 +441,62 @@ struct FatBitsEditor: View {
         .buttonStyle(.plain)
         .disabled(!isEnabled)
         .accessibilityLabel(title)
+    }
+
+    // MARK: Saved patterns
+
+    /// Saving the drawing under a name, and the saved patterns to start
+    /// from: each a small tile in the current colour, the one the canvas
+    /// shows marked.
+    private var savedPatternsRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(savedMatch.map { "Saved as \($0.name)" } ?? "Saved patterns")
+                    .font(.tact(.footnote))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer()
+                if !store.patternLibrary.isEmpty {
+                    Button("Manage") { managingPatterns = true }
+                        .font(.tact(.footnote))
+                }
+                Button(savedMatch == nil ? "Save…" : "Rename…") {
+                    patternName = savedMatch?.name ?? ""
+                    namingPattern = true
+                }
+                .font(.tact(.footnote).weight(.semibold))
+                .disabled(bits.isBlank)
+            }
+            if !store.patternLibrary.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(store.patternLibrary.patterns) { pattern in
+                            let isCurrent = pattern.bits == bits
+                            Button {
+                                UISelectionFeedbackGenerator().selectionChanged()
+                                withAnimation(.easeInOut(duration: 0.15)) { bits = pattern.bits }
+                            } label: {
+                                VStack(spacing: 4) {
+                                    FatBitsView(bits: pattern.bits, colorIndex: colorIndex)
+                                        .frame(width: 44, height: 44)
+                                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                            .strokeBorder(isCurrent ? palette.accent : Color.tactTileGray, lineWidth: isCurrent ? 3 : 1))
+                                    Text(pattern.name)
+                                        .font(.tact(.caption2))
+                                        .lineLimit(1)
+                                        .frame(width: 56)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Saved pattern \(pattern.name)")
+                            .accessibilityAddTraits(isCurrent ? [.isButton, .isSelected] : .isButton)
+                        }
+                    }
+                    .padding(.horizontal, 2)
+                }
+            }
+        }
     }
 
     // MARK: Preview

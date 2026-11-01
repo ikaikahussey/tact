@@ -100,10 +100,12 @@ struct ArtGameSettings: Codable, Equatable {
 struct GameTypeSettings: Codable, Equatable {
     var randomColorSettings = RandomColorGameSettings()
     var artSettings = ArtGameSettings()
+    /// Named FatBits patterns saved for reuse on other people's tiles.
+    var patternLibrary = PatternLibrary()
 
     init() {}
 
-    private enum CodingKeys: String, CodingKey { case randomColorSettings, artSettings }
+    private enum CodingKeys: String, CodingKey { case randomColorSettings, artSettings, patternLibrary }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -111,5 +113,7 @@ struct GameTypeSettings: Codable, Equatable {
             ?? RandomColorGameSettings()
         artSettings = (try? container.decodeIfPresent(ArtGameSettings.self, forKey: .artSettings)) ?? nil
             ?? ArtGameSettings()
+        patternLibrary = (try? container.decodeIfPresent(PatternLibrary.self, forKey: .patternLibrary)) ?? nil
+            ?? PatternLibrary()
     }
 }

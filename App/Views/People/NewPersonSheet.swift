@@ -1,20 +1,25 @@
 import SwiftUI
 
-/// Adds a person: their name, and the tile they will get — a pattern and
-/// a colour, chosen from rows of swatches under a preview. The rows start
-/// on a look drawn from a fresh seed, so Add with nothing chosen gives
-/// the same kind of tile a person always got.
+/// Adds a person: their name, and the tile they will get — a pattern (a
+/// built-in motif or a saved FatBits pattern) and a colour, chosen from
+/// rows of swatches under a preview. The rows start on a look drawn from a
+/// fresh seed, so Add with nothing chosen gives the same kind of tile a
+/// person always got.
 struct NewPersonSheet: View {
     @Environment(\.dismiss) private var dismiss
-    /// Called with the trimmed name, the colour and the pattern on Add.
-    let onAdd: (String, Int, TilePattern) -> Void
+    @EnvironmentObject private var store: TactStore
+    /// Called with the trimmed name, the colour, the pattern and, when a
+    /// saved pattern was chosen, its bits, on Add.
+    let onAdd: (String, Int, TilePattern, FatBits?) -> Void
 
     @State private var name = ""
     @State private var colorIndex: Int
     @State private var pattern: TilePattern
+    /// The saved pattern chosen instead of a built-in one, if any.
+    @State private var savedPattern: SavedPattern?
     @FocusState private var nameFocused: Bool
 
-    init(onAdd: @escaping (String, Int, TilePattern) -> Void) {
+    init(onAdd: @escaping (String, Int, TilePattern, FatBits?) -> Void) {
         self.onAdd = onAdd
         let seed = Int.random(in: 0..<360)
         _colorIndex = State(initialValue: TileArt(seed: seed).colorIndex)
@@ -37,11 +42,11 @@ struct NewPersonSheet: View {
                     HStack(alignment: .top, spacing: 16) {
                         ZStack {
                             TileShades(colorIndex: colorIndex).pale
-                            TilePatternView(pattern: pattern, colorIndex: colorIndex)
+                            TileMotifView(bits: savedPattern?.bits, pattern: pattern, colorIndex: colorIndex)
                         }
                         .frame(width: 88, height: 88)
                         .clipShape(RoundedRectangle(cornerRadius: 10))
-                        .accessibilityLabel("\(TilePalette.name(colorIndex)) \(pattern.title) tile")
+                        .accessibilityLabel("\(TilePalette.name(colorIndex)) \(savedPattern?.name ?? pattern.title) tile")
                         VStack(alignment: .leading, spacing: 10) {
                             patternRow
                             colorRow
@@ -70,26 +75,47 @@ struct NewPersonSheet: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 ForEach(TilePattern.allCases, id: \.self) { option in
-                    let isSelected = option == pattern
-                    Button {
-                        UISelectionFeedbackGenerator().selectionChanged()
+                    let isSelected = savedPattern == nil && option == pattern
+                    patternSwatch(isSelected: isSelected, label: option.title) {
                         pattern = option
-                    } label: {
+                        savedPattern = nil
+                    } content: {
                         TilePatternView(pattern: option, colorIndex: colorIndex)
-                            .frame(width: 36, height: 36)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                            .padding(2)
-                            .overlay(RoundedRectangle(cornerRadius: 8)
-                                .strokeBorder(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear), lineWidth: 2.5))
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(option.title)
-                    .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+                }
+                if !store.patternLibrary.isEmpty {
+                    Divider().frame(height: 28)
+                    ForEach(store.patternLibrary.patterns) { saved in
+                        let isSelected = savedPattern?.id == saved.id
+                        patternSwatch(isSelected: isSelected, label: "Saved pattern \(saved.name)") {
+                            savedPattern = saved
+                        } content: {
+                            FatBitsView(bits: saved.bits, colorIndex: colorIndex)
+                        }
+                    }
                 }
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Pattern, \(pattern.title)")
+        .accessibilityLabel("Pattern, \(savedPattern?.name ?? pattern.title)")
+    }
+
+    private func patternSwatch<Content: View>(isSelected: Bool, label: String, action: @escaping () -> Void,
+                                              @ViewBuilder content: () -> Content) -> some View {
+        Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            action()
+        } label: {
+            content()
+                .frame(width: 36, height: 36)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .padding(2)
+                .overlay(RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear), lineWidth: 2.5))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
     private var colorRow: some View {
@@ -122,7 +148,7 @@ struct NewPersonSheet: View {
 
     private func add() {
         guard !trimmedName.isEmpty else { return }
-        onAdd(trimmedName, colorIndex, pattern)
+        onAdd(trimmedName, colorIndex, pattern, savedPattern?.bits)
         dismiss()
     }
 }

@@ -103,12 +103,17 @@ final class TactStore: ObservableObject {
     /// Adds a person. Their tile is drawn from a fresh seed unless a
     /// colour and pattern are given, as from the New Person sheet.
     @discardableResult
-    func addPerson(named rawName: String, colorIndex: Int? = nil, pattern: TilePattern? = nil) -> Person? {
+    func addPerson(named rawName: String, colorIndex: Int? = nil, pattern: TilePattern? = nil,
+                   bits: FatBits? = nil) -> Person? {
         let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return nil }
         var person = Person(name: name)
         if let colorIndex { person.tile.colorIndex = colorIndex }
         if let pattern { person.tile.pattern = pattern.rawValue }
+        if let bits {
+            person.tile.bits = bits
+            person.tile.showsPhoto = false
+        }
         people.append(person)
         return person
     }
@@ -152,6 +157,44 @@ final class TactStore: ObservableObject {
     func updateTile(forPersonID id: UUID, _ change: (inout TileArt) -> Void) {
         guard let index = people.firstIndex(where: { $0.id == id }) else { return }
         change(&people[index].tile)
+    }
+
+    // MARK: Saved patterns
+
+    /// The named FatBits patterns saved for reuse.
+    var patternLibrary: PatternLibrary { settings.patternLibrary }
+
+    /// Saves a FatBits drawing under a name so other people can wear it.
+    @discardableResult
+    func savePattern(_ bits: FatBits, named name: String) -> SavedPattern? {
+        settings.patternLibrary.add(bits, named: name)
+    }
+
+    func renamePattern(id: UUID, to name: String) {
+        settings.patternLibrary.rename(id: id, to: name)
+    }
+
+    func updatePattern(id: UUID, bits: FatBits) {
+        settings.patternLibrary.update(id: id, bits: bits)
+    }
+
+    func deletePattern(id: UUID) {
+        settings.patternLibrary.remove(id: id)
+    }
+
+    func movePatterns(fromOffsets source: IndexSet, toOffset destination: Int) {
+        settings.patternLibrary.move(fromOffsets: source, toOffset: destination)
+    }
+
+    /// Gives a person a saved pattern as their tile, in their own colour.
+    /// Their underlying built-in pattern is kept, so Revert to Pattern still
+    /// works.
+    func applyPattern(id: UUID, toPersonID personID: UUID) {
+        guard let pattern = settings.patternLibrary[id] else { return }
+        updateTile(forPersonID: personID) {
+            $0.bits = pattern.bits
+            $0.showsPhoto = false
+        }
     }
 
     /// Moves a person's tile to a cell on the canvas, swapping with whoever
