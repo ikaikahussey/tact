@@ -6,8 +6,9 @@ import SwiftUI
 /// it to any cell (gaps allowed). Touch and hold an empty cell to add
 /// someone there. Edit puts a delete badge on every tile; Listen makes a
 /// tap play the person's ditty instead of opening them, the tile pulsing
-/// while it sounds. Both are on the header's More menu, with Bring
-/// Together, which closes the gaps.
+/// while it sounds; Select makes a tap gather tiles, marked with a check,
+/// for the bar below to change together. All are on the header's More
+/// menu, with Bring Together, which closes the gaps.
 /// Choosing a game turns every tile over (`TileFlipFace`) to the game on
 /// the back (`GamesSurface`).
 struct PeopleGridContent: View {
@@ -16,10 +17,25 @@ struct PeopleGridContent: View {
     var isEditing = false
     /// Listen mode: a tap plays the ditty instead of opening the person.
     var isListening = false
+    /// Select mode: a tap adds the tile to `selection` or takes it out.
+    var isSelecting = false
+    @Binding var selection: Set<UUID>
     /// The tiles are turned over to a game (`GamesSurface` draws the back).
     var showingGames = false
     /// Touch and hold an empty cell to add someone there.
     var onAddPerson: (_ cell: Int) -> Void = { _ in }
+
+    init(query: String, isEditing: Bool = false, isListening: Bool = false, isSelecting: Bool = false,
+         selection: Binding<Set<UUID>> = .constant([]), showingGames: Bool = false,
+         onAddPerson: @escaping (_ cell: Int) -> Void = { _ in }) {
+        self.query = query
+        self.isEditing = isEditing
+        self.isListening = isListening
+        self.isSelecting = isSelecting
+        _selection = selection
+        self.showingGames = showingGames
+        self.onAddPerson = onAddPerson
+    }
 
     @EnvironmentObject private var store: TactStore
     @State private var dropTarget: Int?
@@ -114,7 +130,7 @@ struct PeopleGridContent: View {
                             .frame(width: squareSize, height: squareSize)
                             .contentShape(Rectangle())
                             .onLongPressGesture(minimumDuration: 0.4) {
-                                guard !showingGames, !isEditing else { return }
+                                guard !showingGames, !isEditing, !isSelecting else { return }
                                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                                 onAddPerson(cell)
                             }
@@ -154,6 +170,8 @@ struct PeopleGridContent: View {
                 .frame(width: geometry.size.width, height: CGFloat(cellCount / columns) * pitch, alignment: .topLeading)
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: items)
                 .animation(.snappy, value: isEditing)
+                .animation(.snappy, value: isSelecting)
+                .animation(.snappy, value: selection)
                 .animation(.spring(response: 0.35, dampingFraction: 0.85), value: effectiveZoom)
                 .padding(.bottom, 80)
                 .id(Self.topID)
@@ -235,8 +253,14 @@ struct PeopleGridContent: View {
                 store.updateTile(forPersonID: person.id) { $0.colorIndex = newValue }
             }
         )
+        let isSelected = selection.contains(person.id)
         return Group {
-            if isListening {
+            if isSelecting {
+                Button { toggle(person) } label: {
+                    PersonTile(person: person, size: size)
+                        .contentShape(Rectangle())
+                }
+            } else if isListening {
                 Button { listen(to: person) } label: {
                     PersonTile(person: person, size: size)
                         .contentShape(Rectangle())
@@ -250,18 +274,26 @@ struct PeopleGridContent: View {
         }
         .buttonStyle(.plain)
         .disabled(isEditing)
-        .scaleEffect(sounding == person.id ? 0.92 : 1)
+        .scaleEffect(sounding == person.id ? 0.92 : isSelecting && isSelected ? 0.9 : 1)
+        .opacity(isSelecting && !isSelected && !selection.isEmpty ? 0.55 : 1)
         .animation(.spring(response: 0.25, dampingFraction: 0.6), value: sounding == person.id)
         .overlay(alignment: .topLeading) { deleteBadge(for: person) }
-        .contextMenu { tileMenu(for: person, colorIndex: colorIndex) }
+        .overlay(alignment: .topTrailing) { selectionBadge(for: person, isSelected: isSelected) }
+        .overlay {
+            if isSelecting && isSelected {
+                Rectangle().strokeBorder(.tint, lineWidth: 3).allowsHitTesting(false)
+            }
+        }
+        .contextMenu { if !isSelecting { tileMenu(for: person, colorIndex: colorIndex) } }
         .draggable(person.id.uuidString) {
             PersonTile(person: person, size: size)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(person.name), \(TilePalette.name(person.tile.colorIndex)) tile")
-        .accessibilityHint(isListening ? "Plays \(person.name)'s ditty."
+        .accessibilityHint(isSelecting ? (isSelected ? "Selected. Tap to deselect." : "Tap to select.")
+                           : isListening ? "Plays \(person.name)'s ditty."
                            : "Opens \(person.name). Touch and hold for a new note, the ditty, the color, turning, or deleting; drag to move it.")
-        .accessibilityAddTraits(.isButton)
+        .accessibilityAddTraits(isSelecting && isSelected ? [.isButton, .isSelected] : .isButton)
         .accessibilityAction(named: "Change color") {
             let order = TilePalette.menuOrder
             let next = order[((order.firstIndex(of: person.tile.colorIndex) ?? 0) + 1) % order.count]
@@ -273,6 +305,30 @@ struct PeopleGridContent: View {
         .accessibilityAction(named: "Play ditty") { DittyPlayer.play(person) }
         .accessibilityAction(named: "New note") { addingNoteFor = person }
         .accessibilityAction(named: "Delete") { deleting = person }
+    }
+
+    /// Select mode's tap: in or out of the selection.
+    private func toggle(_ person: Person) {
+        UISelectionFeedbackGenerator().selectionChanged()
+        if selection.contains(person.id) {
+            selection.remove(person.id)
+        } else {
+            selection.insert(person.id)
+        }
+    }
+
+    @ViewBuilder
+    private func selectionBadge(for person: Person, isSelected: Bool) -> some View {
+        if isSelecting {
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .font(.tact(.title2))
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.white.opacity(0.9)),
+                                 isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.black.opacity(0.35)))
+                .padding(6)
+                .allowsHitTesting(false)
+                .transition(.scale.combined(with: .opacity))
+        }
     }
 
     @ViewBuilder

@@ -14,6 +14,10 @@ struct PeopleRootView: View {
     @State private var editMode: EditMode = .inactive
     /// Listen mode: tapping a person plays their ditty instead of opening them.
     @State private var listening = false
+    /// Select mode: tapping tiles gathers them; the bar below the grid
+    /// changes all of them at once.
+    @State private var selecting = false
+    @State private var selectedIDs = Set<UUID>()
     @State private var showingAddPerson = false
     @State private var showingAddNote = false
     @State private var showingSettings = false
@@ -60,6 +64,7 @@ struct PeopleRootView: View {
                     ZStack {
                         PeopleGridContent(query: query, isEditing: editMode.isEditing && !showsList,
                                           isListening: listening && !showsList,
+                                          isSelecting: selecting && !showsList, selection: $selectedIDs,
                                           showingGames: canvasShowsGames) { cell in
                             addPersonCell = cell
                             showingAddPerson = true
@@ -85,8 +90,19 @@ struct PeopleRootView: View {
                 .environment(avatarFrames)
             }
             .safeAreaInset(edge: .bottom) {
-                ViewSwitch(layout: layoutBinding, selectedGameID: $selectedGameID)
-                    .padding(.bottom, 8)
+                Group {
+                    if selecting && !showsList && !canvasShowsGames {
+                        TileSelectionBar(selection: $selectedIDs, candidates: shownPeopleIDs) {
+                            withAnimation(.snappy) { stopSelecting() }
+                        }
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    } else {
+                        ViewSwitch(layout: layoutBinding, selectedGameID: $selectedGameID)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .padding(.bottom, 8)
+                .animation(.snappy, value: selecting)
             }
             .environment(\.editMode, $editMode)
             .environment(\.pushRoute) { path.append($0) }
@@ -120,6 +136,7 @@ struct PeopleRootView: View {
                 stage(from: from, to: to)
                 editMode = .inactive
                 stopListening()
+                stopSelecting()
                 // A search brings its view with it; any other change of
                 // view ends the search.
                 if switchingForSearch {
@@ -177,12 +194,29 @@ struct PeopleRootView: View {
                         Button {
                             withAnimation(.snappy) {
                                 stopListening()
+                                stopSelecting()
                                 editMode = editMode.isEditing ? .inactive : .active
                             }
                         } label: {
                             Label(editMode.isEditing ? "Done" : "Edit",
                                   systemImage: editMode.isEditing ? "checkmark.circle" : "pencil")
                         }
+                    case .select:
+                        Button {
+                            withAnimation(.snappy) {
+                                if selecting {
+                                    stopSelecting()
+                                } else {
+                                    stopListening()
+                                    editMode = .inactive
+                                    selecting = true
+                                }
+                            }
+                        } label: {
+                            Label(selecting ? "Done Selecting" : "Select",
+                                  systemImage: selecting ? "checkmark.circle" : "checklist")
+                        }
+                        .disabled(store.people.isEmpty)
                     case .listen:
                         Button {
                             withAnimation(.snappy) {
@@ -190,6 +224,7 @@ struct PeopleRootView: View {
                                     stopListening()
                                 } else {
                                     editMode = .inactive
+                                    stopSelecting()
                                     listening = true
                                 }
                             }
@@ -214,13 +249,14 @@ struct PeopleRootView: View {
                 }
             } label: {
                 HeaderIconButton(title: "More",
-                                 systemImage: editMode.isEditing ? "checkmark.circle" : listening ? "ear" : action.systemImage,
-                                 isActive: editMode.isEditing || listening) {}
+                                 systemImage: editMode.isEditing || selecting ? "checkmark.circle" : listening ? "ear" : action.systemImage,
+                                 isActive: editMode.isEditing || listening || selecting) {}
             }
             .accessibilityLabel("More")
             .accessibilityHint(editMode.isEditing ? "Done editing, or settings"
+                               : selecting ? "Done selecting, or settings"
                                : listening ? "Stop listening, or settings"
-                               : "Edit, listen, or settings")
+                               : "Edit, select, listen, or settings")
         }
     }
 
@@ -308,6 +344,18 @@ struct PeopleRootView: View {
             .background(Color.tactBackground)
             .transition(.move(edge: .top).combined(with: .opacity))
         }
+    }
+
+    /// The people on the grid right now, in cell order: what Select All gathers.
+    private var shownPeopleIDs: [UUID] {
+        PeopleGridItems(people: store.people, notes: store.notes, query: query).tiles.map(\.person.id)
+    }
+
+    /// Ends Select mode and lets the selection go.
+    private func stopSelecting() {
+        guard selecting || !selectedIDs.isEmpty else { return }
+        selecting = false
+        selectedIDs = []
     }
 
     /// Ends Listen mode and any ditty that is sounding.

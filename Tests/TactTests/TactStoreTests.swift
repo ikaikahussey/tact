@@ -29,6 +29,49 @@ final class TactStoreTests: XCTestCase {
         XCTAssertEqual(plain.tile, TileArt(seed: plain.colorSeed), "with nothing chosen the tile comes from the seed as before")
     }
 
+    func testUpdatingSeveralTilesAtOnce() {
+        let ada = store.addPerson(named: "Ada", colorIndex: 1, pattern: .arcs)!
+        let bob = store.addPerson(named: "Bob", colorIndex: 2, pattern: .cross)!
+        let cy = store.addPerson(named: "Cy", colorIndex: 3, pattern: .frame)!
+        store.updateTiles(forPersonIDs: [ada.id, cy.id, UUID()]) { $0.colorIndex = 9; $0.rotate() }
+        XCTAssertEqual(store.person(id: ada.id)?.tile.colorIndex, 9)
+        XCTAssertEqual(store.person(id: cy.id)?.tile.colorIndex, 9)
+        XCTAssertEqual(store.person(id: cy.id)?.tile.quarterTurns, cy.tile.quarterTurns + 1)
+        XCTAssertEqual(store.person(id: bob.id)?.tile, bob.tile, "the unselected tile is untouched")
+        XCTAssertEqual(store.people.map(\.id), [ada.id, bob.id, cy.id], "order is kept")
+
+        var bits = FatBits.cross
+        bits[0, 0] = 3
+        let saved = store.savePattern(bits, named: "Shared")!
+        store.applyPattern(id: saved.id, toPersonIDs: [ada.id, bob.id])
+        XCTAssertEqual(store.person(id: ada.id)?.tile.bits, bits)
+        XCTAssertEqual(store.person(id: bob.id)?.tile.bits, bits)
+        XCTAssertEqual(store.person(id: bob.id)?.tile.colorIndex, 2, "each keeps their own colour")
+        XCTAssertNil(store.person(id: cy.id)?.tile.bits)
+
+        let before = store.people
+        store.updateTiles(forPersonIDs: []) { $0.colorIndex = 0 }
+        XCTAssertEqual(store.people, before, "nothing selected changes nothing")
+    }
+
+    func testDeletingSeveralPeopleKeepsSharedNotesAndDeletesExclusiveOnes() {
+        let ada = store.addPerson(named: "Ada")!
+        let bob = store.addPerson(named: "Bob")!
+        let cy = store.addPerson(named: "Cy")!
+        let adaOnly = store.addNote(text: "Ada", personIds: [ada.id])!
+        let adaBob = store.addNote(text: "Ada and Bob", personIds: [ada.id, bob.id])!
+        let adaCy = store.addNote(text: "Ada and Cy", personIds: [ada.id, cy.id])!
+        let loose = store.addNote(text: "Nobody", personIds: [])!
+        store.deletePeople(ids: [ada.id, bob.id, UUID()])
+        XCTAssertEqual(store.people.map(\.id), [cy.id])
+        XCTAssertEqual(Set(store.notes.map(\.id)), [adaCy.id, loose.id])
+        XCTAssertEqual(store.note(id: adaCy.id)?.personIds, [cy.id], "unlinked from the deleted")
+        XCTAssertFalse(store.notes.contains { $0.id == adaOnly.id || $0.id == adaBob.id })
+        let count = store.people.count
+        store.deletePeople(ids: [])
+        XCTAssertEqual(store.people.count, count)
+    }
+
     func testDeletingAPersonKeepsSharedNotesAndDeletesExclusiveOnes() {
         let ada = store.addPerson(named: "Ada")!
         let grace = store.addPerson(named: "Grace")!

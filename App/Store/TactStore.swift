@@ -159,6 +159,34 @@ final class TactStore: ObservableObject {
         change(&people[index].tile)
     }
 
+    /// Changes several people's tiles at once, in one update, so the grid
+    /// moves together and one save is written.
+    func updateTiles(forPersonIDs ids: Set<UUID>, _ change: (inout TileArt) -> Void) {
+        guard !ids.isEmpty else { return }
+        var updated = people
+        for index in updated.indices where ids.contains(updated[index].id) {
+            change(&updated[index].tile)
+        }
+        people = updated
+    }
+
+    /// Removes several people at once, with the same note rules as
+    /// `deletePerson`: notes linked only to people being removed go,
+    /// notes shared with anyone else are kept and unlinked.
+    func deletePeople(ids: Set<UUID>) {
+        let removing = ids.intersection(people.map(\.id))
+        guard !removing.isEmpty else { return }
+        var remaining: [Note] = []
+        for var note in notes {
+            let kept = note.personIds.filter { !removing.contains($0) }
+            if kept.isEmpty, !note.personIds.isEmpty { continue }
+            note.personIds = kept
+            remaining.append(note)
+        }
+        notes = remaining
+        people.removeAll { removing.contains($0.id) }
+    }
+
     // MARK: Saved patterns
 
     /// The named FatBits patterns saved for reuse.
@@ -190,8 +218,14 @@ final class TactStore: ObservableObject {
     /// Their underlying built-in pattern is kept, so Revert to Pattern still
     /// works.
     func applyPattern(id: UUID, toPersonID personID: UUID) {
+        applyPattern(id: id, toPersonIDs: [personID])
+    }
+
+    /// Gives several people a saved pattern as their tile, each in their
+    /// own colour.
+    func applyPattern(id: UUID, toPersonIDs personIDs: Set<UUID>) {
         guard let pattern = settings.patternLibrary[id] else { return }
-        updateTile(forPersonID: personID) {
+        updateTiles(forPersonIDs: personIDs) {
             $0.bits = pattern.bits
             $0.showsPhoto = false
         }
