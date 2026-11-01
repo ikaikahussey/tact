@@ -116,8 +116,10 @@ struct HeaderIconButton: View {
     }
 }
 
-/// People, Notes or Games: a floating capsule of icons at the bottom of the
-/// root screen, where the thumb is. Pushed screens cover it.
+/// The bottom navigation, in two parts at the thumbs: People and Notes
+/// in one capsule at the far left, Games in its own capsule at the far
+/// right, so switching views and turning the tiles over are separate
+/// gestures. Pushed screens cover it.
 struct ViewSwitch: View {
     @Binding var layout: PeopleLayout
     /// The game on the back of the tiles; Games pops up a menu to pick one.
@@ -125,26 +127,10 @@ struct ViewSwitch: View {
     @Environment(\.appPalette) private var palette
 
     var body: some View {
-        HStack(spacing: 4) {
-            ForEach(PeopleLayout.available) { option in
-                let isSelected = layout.resolved == option
-                if option == .games {
-                    Menu {
-                        ForEach(TileGame.all) { game in
-                            Button {
-                                UISelectionFeedbackGenerator().selectionChanged()
-                                selectedGameID = game.id
-                                withAnimation(.snappy) { layout = .games }
-                            } label: {
-                                Label(game.title, systemImage: game.systemImage)
-                            }
-                        }
-                    } label: {
-                        segment(option, isSelected: isSelected)
-                    }
-                    .accessibilityLabel(isSelected ? "Games, \(TileGame.named(selectedGameID).title)" : "Games")
-                    .accessibilityHint("Turns the tiles over to a game")
-                } else {
+        HStack {
+            capsule {
+                ForEach(PeopleLayout.available.filter { $0 != .games }) { option in
+                    let isSelected = layout.resolved == option
                     Button {
                         guard !isSelected else { return }
                         UISelectionFeedbackGenerator().selectionChanged()
@@ -157,12 +143,36 @@ struct ViewSwitch: View {
                     .accessibilityAddTraits(isSelected ? [.isSelected] : [])
                 }
             }
+            .accessibilityLabel("View")
+            Spacer()
+            capsule {
+                let isSelected = layout.resolved == .games
+                Menu {
+                    ForEach(TileGame.all) { game in
+                        Button {
+                            UISelectionFeedbackGenerator().selectionChanged()
+                            selectedGameID = game.id
+                            withAnimation(.snappy) { layout = .games }
+                        } label: {
+                            Label(game.title, systemImage: game.systemImage)
+                        }
+                    }
+                } label: {
+                    segment(.games, isSelected: isSelected)
+                }
+                .accessibilityLabel(isSelected ? "Games, \(TileGame.named(selectedGameID).title)" : "Games")
+                .accessibilityHint("Turns the tiles over to a game")
+            }
         }
-        .padding(4)
-        .background(.regularMaterial, in: Capsule())
-        .shadow(color: .black.opacity(0.14), radius: 10, y: 4)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("View")
+        .padding(.horizontal, 16)
+    }
+
+    private func capsule(@ViewBuilder _ content: () -> some View) -> some View {
+        HStack(spacing: 4, content: content)
+            .padding(4)
+            .background(.regularMaterial, in: Capsule())
+            .shadow(color: .black.opacity(0.14), radius: 10, y: 4)
+            .accessibilityElement(children: .contain)
     }
 
     private func segment(_ option: PeopleLayout, isSelected: Bool) -> some View {
