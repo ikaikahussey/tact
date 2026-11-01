@@ -94,6 +94,11 @@ final class TileArtTests: XCTestCase {
         }
         XCTAssertEqual(Set(grays.map { Int($0 * 100) }).count, grays.count)
         XCTAssertTrue(grays == grays.sorted(), "lighter along the menu")
+        // The Nineties has a colour for every tile, and its pink is fuchsia.
+        XCTAssertEqual(AppPalette.ninetiesColors.count, TileArt.colorCount)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(AppPalette.nineties.tileColor(TilePalette.names.firstIndex(of: "pink")!)).getRed(&r, green: &g, blue: &b, alpha: &a)
+        XCTAssertTrue(r > 0.9 && b > 0.6 && g < 0.3, "fuchsia, not classic pink")
     }
 
     func testLayoutKeepsPlacedTilesAndFillsGapsInOrder() {

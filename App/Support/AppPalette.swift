@@ -9,6 +9,7 @@ enum AppPalette: String, CaseIterable, Identifiable {
     case pastel
     case earthy
     case jewel
+    case nineties
     case grayscale
 
     static let storageKey = "appPalette"
@@ -26,6 +27,7 @@ enum AppPalette: String, CaseIterable, Identifiable {
         case .pastel:  "Pastel"
         case .earthy:  "Earthy"
         case .jewel:   "Jewel"
+        case .nineties: "Nineties"
         case .grayscale: "Grayscale"
         }
     }
@@ -38,6 +40,7 @@ enum AppPalette: String, CaseIterable, Identifiable {
         case .pastel:  Color(red: 0.45, green: 0.38, blue: 0.72)
         case .earthy:  Color(red: 0.62, green: 0.36, blue: 0.22)
         case .jewel:   Color(red: 0.05, green: 0.45, blue: 0.47)
+        case .nineties: Color(red: 0.58, green: 0.06, blue: 0.56)
         case .grayscale: Color(white: 0.22)
         }
     }
@@ -49,12 +52,31 @@ enum AppPalette: String, CaseIterable, Identifiable {
         self == .classic ? Color(uiColor: .systemBackground) : .white
     }
 
+    /// The Nineties, colour by colour: fuchsia, turquoise, lime and the rest
+    /// of the Trapper Keeper, in the classic hue order so names still fit.
+    static let ninetiesColors: [Color] = [
+        Color(red: 1.00, green: 0.40, blue: 0.26),  // coral: neon coral
+        Color(red: 1.00, green: 0.56, blue: 0.00),  // amber: tangerine
+        Color(red: 1.00, green: 0.88, blue: 0.00),  // yellow: highlighter
+        Color(red: 0.45, green: 0.85, blue: 0.15),  // green: lime
+        Color(red: 0.00, green: 0.76, blue: 0.70),  // teal: turquoise
+        Color(red: 0.15, green: 0.40, blue: 0.95),  // blue: electric blue
+        Color(red: 0.56, green: 0.22, blue: 0.92),  // violet: electric purple
+        Color(red: 0.96, green: 0.13, blue: 0.75),  // pink: fuchsia
+        Color(red: 0.95, green: 0.10, blue: 0.38),  // red: raspberry
+        Color(red: 0.10, green: 0.82, blue: 0.95),  // sky: cyan
+        Color(red: 0.78, green: 0.44, blue: 0.24),  // brown: terracotta
+        Color(red: 0.58, green: 0.58, blue: 0.72),  // gray: lavender gray
+    ]
+
     /// Tile colour `index`, made from the classic colour of the same hue.
     /// Grayscale spreads the colours over shades of gray in menu order, so
-    /// neighbours in the colour menu stay told apart.
+    /// neighbours in the colour menu stay told apart; the Nineties has its
+    /// own colours outright.
     func tileColor(_ index: Int) -> Color {
         let classic = TilePalette.colors[index]
         guard self != .classic else { return classic }
+        if self == .nineties { return Self.ninetiesColors[index] }
         if self == .grayscale {
             let step = Double(TilePalette.menuOrder.firstIndex(of: index) ?? index)
             return Color(white: 0.28 + 0.52 * step / Double(TilePalette.menuOrder.count - 1))
@@ -62,7 +84,7 @@ enum AppPalette: String, CaseIterable, Identifiable {
         var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
         UIColor(classic).getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
         switch self {
-        case .classic, .grayscale:
+        case .classic, .grayscale, .nineties:
             break
         case .pastel:
             saturation *= 0.45
