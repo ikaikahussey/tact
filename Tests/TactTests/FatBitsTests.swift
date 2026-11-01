@@ -180,7 +180,14 @@ final class FatBitsTests: XCTestCase {
         XCTAssertEqual(vertical.circles[0].y, 0.7, accuracy: 1e-9)
         XCTAssertEqual(bits.inverted.circles[0].shade, 0)
         XCTAssertEqual(bits.inverted.inverted, bits)
-        XCTAssertEqual(bits.flippedVertically.flippedVertically, bits)
+        // Two flips land within rounding of where the circle started.
+        let twice = bits.flippedVertically.flippedVertically
+        XCTAssertEqual(twice.bits, bits.bits)
+        XCTAssertEqual(twice.circles.count, 1)
+        XCTAssertEqual(twice.circles[0].x, 0.2, accuracy: 1e-9)
+        XCTAssertEqual(twice.circles[0].y, 0.3, accuracy: 1e-9)
+        XCTAssertEqual(twice.circles[0].radius, 0.1, accuracy: 1e-9)
+        XCTAssertEqual(twice.circles[0].shade, 3)
     }
 
     func testCirclesRoundTripThroughJSONAndAreOptional() throws {

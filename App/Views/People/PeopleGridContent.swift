@@ -4,11 +4,14 @@ import SwiftUI
 /// their geometric pattern. Tap a tile to open the person; touch and hold to
 /// start a note, change its color, turn it or delete the person, or drag
 /// it to any cell (gaps allowed). Touch and hold an empty cell to add
-/// someone there. Edit puts a delete badge on every tile; Listen makes a
+/// someone there. Edit puts a delete badge on every tile, and a tap then
+/// selects a tile (a check at its corner); dragging any selected tile
+/// moves the whole selection together, keeping its shape. Listen makes a
 /// tap play the person's ditty instead of opening them, the tile pulsing
 /// while it sounds; Select makes a tap gather tiles, marked with a check,
-/// for the bar below to change together. All are on the header's More
-/// menu, with Bring Together, which closes the gaps.
+/// for the bar below to change together, and they too drag as one. All
+/// are on the header's More menu, with Bring Together, which closes the
+/// gaps.
 /// Choosing a game turns every tile over (`TileFlipFace`) to the game on
 /// the back (`GamesSurface`).
 struct PeopleGridContent: View {
@@ -41,6 +44,10 @@ struct PeopleGridContent: View {
     @State private var dropTarget: Int?
     @State private var addingNoteFor: Person?
     @State private var deleting: Person?
+    /// While a group is dragged, the cells it would land on.
+    @State private var groupTarget = Set<Int>()
+    /// The tile whose drag preview was last made: the one being dragged.
+    @State private var dragging: UUID?
     /// The person whose ditty is sounding in Listen mode, for the pulse.
     @State private var sounding: UUID?
     /// How large the tiles are drawn, 1 being four across the screen.
@@ -81,6 +88,9 @@ struct PeopleGridContent: View {
             }
             .onChange(of: isListening) { _, listening in
                 if !listening { sounding = nil }
+            }
+            .onChange(of: isEditing) { _, editing in
+                if !editing { selection = [] }
             }
             .sheet(item: $addingNoteFor) { person in
                 AddNoteView(personID: person.id)
@@ -159,11 +169,11 @@ struct PeopleGridContent: View {
                             .transition(.scale(scale: 0.8).combined(with: .opacity))
                     }
 
-                    if let dropTarget {
+                    ForEach(Array(dropTarget.map { groupTarget.isEmpty ? [$0] : groupTarget } ?? []), id: \.self) { cell in
                         Rectangle()
                             .strokeBorder(.tint, lineWidth: 3)
                             .frame(width: squareSize, height: squareSize)
-                            .offset(origin(dropTarget))
+                            .offset(origin(cell))
                             .allowsHitTesting(false)
                     }
                 }
@@ -226,14 +236,38 @@ struct PeopleGridContent: View {
         .accessibilityLabel(title)
     }
 
+    /// A dragged tile lands on `cell`; a selected one brings the rest of
+    /// the selection with it.
     private func drop(_ items: [String], at cell: Int) -> Bool {
         guard let id = items.first.flatMap(UUID.init(uuidString:)) else { return false }
-        store.moveTile(personID: id, toCell: cell)
+        groupTarget = []
+        if selection.contains(id) {
+            store.moveTiles(personIDs: selection, dragging: id, toCell: cell)
+        } else {
+            store.moveTile(personID: id, toCell: cell)
+        }
         return true
     }
 
+    /// Marks `cell` as the drop target, with the outline of the whole
+    /// selection when the tile being dragged is part of it.
     private func target(_ cell: Int, _ targeted: Bool) {
-        if targeted { dropTarget = cell } else if dropTarget == cell { dropTarget = nil }
+        if targeted {
+            dropTarget = cell
+            groupTarget = groupCells(landingOn: cell)
+        } else if dropTarget == cell {
+            dropTarget = nil
+            groupTarget = []
+        }
+    }
+
+    /// Where the selection would sit with the dragged tile on `cell`.
+    private func groupCells(landingOn cell: Int) -> Set<Int> {
+        guard selection.count > 1, let dragging, selection.contains(dragging) else { return [] }
+        let anchors = TileLayout.anchors(for: store.people)
+        guard let source = anchors[dragging],
+              let moved = TileLayout.shifted(selection, from: source, to: cell, anchors: anchors) else { return [] }
+        return Set(moved.values)
     }
 
     /// Listen mode's tap: the ditty, with the tile pressed while it sounds.
@@ -255,7 +289,7 @@ struct PeopleGridContent: View {
         )
         let isSelected = selection.contains(person.id)
         return Group {
-            if isSelecting {
+            if isSelecting || isEditing {
                 Button { toggle(person) } label: {
                     PersonTile(person: person, size: size)
                         .contentShape(Rectangle())
@@ -273,27 +307,32 @@ struct PeopleGridContent: View {
             }
         }
         .buttonStyle(.plain)
-        .disabled(isEditing)
         .scaleEffect(sounding == person.id ? 0.92 : isSelecting && isSelected ? 0.9 : 1)
         .opacity(isSelecting && !isSelected && !selection.isEmpty ? 0.55 : 1)
         .animation(.spring(response: 0.25, dampingFraction: 0.6), value: sounding == person.id)
         .overlay(alignment: .topLeading) { deleteBadge(for: person) }
         .overlay(alignment: .topTrailing) { selectionBadge(for: person, isSelected: isSelected) }
         .overlay {
-            if isSelecting && isSelected {
-                Rectangle().strokeBorder(.tint, lineWidth: 3).allowsHitTesting(false)
+            if isSelected {
+                Rectangle().strokeBorder(.tint, lineWidth: 3)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
             }
         }
         .contextMenu { if !isSelecting { tileMenu(for: person, colorIndex: colorIndex) } }
         .draggable(person.id.uuidString) {
+            // The preview is made as the drag begins, which is the one
+            // moment the dragged tile is known before the drop.
             PersonTile(person: person, size: size)
+                .onAppear { dragging = person.id }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(person.name), \(TilePalette.name(person.tile.colorIndex)) tile")
-        .accessibilityHint(isSelecting ? (isSelected ? "Selected. Tap to deselect." : "Tap to select.")
+        .accessibilityHint(isSelecting || isEditing
+                           ? (isSelected ? "Selected. Tap to deselect; drag to move the selection together." : "Tap to select; drag to move it.")
                            : isListening ? "Plays \(person.name)'s ditty."
                            : "Opens \(person.name). Touch and hold for a new note, the ditty, the color, turning, or deleting; drag to move it.")
-        .accessibilityAddTraits(isSelecting && isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         .accessibilityAction(named: "Change color") {
             let order = TilePalette.menuOrder
             let next = order[((order.firstIndex(of: person.tile.colorIndex) ?? 0) + 1) % order.count]
@@ -307,7 +346,7 @@ struct PeopleGridContent: View {
         .accessibilityAction(named: "Delete") { deleting = person }
     }
 
-    /// Select mode's tap: in or out of the selection.
+    /// Edit and Select modes' tap: in or out of the selection.
     private func toggle(_ person: Person) {
         UISelectionFeedbackGenerator().selectionChanged()
         if selection.contains(person.id) {
@@ -319,7 +358,7 @@ struct PeopleGridContent: View {
 
     @ViewBuilder
     private func selectionBadge(for person: Person, isSelected: Bool) -> some View {
-        if isSelecting {
+        if isSelecting || (isEditing && isSelected) {
             Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                 .font(.tact(.title2))
                 .symbolRenderingMode(.palette)
