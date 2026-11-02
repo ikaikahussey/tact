@@ -85,6 +85,9 @@ extension FatBits {
     /// person's motif is forked, not lost.
     @MainActor
     init(tracing pattern: TilePattern, colorIndex: Int, palette: AppPalette = .current) {
+        // Bits are the same whatever the palette, and tracing needs four
+        // shades to tell apart, which Monochrome's two can't give.
+        let palette = palette.isMonochrome ? .classic : palette
         let scale = 8  // sample points per bit
         let side = FatBits.side * scale
         let renderer = ImageRenderer(content: TilePatternView(pattern: pattern, colorIndex: colorIndex, drawsCircles: false)

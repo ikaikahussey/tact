@@ -122,14 +122,26 @@ enum TileMenuImage {
     static let cornerRadius: CGFloat = 6
 
     /// A pattern, or a FatBits drawing when `bits` is given, in the colour.
+    /// Monochrome's ink changes with the appearance, so its picture is drawn
+    /// for both and registered as one image that follows the menu.
     static func motif(bits: FatBits? = nil, pattern: TilePattern, colorIndex: Int,
                       palette: AppPalette = .current) -> UIImage {
-        let renderer = ImageRenderer(content: TileMotifView(bits: bits, pattern: pattern, colorIndex: colorIndex)
-            .environment(\.appPalette, palette)
-            .frame(width: side, height: side)
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius)))
-        renderer.scale = UIScreen.main.scale
-        return (renderer.uiImage ?? UIImage()).withRenderingMode(.alwaysOriginal)
+        func render(_ scheme: ColorScheme) -> UIImage {
+            let renderer = ImageRenderer(content: TileMotifView(bits: bits, pattern: pattern, colorIndex: colorIndex)
+                .environment(\.appPalette, palette)
+                .environment(\.colorScheme, scheme)
+                .frame(width: side, height: side)
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius)))
+            renderer.scale = UIScreen.main.scale
+            return (renderer.uiImage ?? UIImage()).withRenderingMode(.alwaysOriginal)
+        }
+        guard palette.isMonochrome else { return render(.light) }
+        let asset = UIImageAsset()
+        for (scheme, style) in [(ColorScheme.light, UIUserInterfaceStyle.light), (.dark, .dark)] {
+            asset.register(render(scheme), with: UITraitCollection(traitsFrom: [
+                UITraitCollection(userInterfaceStyle: style), UITraitCollection(displayScale: UIScreen.main.scale)]))
+        }
+        return asset.image(with: .current).withRenderingMode(.alwaysOriginal)
     }
 
     /// The middle square of a photo, at menu size.

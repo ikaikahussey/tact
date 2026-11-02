@@ -86,7 +86,7 @@ final class CustomPaletteTests: XCTestCase {
     }
 
     func testPresetsLeaveCustomOut() {
-        XCTAssertEqual(AppPalette.presets.map(\.kind), [.classic, .pastel, .earthy, .jewel, .nineties, .grayscale])
+        XCTAssertEqual(AppPalette.presets.map(\.kind), [.classic, .pastel, .earthy, .jewel, .nineties, .monochrome])
         XCTAssertEqual(AppPalette.Kind.allCases.count, AppPalette.presets.count + 1)
     }
 }

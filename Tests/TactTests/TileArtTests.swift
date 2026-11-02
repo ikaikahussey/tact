@@ -86,14 +86,29 @@ final class TileArtTests: XCTestCase {
             }
         }
         XCTAssertEqual(TilePalette.color(3, in: .classic), TilePalette.colors[3])
-        // Grayscale keeps every tile colour told apart.
-        let grays = TilePalette.menuOrder.map { index -> CGFloat in
-            var white: CGFloat = 0, alpha: CGFloat = 0
-            UIColor(AppPalette.grayscale.tileColor(index)).getWhite(&white, alpha: &alpha)
-            return white
+        // Monochrome is one bit: every tile is the ink, black in light mode
+        // and white in dark, and its pale shades are clear.
+        for index in 0..<TileArt.colorCount {
+            XCTAssertEqual(AppPalette.monochrome.tileColor(index), AppPalette.ink)
         }
-        XCTAssertEqual(Set(grays.map { Int($0 * 100) }).count, grays.count)
-        XCTAssertTrue(grays == grays.sorted(), "lighter along the menu")
+        let ink = UIColor(AppPalette.ink)
+        var white: CGFloat = 0, alpha: CGFloat = 0
+        ink.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light)).getWhite(&white, alpha: &alpha)
+        XCTAssertEqual(white, 0, "black ink in light mode")
+        ink.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark)).getWhite(&white, alpha: &alpha)
+        XCTAssertEqual(white, 1, "white ink in dark mode")
+        let shades = TileShades(colorIndex: 4, palette: .monochrome)
+        XCTAssertEqual(shades.pale, .clear)
+        XCTAssertEqual(shades.light, .clear)
+        XCTAssertEqual(shades.base, AppPalette.ink)
+        XCTAssertEqual(shades.dark, AppPalette.ink)
+        XCTAssertEqual(shades.paper, AppPalette.paper)
+        XCTAssertEqual(TileShades(colorIndex: 4, palette: .classic).paper, TileShades(colorIndex: 4, palette: .classic).pale)
+        // A setting saved as Grayscale opens as Monochrome.
+        XCTAssertEqual(AppPalette.Kind(rawValue: "grayscale"), .monochrome)
+        XCTAssertEqual(AppPalette.Kind(rawValue: "monochrome"), .monochrome)
+        XCTAssertNil(AppPalette.Kind(rawValue: "sepia"))
+        for kind in AppPalette.Kind.allCases { XCTAssertEqual(AppPalette.Kind(rawValue: kind.rawValue), kind) }
         // The Nineties has a colour for every tile, and its pink is fuchsia.
         XCTAssertEqual(AppPalette.ninetiesColors.count, TileArt.colorCount)
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0

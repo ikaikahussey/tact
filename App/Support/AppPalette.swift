@@ -13,8 +13,23 @@ struct AppPalette: Hashable, Identifiable {
         case earthy
         case jewel
         case nineties
-        case grayscale
+        case monochrome
         case custom
+
+        /// Reads a saved kind. Grayscale became Monochrome, so a setting
+        /// saved before that still finds a palette.
+        init?(rawValue: String) {
+            switch rawValue {
+            case "classic": self = .classic
+            case "pastel": self = .pastel
+            case "earthy": self = .earthy
+            case "jewel": self = .jewel
+            case "nineties": self = .nineties
+            case "monochrome", "grayscale": self = .monochrome
+            case "custom": self = .custom
+            default: return nil
+            }
+        }
     }
 
     let kind: Kind
@@ -31,7 +46,7 @@ struct AppPalette: Hashable, Identifiable {
     static let earthy = AppPalette(.earthy)
     static let jewel = AppPalette(.jewel)
     static let nineties = AppPalette(.nineties)
-    static let grayscale = AppPalette(.grayscale)
+    static let monochrome = AppPalette(.monochrome)
 
     /// The built-in palettes, in the order Settings shows them.
     static let presets: [AppPalette] = Kind.allCases.filter { $0 != .custom }.map { AppPalette($0) }
@@ -56,6 +71,14 @@ struct AppPalette: Hashable, Identifiable {
 
     var id: String { kind.rawValue }
     var isCustom: Bool { kind == .custom }
+    /// One bit: tiles are ink on whatever is behind them, with no shades.
+    var isMonochrome: Bool { kind == .monochrome }
+
+    /// Monochrome's ink: black in light mode, white in dark.
+    static let ink = Color(uiColor: .label)
+    /// What Monochrome leaves bare, for the places a tile needs something
+    /// readable behind text.
+    static let paper = Color(uiColor: .systemBackground)
 
     var title: String {
         switch kind {
@@ -64,7 +87,7 @@ struct AppPalette: Hashable, Identifiable {
         case .earthy:  "Earthy"
         case .jewel:   "Jewel"
         case .nineties: "Nineties"
-        case .grayscale: "Grayscale"
+        case .monochrome: "Monochrome"
         case .custom: "Custom"
         }
     }
@@ -78,18 +101,19 @@ struct AppPalette: Hashable, Identifiable {
         case .earthy:  Color(red: 0.62, green: 0.36, blue: 0.22)
         case .jewel:   Color(red: 0.05, green: 0.45, blue: 0.47)
         case .nineties: Color(red: 0.58, green: 0.06, blue: 0.56)
-        case .grayscale: Color(white: 0.22)
+        case .monochrome: Self.ink
         case .custom: custom.accent.color
         }
     }
 
-    /// Symbols and text drawn on the accent. Classic's accent is black in light
-    /// mode and white in dark mode, so what sits on it flips the other way;
-    /// the other presets' accents are dark enough for white in both, and the
-    /// Custom palette goes by how light its accent is.
+    /// Symbols and text drawn on the accent. Classic's and Monochrome's
+    /// accents are black in light mode and white in dark mode, so what sits
+    /// on them flips the other way; the other presets' accents are dark
+    /// enough for white in both, and the Custom palette goes by how light its
+    /// accent is.
     var onAccent: Color {
         switch kind {
-        case .classic: Color(uiColor: .systemBackground)
+        case .classic, .monochrome: Self.paper
         case .custom: custom.onAccent
         default: .white
         }
@@ -113,9 +137,9 @@ struct AppPalette: Hashable, Identifiable {
     ]
 
     /// Tile colour `index`, made from the classic colour of the same hue.
-    /// Grayscale spreads the colours over shades of gray in menu order, so
-    /// neighbours in the colour menu stay told apart; the Nineties has its
-    /// own colours outright, and Custom the user's.
+    /// Monochrome has one colour, the ink, for every tile (`TileShades` then
+    /// leaves the pale shades clear); the Nineties has its own colours
+    /// outright, and Custom the user's.
     func tileColor(_ index: Int) -> Color {
         let classic = TilePalette.colors[index]
         switch kind {
@@ -125,9 +149,8 @@ struct AppPalette: Hashable, Identifiable {
             return custom.tiles[index].color
         case .nineties:
             return Self.ninetiesColors[index]
-        case .grayscale:
-            let step = Double(TilePalette.menuOrder.firstIndex(of: index) ?? index)
-            return Color(white: 0.28 + 0.52 * step / Double(TilePalette.menuOrder.count - 1))
+        case .monochrome:
+            return Self.ink
         case .pastel, .earthy, .jewel:
             break
         }
@@ -165,8 +188,14 @@ extension EnvironmentValues {
 
 extension AppPalette {
     /// The twelve tile colours in menu order, blended into one sweep.
+    /// Monochrome, having one colour, shows as half ink and half bare.
     var gradient: LinearGradient {
-        LinearGradient(colors: TilePalette.menuOrder.map(tileColor), startPoint: .leading, endPoint: .trailing)
+        if isMonochrome {
+            return LinearGradient(stops: [.init(color: Self.ink, location: 0), .init(color: Self.ink, location: 0.5),
+                                          .init(color: Self.paper, location: 0.5), .init(color: Self.paper, location: 1)],
+                                  startPoint: .leading, endPoint: .trailing)
+        }
+        return LinearGradient(colors: TilePalette.menuOrder.map(tileColor), startPoint: .leading, endPoint: .trailing)
     }
 }
 
@@ -179,6 +208,10 @@ struct PaletteSwatch: View {
         Circle()
             .fill(palette.gradient)
             .frame(width: 44, height: 44)
+            .overlay {
+                // Monochrome's bare half would otherwise vanish into the page.
+                Circle().strokeBorder(AppPalette.ink.opacity(palette.isMonochrome ? 0.3 : 0), lineWidth: 1)
+            }
             .overlay {
                 Circle().strokeBorder(Color(uiColor: .systemBackground), lineWidth: isSelected ? 3 : 0)
             }

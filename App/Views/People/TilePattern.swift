@@ -64,15 +64,27 @@ extension Person {
 }
 
 /// Four shades of a palette colour: nearly white, light, the colour itself,
-/// and dark.
+/// and dark. In Monochrome there are two: the pale shades are clear, so
+/// whatever is behind the tile shows through, and the others are the ink.
 struct TileShades {
     let pale: Color
     let light: Color
     let base: Color
     let dark: Color
+    /// Something to put text on: the pale shade, or in Monochrome, where
+    /// pale is clear, the page.
+    let paper: Color
 
     init(colorIndex: Int, palette: AppPalette = .current) {
         let color = TilePalette.color(colorIndex, in: palette)
+        if palette.isMonochrome {
+            pale = .clear
+            light = .clear
+            base = color
+            dark = color
+            paper = AppPalette.paper
+            return
+        }
         var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
         UIColor(color).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
         func mix(_ target: CGFloat, _ amount: CGFloat) -> Color {
@@ -84,6 +96,7 @@ struct TileShades {
         light = mix(1, 0.42)
         base = color
         dark = mix(0, 0.32)
+        paper = pale
     }
 }
 

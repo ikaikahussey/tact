@@ -39,8 +39,9 @@ enum TactTilesImage {
         let quarter = side / 2
         let pitch = quarter / CGFloat(cellsPerQuarter)
         let gap = pitch * 0.08
+        let light = UITraitCollection(userInterfaceStyle: .light)
         let image = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format).image { context in
-            UIColor.systemBackground.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light)).setFill()
+            UIColor.systemBackground.resolvedColor(with: light).setFill()
             context.fill(CGRect(x: 0, y: 0, width: side, height: side))
             // The grid behind the letters.
             UIColor(white: 0.9, alpha: 1).setFill()
@@ -54,7 +55,8 @@ enum TactTilesImage {
                 let origin = CGPoint(x: CGFloat(index % 2) * quarter + (quarter - 3 * pitch) / 2,
                                      y: CGFloat(index / 2) * quarter + (quarter - 4 * pitch) / 2)
                 for tile in tiles {
-                    UIColor(palette.tileColor(tile.colorIndex)).setFill()
+                    // Resolved for the light page the picture is drawn on, so Monochrome's ink is black.
+                    UIColor(palette.tileColor(tile.colorIndex)).resolvedColor(with: light).setFill()
                     context.fill(CGRect(x: origin.x + CGFloat(tile.column) * pitch + gap,
                                         y: origin.y + CGFloat(tile.row) * pitch + gap,
                                         width: pitch - gap * 2, height: pitch - gap * 2))

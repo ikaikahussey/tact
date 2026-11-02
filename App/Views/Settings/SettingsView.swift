@@ -49,7 +49,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Colors")
                 } footer: {
-                    Text("Changes the colors of everyone's tiles and the app's buttons. Custom Colors are your own: pick each tile color and the accent.")
+                    Text("Changes the colors of everyone's tiles and the app's buttons. Monochrome is one bit: ink on the page. Custom Colors are your own: pick each tile color and the accent.")
                 }
 
                 Section {

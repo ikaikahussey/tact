@@ -16,7 +16,7 @@ struct PadNoteLabel: View {
             .foregroundStyle(shades.dark)
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
-            .background(shades.pale.opacity(0.9), in: Capsule())
+            .background(shades.paper.opacity(0.9), in: Capsule())
             .padding(4)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
             .opacity(isShowing ? 1 : 0)
