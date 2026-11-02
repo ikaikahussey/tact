@@ -447,7 +447,7 @@ struct PeopleGridContent: View {
     @ViewBuilder
     private func tileChoices(for person: Person) -> some View {
         let colorIndex = person.tile.colorIndex
-        let library = store.patternLibrary
+        let available = store.availablePatterns(excluding: [person.id])
         ForEach(TilePattern.allCases, id: \.self) { pattern in
             Button {
                 UISelectionFeedbackGenerator().selectionChanged()
@@ -462,9 +462,9 @@ struct PeopleGridContent: View {
                 }
             }
         }
-        if !library.isEmpty {
+        if !available.isEmpty {
             Divider()
-            ForEach(library.patterns) { saved in
+            ForEach(available) { saved in
                 Button {
                     UISelectionFeedbackGenerator().selectionChanged()
                     store.applyPattern(id: saved.id, toPersonID: person.id)

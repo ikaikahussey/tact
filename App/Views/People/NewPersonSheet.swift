@@ -84,9 +84,10 @@ struct NewPersonSheet: View {
                         TilePatternView(pattern: option, colorIndex: colorIndex)
                     }
                 }
-                if !store.patternLibrary.isEmpty {
+                let available = store.availablePatterns()
+                if !available.isEmpty {
                     Divider().frame(height: 28)
-                    ForEach(store.patternLibrary.patterns) { saved in
+                    ForEach(available) { saved in
                         let isSelected = savedPattern?.id == saved.id
                         patternSwatch(isSelected: isSelected, label: "Saved pattern \(saved.name)") {
                             savedPattern = saved

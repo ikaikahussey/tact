@@ -514,10 +514,11 @@ struct FatBitsEditor: View {
                 }
                 .font(.tact(.footnote).weight(.semibold))
             }
-            if !store.patternLibrary.isEmpty {
+            let available = store.availablePatterns()
+            if !available.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ForEach(store.patternLibrary.patterns) { pattern in
+                        ForEach(available) { pattern in
                             let isCurrent = pattern.bits == bits
                             Button {
                                 UISelectionFeedbackGenerator().selectionChanged()

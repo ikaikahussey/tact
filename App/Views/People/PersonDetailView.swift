@@ -257,12 +257,12 @@ struct PersonDetailView: View {
     }
 
     private func tilePicker(for person: Person) -> some View {
-        let library = store.patternLibrary
+        let available = store.availablePatterns(excluding: [person.id])
         let current: TileChoice
         if person.showsPhoto {
             current = .photo
         } else if let bits = person.tile.bits {
-            current = library.pattern(matching: bits).map { .saved($0.id) } ?? .fatBits
+            current = available.first { $0.bits == bits }.map { .saved($0.id) } ?? .fatBits
         } else {
             current = .pattern(person.tilePattern.rawValue)
         }
@@ -294,7 +294,7 @@ struct PersonDetailView: View {
             } else {
                 Label("Add Photo…", systemImage: "photo").tag(TileChoice.photo)
             }
-            if let bits = person.tile.bits, library.pattern(matching: bits) == nil {
+            if let bits = person.tile.bits, !available.contains(where: { $0.bits == bits }) {
                 Label { Text("FatBits") } icon: {
                     Image(uiImage: TileMenuImage.motif(bits: bits, pattern: person.tilePattern, colorIndex: colorIndex))
                 }
@@ -306,9 +306,9 @@ struct PersonDetailView: View {
                 }
                 .tag(TileChoice.pattern(pattern.rawValue))
             }
-            if !library.isEmpty {
+            if !available.isEmpty {
                 Divider()
-                ForEach(library.patterns) { saved in
+                ForEach(available) { saved in
                     Label { Text(saved.name) } icon: {
                         Image(uiImage: TileMenuImage.motif(bits: saved.bits, pattern: person.tilePattern, colorIndex: colorIndex))
                     }
