@@ -66,7 +66,16 @@ struct PeopleRootView: View {
                                           isListening: listening && !showsList,
                                           isSelecting: selecting && !showsList, selection: $selectedIDs,
                                           showingGames: canvasShowsGames,
-                                          tilesTurned: GamesSurface.isAvailable(gameID: selectedGameID, tileCount: store.people.count)) { cell in
+                                          tilesTurned: GamesSurface.isAvailable(gameID: selectedGameID, tileCount: store.people.count),
+                                          onSelect: { person in
+                            // Select from a tile's menu: into Select mode with that tile chosen.
+                            withAnimation(.snappy) {
+                                stopListening()
+                                editMode = .inactive
+                                selecting = true
+                                selectedIDs = [person.id]
+                            }
+                        }) { cell in
                             addPersonCell = cell
                             showingAddPerson = true
                         }

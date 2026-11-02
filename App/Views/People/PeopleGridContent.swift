@@ -31,11 +31,15 @@ struct PeopleGridContent: View {
     /// Whether the tiles turn over while a game shows; false when the game
     /// has too few tiles to play and shows a notice instead.
     var tilesTurned = true
+    /// Select from a tile's menu: the owner starts Select mode with that
+    /// person chosen.
+    var onSelect: (_ person: Person) -> Void = { _ in }
     /// Touch and hold an empty cell to add someone there.
     var onAddPerson: (_ cell: Int) -> Void = { _ in }
 
     init(query: String, isEditing: Bool = false, isListening: Bool = false, isSelecting: Bool = false,
          selection: Binding<Set<UUID>> = .constant([]), showingGames: Bool = false, tilesTurned: Bool = true,
+         onSelect: @escaping (_ person: Person) -> Void = { _ in },
          onAddPerson: @escaping (_ cell: Int) -> Void = { _ in }) {
         self.query = query
         self.isEditing = isEditing
@@ -44,10 +48,12 @@ struct PeopleGridContent: View {
         _selection = selection
         self.showingGames = showingGames
         self.tilesTurned = tilesTurned
+        self.onSelect = onSelect
         self.onAddPerson = onAddPerson
     }
 
     @EnvironmentObject private var store: TactStore
+    @Environment(\.appPalette) private var palette
     @State private var dropTarget: Int?
     @State private var addingNoteFor: Person?
     @State private var deleting: Person?
@@ -402,18 +408,29 @@ struct PeopleGridContent: View {
         Button { DittyPlayer.play(person) } label: {
             Label("Play Ditty", systemImage: "music.note")
         }
+        Button { onSelect(person) } label: {
+            Label("Select", systemImage: "checklist")
+        }
         Divider()
         Menu {
-            // Just the colours, no names; VoiceOver still gets them.
-            Picker("Color", selection: colorIndex) {
-                ForEach(TilePalette.menuOrder, id: \.self) { index in
-                    Image(uiImage: TilePalette.swatch(index))
-                        .accessibilityLabel(TilePalette.name(index).capitalized)
-                        .tag(index)
-                }
-            }
+            tileChoices(for: person)
         } label: {
-            Label("Color", systemImage: "paintpalette")
+            Label("Change Tile", systemImage: "square.on.square")
+        }
+        // Monochrome has one colour, so there is nothing to choose.
+        if !palette.isMonochrome {
+            Menu {
+                // Just the colours, no names; VoiceOver still gets them.
+                Picker("Color", selection: colorIndex) {
+                    ForEach(TilePalette.menuOrder, id: \.self) { index in
+                        Image(uiImage: TilePalette.swatch(index))
+                            .accessibilityLabel(TilePalette.name(index).capitalized)
+                            .tag(index)
+                    }
+                }
+            } label: {
+                Label("Color", systemImage: "paintpalette")
+            }
         }
         Button { store.updateTile(forPersonID: person.id) { $0.rotate() } } label: {
             Label("Rotate", systemImage: "rotate.right")
@@ -421,6 +438,42 @@ struct PeopleGridContent: View {
         Divider()
         Button(role: .destructive) { deleting = person } label: {
             Label("Delete", systemImage: "trash")
+        }
+    }
+
+    /// The motifs a tile can change to: the built-in patterns, then the
+    /// saved FatBits patterns, each pictured in the person's colour. The
+    /// person's page has the rest: photos, drawing in FatBits.
+    @ViewBuilder
+    private func tileChoices(for person: Person) -> some View {
+        let colorIndex = person.tile.colorIndex
+        let library = store.patternLibrary
+        ForEach(TilePattern.allCases, id: \.self) { pattern in
+            Button {
+                UISelectionFeedbackGenerator().selectionChanged()
+                store.updateTile(forPersonID: person.id) {
+                    $0.pattern = pattern.rawValue
+                    $0.showsPhoto = false
+                    $0.revertToPattern()
+                }
+            } label: {
+                Label { Text(pattern.title) } icon: {
+                    Image(uiImage: TileMenuImage.motif(pattern: pattern, colorIndex: colorIndex))
+                }
+            }
+        }
+        if !library.isEmpty {
+            Divider()
+            ForEach(library.patterns) { saved in
+                Button {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    store.applyPattern(id: saved.id, toPersonID: person.id)
+                } label: {
+                    Label { Text(saved.name) } icon: {
+                        Image(uiImage: TileMenuImage.motif(bits: saved.bits, pattern: person.tilePattern, colorIndex: colorIndex))
+                    }
+                }
+            }
         }
     }
 }

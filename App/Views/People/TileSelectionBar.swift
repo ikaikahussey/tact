@@ -39,7 +39,7 @@ struct TileSelectionBar: View {
             }
             .padding(.horizontal, 4)
             HStack(spacing: 6) {
-                colorMenu
+                if !palette.isMonochrome { colorMenu }
                 tileMenu
                 action("Rotate", systemImage: "rotate.right") {
                     store.updateTiles(forPersonIDs: selection) { $0.rotate() }

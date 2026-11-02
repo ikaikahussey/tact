@@ -164,12 +164,15 @@ struct PersonDetailView: View {
                     }
                     .accessibilityLabel("Tile")
                     .accessibilityHint("Photo, a pattern, or drawing in FatBits")
-                    Menu {
-                        colorPicker(for: person)
-                    } label: {
-                        control("Color", systemImage: "paintpalette", tint: TilePalette.color(person.tile.colorIndex))
+                    // Monochrome has one colour, so there is nothing to choose.
+                    if !palette.isMonochrome {
+                        Menu {
+                            colorPicker(for: person)
+                        } label: {
+                            control("Color", systemImage: "paintpalette", tint: TilePalette.color(person.tile.colorIndex))
+                        }
+                        .accessibilityLabel("Color, \(TilePalette.name(person.tile.colorIndex))")
                     }
-                    .accessibilityLabel("Color, \(TilePalette.name(person.tile.colorIndex))")
                 }
                 HStack(spacing: 8) {
                     Button {

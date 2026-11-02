@@ -7,6 +7,7 @@ import SwiftUI
 /// person always got.
 struct NewPersonSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appPalette) private var palette
     @EnvironmentObject private var store: TactStore
     /// Called with the trimmed name, the colour, the pattern and, when a
     /// saved pattern was chosen, its bits, on Add.
@@ -49,7 +50,7 @@ struct NewPersonSheet: View {
                         .accessibilityLabel("\(TilePalette.name(colorIndex)) \(savedPattern?.name ?? pattern.title) tile")
                         VStack(alignment: .leading, spacing: 10) {
                             patternRow
-                            colorRow
+                            if !palette.isMonochrome { colorRow }
                         }
                     }
                     .padding(.vertical, 4)

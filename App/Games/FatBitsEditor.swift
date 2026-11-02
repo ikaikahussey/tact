@@ -222,7 +222,7 @@ struct FatBitsEditor: View {
                     toolPicker
                     tools
                     savedPatternsRow
-                    if choosesColor { colorPicker }
+                    if choosesColor && !palette.isMonochrome { colorPicker }
                     tiledPreview
                 }
                 .padding(16)
