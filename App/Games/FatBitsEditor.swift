@@ -141,7 +141,9 @@ extension FatBits {
 /// no grid of bits can make; a tap drops a dot the size of the Pinwheel's.
 /// The row above the canvas picks the shade, the row below the colour; a
 /// strip of the motif tiled three by three shows how it joins up with
-/// itself in the mosaic. Edits a mosaic stamp, or a person's tile.
+/// itself in the mosaic. Every stroke, circle and tool is a step that Undo
+/// in the bar (or a shake) takes back and Redo puts back. Edits a mosaic
+/// stamp, or a person's tile.
 struct FatBitsEditor: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.appPalette) private var palette
@@ -165,9 +167,13 @@ struct FatBitsEditor: View {
     @State private var tool: Tool = .bits
     /// The circle being dragged out, before it is laid down.
     @State private var draftCircle: FatBitsCircle?
+    /// The bits before the stroke under way, recorded as one step when it ends.
+    @State private var strokeStart: FatBits?
     @State private var namingPattern = false
     @State private var patternName = ""
     @State private var managingPatterns = false
+    /// The canvas as it was before each edit, for Undo and Redo.
+    @State private var history = EditHistory<FatBits>()
 
     enum Tool: String, CaseIterable, Identifiable {
         case bits, circle
@@ -225,6 +231,16 @@ struct FatBitsEditor: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
+                ToolbarItemGroup(placement: .primaryAction) {
+                    Button { undo() } label: { Image(systemName: "arrow.uturn.backward") }
+                        .disabled(!history.canUndo)
+                        .accessibilityLabel("Undo")
+                        .keyboardShortcut("z", modifiers: .command)
+                    Button { redo() } label: { Image(systemName: "arrow.uturn.forward") }
+                        .disabled(!history.canRedo)
+                        .accessibilityLabel("Redo")
+                        .keyboardShortcut("z", modifiers: [.command, .shift])
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         onSave(bits, colorIndex)
@@ -246,9 +262,32 @@ struct FatBitsEditor: View {
                 Text("A saved pattern can be given to anyone from their Tile menu, in their own color.")
             }
             .sheet(isPresented: $managingPatterns) {
-                SavedPatternsSheet(colorIndex: colorIndex) { pattern in bits = pattern.bits }
+                SavedPatternsSheet(colorIndex: colorIndex) { pattern in edit { bits = pattern.bits } }
             }
+            .onShake { if history.canUndo { undo() } }
         }
+    }
+
+    // MARK: Undo
+
+    /// Makes an edit the user can take back: the canvas as it stands goes
+    /// on the history first.
+    private func edit(_ change: () -> Void) {
+        let before = bits
+        change()
+        if bits != before { history.record(before) }
+    }
+
+    private func undo() {
+        guard let previous = history.undo(current: bits) else { return }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        withAnimation(.easeInOut(duration: 0.15)) { bits = previous }
+    }
+
+    private func redo() {
+        guard let next = history.redo(current: bits) else { return }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        withAnimation(.easeInOut(duration: 0.15)) { bits = next }
     }
 
     /// The saved pattern this drawing is, when it is one.
@@ -325,7 +364,10 @@ struct FatBitsEditor: View {
                     guard FatBits.contains(x, y) else { return }
                     let index = y * FatBits.side + x
                     guard !painted.contains(index) else { return }
-                    if painted.isEmpty { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+                    if painted.isEmpty {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        strokeStart = bits
+                    }
                     painted.insert(index)
                     bits[x, y] = shade
                 case .circle:
@@ -340,7 +382,10 @@ struct FatBitsEditor: View {
             }
             .onEnded { _ in
                 painted = []
-                if let draftCircle { bits.addCircle(draftCircle) }
+                // A whole stroke is one step: the bits before it went down.
+                if let strokeStart, strokeStart != bits { history.record(strokeStart) }
+                strokeStart = nil
+                if let draftCircle { edit { bits.addCircle(draftCircle) } }
                 draftCircle = nil
             }
     }
@@ -407,14 +452,14 @@ struct FatBitsEditor: View {
 
     private var tools: some View {
         HStack(spacing: 10) {
-            tool("Flip Left and Right", "arrow.left.and.right") { bits = bits.flippedHorizontally }
-            tool("Flip Up and Down", "arrow.up.and.down") { bits = bits.flippedVertically }
-            tool("Invert", "circle.lefthalf.filled") { bits = bits.inverted }
-            tool("Band", "plus") { bits = .cross }
-            tool("Remove Last Circle", "circle.slash", isEnabled: !bits.circles.isEmpty) { bits.removeLastCircle() }
-            tool("Clear", "trash", isEnabled: !bits.isBlank) { bits.clear() }
+            tool("Flip Left and Right", "arrow.left.and.right") { edit { bits = bits.flippedHorizontally } }
+            tool("Flip Up and Down", "arrow.up.and.down") { edit { bits = bits.flippedVertically } }
+            tool("Invert", "circle.lefthalf.filled") { edit { bits = bits.inverted } }
+            tool("Band", "plus") { edit { bits = .cross } }
+            tool("Remove Last Circle", "circle.slash", isEnabled: !bits.circles.isEmpty) { edit { bits.removeLastCircle() } }
+            tool("Clear", "trash", isEnabled: !bits.isBlank) { edit { bits.clear() } }
             if let revertBits {
-                tool("Revert", "arrow.uturn.backward", isEnabled: bits != revertBits) { bits = revertBits }
+                tool("Revert", "arrow.counterclockwise", isEnabled: bits != revertBits) { edit { bits = revertBits } }
             }
             if let onDelete {
                 tool("Delete", "xmark.bin") {
@@ -474,7 +519,7 @@ struct FatBitsEditor: View {
                             let isCurrent = pattern.bits == bits
                             Button {
                                 UISelectionFeedbackGenerator().selectionChanged()
-                                withAnimation(.easeInOut(duration: 0.15)) { bits = pattern.bits }
+                                withAnimation(.easeInOut(duration: 0.15)) { edit { bits = pattern.bits } }
                             } label: {
                                 VStack(spacing: 4) {
                                     FatBitsView(bits: pattern.bits, colorIndex: colorIndex)

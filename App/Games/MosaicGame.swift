@@ -6,6 +6,8 @@ import SwiftUI
 /// (their motif in their colour) and an eraser. Tap a cell to stamp it; tap the
 /// same stamp again to turn it a quarter turn; drag across cells to paint a
 /// run. Fill lays a random quilt from the palette, Clear empties the canvas.
+/// Undo takes back the last change, a shake does the same, and holding
+/// Undo offers Redo.
 /// The pencil at the end of the palette opens FatBits, where a stamp of
 /// your own is drawn bit by bit; those stamps join the palette and can be
 /// edited or removed by holding them. Holding a person's stamp opens their
@@ -27,6 +29,11 @@ struct MosaicGame: View {
     @State private var editing: FatBitsTarget?
     /// Cells painted so far in the current drag, so each is stamped once.
     @State private var painted = Set<Int>()
+    /// The canvas before each edit, for Undo and Redo. Not saved: it
+    /// starts fresh each time the mosaic is opened.
+    @State private var history = EditHistory<Mosaic>()
+    /// The canvas before the drag under way, recorded as one step at its end.
+    @State private var strokeStart: Mosaic?
 
     static let columns = TileLayout.columns
     /// Height kept clear under the canvas for the palette strip and buttons.
@@ -83,6 +90,7 @@ struct MosaicGame: View {
         .onChange(of: rows) { _, newRows in mosaic = mosaic.resized(rows: newRows) }
         .onChange(of: mosaic) { _, newValue in savedData = newValue.encoded() ?? Data() }
         .onChange(of: shelf) { _, newValue in savedShelfData = newValue.encoded() ?? Data() }
+        .onShake { if context.isShowing, editing == nil, history.canUndo { undo() } }
         .sheet(item: $editing) { target in
             switch target {
             case .shelf(let stamp):
@@ -92,7 +100,7 @@ struct MosaicGame: View {
             case .person(let id):
                 if let person = store.people.first(where: { $0.id == id }) {
                     PersonFatBitsEditor(person: person) { old, new in
-                        mosaic.swap(old, for: new)
+                        edit { mosaic.swap(old, for: new) }
                         selected = new
                     }
                 }
@@ -105,7 +113,7 @@ struct MosaicGame: View {
     private func save(_ stamp: MosaicStamp, replacing old: MosaicStamp?) {
         if let old {
             shelf.replace(old, with: stamp)
-            mosaic.swap(old, for: stamp)
+            edit { mosaic.swap(old, for: stamp) }
         } else {
             shelf.add(stamp)
         }
@@ -115,7 +123,7 @@ struct MosaicGame: View {
     /// Takes a FatBits stamp off the shelf and out of the canvas.
     private func remove(_ stamp: MosaicStamp) {
         shelf.remove(stamp)
-        mosaic.remove(stamp)
+        edit { mosaic.remove(stamp) }
         if selected?.sameLook(as: stamp) == true { selected = stamps.first }
     }
 
@@ -126,6 +134,26 @@ struct MosaicGame: View {
         mosaic = (saved ?? Mosaic(columns: Self.columns, rows: rows)).resized(rows: rows)
         shelf = FatBitsShelf.decoded(from: savedShelfData.isEmpty ? nil : savedShelfData) ?? FatBitsShelf()
         if selected == nil { selected = stamps.first }
+    }
+
+    // MARK: Undo
+
+    /// Makes an edit the user can take back: the canvas as it stands goes
+    /// on the history first.
+    private func edit(_ change: () -> Void) {
+        let before = mosaic
+        change()
+        if mosaic != before { history.record(before) }
+    }
+
+    private func undo() {
+        guard let previous = history.undo(current: mosaic) else { return }
+        withAnimation(.easeInOut(duration: 0.2)) { mosaic = previous }
+    }
+
+    private func redo() {
+        guard let next = history.redo(current: mosaic) else { return }
+        withAnimation(.easeInOut(duration: 0.2)) { mosaic = next }
     }
 
     // MARK: Cells
@@ -152,10 +180,12 @@ struct MosaicGame: View {
 
     private func tap(_ cell: Int) {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        if let selected {
-            mosaic.stamp(selected, at: cell)
-        } else {
-            mosaic.erase(at: cell)
+        edit {
+            if let selected {
+                mosaic.stamp(selected, at: cell)
+            } else {
+                mosaic.erase(at: cell)
+            }
         }
     }
 
@@ -166,11 +196,19 @@ struct MosaicGame: View {
             .onChanged { value in
                 guard context.isShowing, let cell = cell(at: value.location), !painted.contains(cell),
                       activeCells.contains(cell) else { return }
-                if painted.isEmpty { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+                if painted.isEmpty {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    strokeStart = mosaic
+                }
                 painted.insert(cell)
                 mosaic.place(selected, at: cell)
             }
-            .onEnded { _ in painted = [] }
+            .onEnded { _ in
+                painted = []
+                // A whole drag is one step.
+                if let strokeStart, strokeStart != mosaic { history.record(strokeStart) }
+                strokeStart = nil
+            }
     }
 
     // MARK: Palette strip
@@ -185,13 +223,25 @@ struct MosaicGame: View {
                 }
                 .padding(.horizontal, 4)
             }
+            CanvasActionButton(title: history.canRedo && !history.canUndo ? "Redo" : "Undo",
+                               systemImage: history.canRedo && !history.canUndo ? "arrow.uturn.forward" : "arrow.uturn.backward",
+                               hint: "Takes back the last change. Hold for Redo.",
+                               isEnabled: history.canUndo || history.canRedo) {
+                if history.canUndo { undo() } else { redo() }
+            }
+            .contextMenu {
+                Button { undo() } label: { Label("Undo", systemImage: "arrow.uturn.backward") }
+                    .disabled(!history.canUndo)
+                Button { redo() } label: { Label("Redo", systemImage: "arrow.uturn.forward") }
+                    .disabled(!history.canRedo)
+            }
             CanvasActionButton(title: "Fill", systemImage: "shuffle",
                                hint: "Lays a random quilt from the palette.") {
-                withAnimation(.easeInOut(duration: 0.3)) { mosaic.fill(from: allStamps, in: activeCells) }
+                withAnimation(.easeInOut(duration: 0.3)) { edit { mosaic.fill(from: allStamps, in: activeCells) } }
             }
             CanvasActionButton(title: "Clear", systemImage: "trash",
                                hint: "Empties the canvas.", isEnabled: !mosaic.isEmpty) {
-                withAnimation(.easeInOut(duration: 0.3)) { mosaic.clear() }
+                withAnimation(.easeInOut(duration: 0.3)) { edit { mosaic.clear() } }
             }
         }
         .padding(.horizontal, 16)
