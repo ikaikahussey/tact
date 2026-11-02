@@ -1,14 +1,12 @@
 import SwiftUI
 
 /// Creates a note from the list, optionally linked to several people; the
-/// + chip adds someone new.
+/// + chip opens a searchable picker that can also add someone new.
 struct NewNoteSheet: View {
     @EnvironmentObject private var store: TactStore
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
     @State private var selectedPersonIds: Set<UUID> = []
-    @State private var showingAddPerson = false
-    @State private var newPersonName = ""
     @FocusState private var textFocused: Bool
 
     private var trimmedText: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -26,7 +24,7 @@ struct NewNoteSheet: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("People")
                             .font(.tact(.caption)).foregroundStyle(.secondary).textCase(.uppercase)
-                        PersonChipRow(selectedPersonIds: $selectedPersonIds, onAdd: { showingAddPerson = true })
+                        PersonChipRow(selectedPersonIds: $selectedPersonIds)
                     }
                 }
                 .padding()
@@ -52,17 +50,6 @@ struct NewNoteSheet: View {
                 }
             }
             .onAppear { textFocused = true }
-            .alert("Add Person", isPresented: $showingAddPerson) {
-                TextField("Name", text: $newPersonName)
-                    .textInputAutocapitalization(.words)
-                Button("Cancel", role: .cancel) { newPersonName = "" }
-                Button("Add") {
-                    if let person = store.addPerson(named: newPersonName) {
-                        selectedPersonIds.insert(person.id)
-                    }
-                    newPersonName = ""
-                }
-            }
         }
         .presentationDetents([.medium, .large])
     }
