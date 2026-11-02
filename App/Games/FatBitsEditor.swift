@@ -513,7 +513,6 @@ struct FatBitsEditor: View {
                     namingPattern = true
                 }
                 .font(.tact(.footnote).weight(.semibold))
-                .disabled(bits.isBlank)
             }
             if !store.patternLibrary.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {

@@ -32,6 +32,12 @@ struct CustomPalette: Codable, Hashable {
             func linear(_ c: Double) -> Double { c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4) }
             return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
         }
+
+        /// Symbols and text drawn on this colour: black on a light one,
+        /// white on a dark one.
+        var onTop: Color {
+            luminance > 0.4 ? .black : .white
+        }
     }
 
     static let storageKey = "customPalette"
@@ -80,9 +86,7 @@ struct CustomPalette: Codable, Hashable {
 
     /// Symbols and text on the accent: white on a dark accent, black on a
     /// light one.
-    var onAccent: Color {
-        accent.luminance > 0.4 ? .black : .white
-    }
+    var onAccent: Color { accent.onTop }
 
     // MARK: Storage
 

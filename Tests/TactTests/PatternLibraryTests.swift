@@ -21,14 +21,14 @@ final class PatternLibraryTests: XCTestCase {
 
     // MARK: Library
 
-    func testAddNamesAndCleansAndRefusesBlank() {
+    func testAddNamesAndCleansAndKeepsBlank() {
         var library = PatternLibrary()
         let saved = library.add(drawing(0), named: "  Lei  ")
         XCTAssertEqual(saved?.name, "Lei")
         XCTAssertEqual(library.count, 1)
         XCTAssertEqual(library.add(drawing(1), named: "   ")?.name, "Pattern", "an empty name gets a stand-in")
-        XCTAssertNil(library.add(.blank, named: "Nothing"), "a blank drawing is not kept")
-        XCTAssertEqual(library.count, 2)
+        XCTAssertEqual(library.add(.blank, named: "Nothing")?.bits, .blank, "a blank drawing is a plain tile, and kept")
+        XCTAssertEqual(library.count, 3)
         XCTAssertEqual(library.add(drawing(2), named: String(repeating: "x", count: 100))?.name.count, 40)
     }
 
@@ -52,7 +52,7 @@ final class PatternLibraryTests: XCTestCase {
         library.update(id: a.id, bits: drawing(7))
         XCTAssertEqual(library[a.id]?.bits, drawing(7))
         library.update(id: a.id, bits: .blank)
-        XCTAssertEqual(library[a.id]?.bits, drawing(7), "a blank drawing does not replace one")
+        XCTAssertEqual(library[a.id]?.bits, .blank, "a pattern can be made blank")
         library.move(fromOffsets: IndexSet(integer: 1), toOffset: 0)
         XCTAssertEqual(library.patterns.map(\.id), [b.id, a.id])
         library.remove(id: b.id)

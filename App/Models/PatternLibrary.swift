@@ -57,12 +57,11 @@ struct PatternLibrary: Codable, Equatable {
     }
 
     /// Saves a drawing under a name. A drawing already saved is renamed
-    /// rather than saved twice; a blank drawing is not saved. When the
-    /// library is full the oldest pattern makes room. Returns the pattern
-    /// as kept, or nil when nothing was saved.
+    /// rather than saved twice. A blank drawing is a pattern like any
+    /// other: a plain tile, or in Monochrome a bare one. When the library
+    /// is full the oldest pattern makes room. Returns the pattern as kept.
     @discardableResult
     mutating func add(_ bits: FatBits, named name: String) -> SavedPattern? {
-        guard !bits.isBlank else { return nil }
         if let index = patterns.firstIndex(where: { $0.bits == bits }) {
             patterns[index].name = SavedPattern.cleaned(name)
             return patterns[index]
@@ -80,7 +79,7 @@ struct PatternLibrary: Codable, Equatable {
 
     /// Changes a saved pattern's drawing, keeping its name and place.
     mutating func update(id: UUID, bits: FatBits) {
-        guard let index = patterns.firstIndex(where: { $0.id == id }), !bits.isBlank else { return }
+        guard let index = patterns.firstIndex(where: { $0.id == id }) else { return }
         patterns[index].bits = bits
     }
 

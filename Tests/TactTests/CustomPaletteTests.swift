@@ -23,6 +23,38 @@ final class CustomPaletteTests: XCTestCase {
         XCTAssertEqual(nineties.accent.red, 0.58, accuracy: 0.01)
     }
 
+    func testMonochromeTakesAChosenAccentButKeepsItsInk() {
+        let plain = AppPalette.monochrome
+        XCTAssertNil(plain.monochromeAccent)
+        XCTAssertEqual(plain.accent, AppPalette.ink)
+        XCTAssertEqual(plain.onAccent, AppPalette.paper)
+
+        let coral = CustomPalette.RGB(red: 0.9, green: 0.3, blue: 0.2)
+        let accented = AppPalette(.monochrome, monochromeAccent: coral)
+        XCTAssertEqual(accented.accent, coral.color)
+        XCTAssertEqual(accented.onAccent, .white, "a dark accent takes white on top")
+        XCTAssertEqual(AppPalette(.monochrome, monochromeAccent: CustomPalette.RGB(red: 1, green: 0.9, blue: 0.3)).onAccent, .black)
+        for index in 0..<TileArt.colorCount {
+            XCTAssertEqual(accented.tileColor(index), AppPalette.ink, "tiles stay one bit")
+        }
+        XCTAssertNotEqual(accented, plain)
+
+        // Saved as JSON beside the palette; nothing saved means the ink.
+        let data = AppPalette.monochromeAccentData(coral)
+        XCTAssertEqual(AppPalette.monochromeAccent(data: data), coral)
+        XCTAssertEqual(AppPalette.monochromeAccentData(nil), Data())
+        XCTAssertNil(AppPalette.monochromeAccent(data: Data()))
+        XCTAssertNil(AppPalette.monochromeAccent(data: Data("junk".utf8)))
+        XCTAssertEqual(AppPalette(kind: .monochrome, customData: Data(), monochromeAccentData: data).accent, coral.color)
+        XCTAssertEqual(AppPalette(kind: .classic, customData: Data(), monochromeAccentData: data).accent,
+                       AppPalette.classic.accent, "only Monochrome wears it")
+
+        let defaults = TestSupport.defaults()
+        defaults.set("monochrome", forKey: AppPalette.storageKey)
+        defaults.set(data, forKey: AppPalette.monochromeAccentKey)
+        XCTAssertEqual(AppPalette.load(from: defaults).accent, coral.color)
+    }
+
     func testCustomPaletteDrawsWithItsOwnColours() {
         var colors = CustomPalette.standard
         colors.tiles[3] = CustomPalette.RGB(red: 0.1, green: 0.2, blue: 0.9)

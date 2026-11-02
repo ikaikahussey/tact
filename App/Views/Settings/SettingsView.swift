@@ -6,8 +6,23 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(AppPalette.storageKey) private var paletteKind: AppPalette.Kind = .classic
     @AppStorage(CustomPalette.storageKey) private var customColors = Data()
+    @AppStorage(AppPalette.monochromeAccentKey) private var monochromeAccentData = Data()
 
     private var customPalette: AppPalette { AppPalette(kind: .custom, customData: customColors) }
+
+    private var monochromeAccent: CustomPalette.RGB? {
+        get { AppPalette.monochromeAccent(data: monochromeAccentData) }
+        nonmutating set { monochromeAccentData = AppPalette.monochromeAccentData(newValue) }
+    }
+
+    /// Monochrome with its chosen accent, so its swatch rings in that colour.
+    private var monochromePalette: AppPalette { AppPalette(.monochrome, monochromeAccent: monochromeAccent) }
+
+    /// The palettes Settings offers, in order: the presets, with the user's
+    /// choices on Monochrome and Custom.
+    private var options: [AppPalette] {
+        AppPalette.presets.map { $0.isMonochrome ? monochromePalette : $0 } + [customPalette]
+    }
     @AppStorage(GameSounds.enabledKey) private var gameSoundsOn = true
     @AppStorage(DittyPlayer.playOnOpenKey) private var dittyOnOpen = DittyPlayer.playsOnOpen
 
@@ -18,7 +33,7 @@ struct SettingsView: View {
                     ScrollViewReader { proxy in
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(alignment: .top, spacing: 0) {
-                                ForEach(AppPalette.presets + [customPalette]) { option in
+                                ForEach(options) { option in
                                     Button { paletteKind = option.kind } label: {
                                         VStack(spacing: 6) {
                                             PaletteSwatch(palette: option, isSelected: option.kind == paletteKind)
@@ -41,6 +56,9 @@ struct SettingsView: View {
                         // Bring the chosen palette into view; Custom sits past the edge.
                         .onAppear { proxy.scrollTo(paletteKind.rawValue, anchor: .center) }
                     }
+                    if paletteKind == .monochrome {
+                        monochromeAccentRow
+                    }
                     NavigationLink {
                         CustomPaletteView()
                     } label: {
@@ -49,7 +67,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Colors")
                 } footer: {
-                    Text("Changes the colors of everyone's tiles and the app's buttons. Monochrome is one bit: ink on the page. Custom Colors are your own: pick each tile color and the accent.")
+                    Text("Changes the colors of everyone's tiles and the app's buttons. Monochrome is one bit: ink on the page, with an accent of your choosing for the buttons. Custom Colors are your own: pick each tile color and the accent.")
                 }
 
                 Section {
@@ -119,6 +137,42 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+
+    /// Monochrome's accent: a colour picker, and a way back to the ink once
+    /// a colour is chosen.
+    private var monochromeAccentRow: some View {
+        HStack {
+            ColorPicker(selection: monochromeAccentBinding, supportsOpacity: false) {
+                Label {
+                    Text("Accent")
+                } icon: {
+                    Image(systemName: "checkmark")
+                        .font(.tact(.caption).weight(.bold))
+                        .foregroundStyle(monochromePalette.onAccent)
+                        .frame(width: 28, height: 28)
+                        .background(monochromePalette.accent, in: RoundedRectangle(cornerRadius: 6))
+                }
+            }
+            if monochromeAccent != nil {
+                Button("Ink") {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    monochromeAccent = nil
+                }
+                .font(.tact(.footnote).weight(.semibold))
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.capsule)
+                .controlSize(.small)
+                .accessibilityLabel("Use Ink for the Accent")
+            }
+        }
+    }
+
+    private var monochromeAccentBinding: Binding<Color> {
+        Binding(
+            get: { monochromeAccent?.color ?? AppPalette.ink },
+            set: { monochromeAccent = CustomPalette.RGB($0) }
+        )
     }
 
     private var backupStatusText: String {

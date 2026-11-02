@@ -35,10 +35,14 @@ struct AppPalette: Hashable, Identifiable {
     let kind: Kind
     /// The user's colours; only the Custom palette draws with them.
     var custom: CustomPalette
+    /// The accent chosen for Monochrome, or nil for the ink. Tiles stay
+    /// one bit either way; only buttons and highlights take the colour.
+    var monochromeAccent: CustomPalette.RGB?
 
-    init(_ kind: Kind, custom: CustomPalette = .standard) {
+    init(_ kind: Kind, custom: CustomPalette = .standard, monochromeAccent: CustomPalette.RGB? = nil) {
         self.kind = kind
         self.custom = custom
+        self.monochromeAccent = monochromeAccent
     }
 
     static let classic = AppPalette(.classic)
@@ -52,21 +56,36 @@ struct AppPalette: Hashable, Identifiable {
     static let presets: [AppPalette] = Kind.allCases.filter { $0 != .custom }.map { AppPalette($0) }
 
     /// Where the chosen kind is kept; the custom colours sit beside it under
-    /// `CustomPalette.storageKey`.
+    /// `CustomPalette.storageKey`, and Monochrome's accent under
+    /// `monochromeAccentKey`.
     static let storageKey = "appPalette"
+    /// Monochrome's chosen accent as JSON; empty for the ink.
+    static let monochromeAccentKey = "monochromeAccent"
 
     /// The palette chosen in Settings, for code that can't read the environment.
     static var current: AppPalette { load(from: .standard) }
 
     static func load(from defaults: UserDefaults) -> AppPalette {
         let kind = defaults.string(forKey: storageKey).flatMap(Kind.init(rawValue:)) ?? .classic
-        return AppPalette(kind, custom: CustomPalette.load(from: defaults))
+        return AppPalette(kind, custom: CustomPalette.load(from: defaults),
+                          monochromeAccent: Self.monochromeAccent(data: defaults.data(forKey: monochromeAccentKey) ?? Data()))
     }
 
-    /// The palette as `@AppStorage` holds it: the kind and the custom
-    /// colours' JSON.
-    init(kind: Kind, customData: Data) {
-        self.init(kind, custom: CustomPalette(data: customData))
+    /// The palette as `@AppStorage` holds it: the kind, the custom colours'
+    /// JSON and Monochrome's accent.
+    init(kind: Kind, customData: Data, monochromeAccentData: Data = Data()) {
+        self.init(kind, custom: CustomPalette(data: customData),
+                  monochromeAccent: Self.monochromeAccent(data: monochromeAccentData))
+    }
+
+    /// Monochrome's saved accent, or nil when none is saved or it can't be read.
+    static func monochromeAccent(data: Data) -> CustomPalette.RGB? {
+        try? JSONDecoder().decode(CustomPalette.RGB.self, from: data)
+    }
+
+    /// Monochrome's accent as it is saved: the colour's JSON, or nothing for the ink.
+    static func monochromeAccentData(_ accent: CustomPalette.RGB?) -> Data {
+        accent.flatMap { try? JSONEncoder().encode($0) } ?? Data()
     }
 
     var id: String { kind.rawValue }
@@ -101,19 +120,20 @@ struct AppPalette: Hashable, Identifiable {
         case .earthy:  Color(red: 0.62, green: 0.36, blue: 0.22)
         case .jewel:   Color(red: 0.05, green: 0.45, blue: 0.47)
         case .nineties: Color(red: 0.58, green: 0.06, blue: 0.56)
-        case .monochrome: Self.ink
+        case .monochrome: monochromeAccent?.color ?? Self.ink
         case .custom: custom.accent.color
         }
     }
 
-    /// Symbols and text drawn on the accent. Classic's and Monochrome's
-    /// accents are black in light mode and white in dark mode, so what sits
-    /// on them flips the other way; the other presets' accents are dark
-    /// enough for white in both, and the Custom palette goes by how light its
-    /// accent is.
+    /// Symbols and text drawn on the accent. Classic's accent, and
+    /// Monochrome's unless one is chosen, are black in light mode and white
+    /// in dark mode, so what sits on them flips the other way; the other
+    /// presets' accents are dark enough for white in both, and a chosen
+    /// accent goes by how light it is.
     var onAccent: Color {
         switch kind {
-        case .classic, .monochrome: Self.paper
+        case .classic: Self.paper
+        case .monochrome: monochromeAccent?.onTop ?? Self.paper
         case .custom: custom.onAccent
         default: .white
         }
