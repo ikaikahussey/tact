@@ -70,7 +70,7 @@ final class TileArtTests: XCTestCase {
         }
         for style in [UIUserInterfaceStyle.light, .dark] {
             let traits = UITraitCollection(userInterfaceStyle: style)
-            for palette in AppPalette.allCases {
+            for palette in AppPalette.presets + [AppPalette(.custom, custom: CustomPalette(from: .jewel))] {
                 let accent = luminance(UIColor(palette.accent).resolvedColor(with: traits))
                 let symbol = luminance(UIColor(palette.onAccent).resolvedColor(with: traits))
                 let contrast = (max(accent, symbol) + 0.05) / (min(accent, symbol) + 0.05)
@@ -80,7 +80,7 @@ final class TileArtTests: XCTestCase {
     }
 
     func testEveryPaletteHasEveryTileColour() {
-        for palette in AppPalette.allCases {
+        for palette in AppPalette.presets + [AppPalette(.custom, custom: CustomPalette(from: .jewel))] {
             for index in 0..<TileArt.colorCount {
                 XCTAssertNotNil(UIColor(palette.tileColor(index)).cgColor, "\(palette) \(index)")
             }

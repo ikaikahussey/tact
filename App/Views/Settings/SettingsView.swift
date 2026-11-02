@@ -4,7 +4,10 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var store: TactStore
     @Environment(\.dismiss) private var dismiss
-    @AppStorage(AppPalette.storageKey) private var palette: AppPalette = .classic
+    @AppStorage(AppPalette.storageKey) private var paletteKind: AppPalette.Kind = .classic
+    @AppStorage(CustomPalette.storageKey) private var customColors = Data()
+
+    private var customPalette: AppPalette { AppPalette(kind: .custom, customData: customColors) }
     @AppStorage(GameSounds.enabledKey) private var gameSoundsOn = true
     @AppStorage(DittyPlayer.playOnOpenKey) private var dittyOnOpen = DittyPlayer.playsOnOpen
 
@@ -12,30 +15,41 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    HStack(alignment: .top, spacing: 0) {
-                        ForEach(AppPalette.allCases) { option in
-                            Button { palette = option } label: {
-                                VStack(spacing: 6) {
-                                    PaletteSwatch(palette: option, isSelected: option == palette)
-                                    Text(option.title)
-                                        .font(.tact(.caption))
-                                        .foregroundStyle(option == palette ? Color.primary : Color.secondary)
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.8)
+                    ScrollViewReader { proxy in
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(alignment: .top, spacing: 0) {
+                                ForEach(AppPalette.presets + [customPalette]) { option in
+                                    Button { paletteKind = option.kind } label: {
+                                        VStack(spacing: 6) {
+                                            PaletteSwatch(palette: option, isSelected: option.kind == paletteKind)
+                                            Text(option.title)
+                                                .font(.tact(.caption))
+                                                .foregroundStyle(option.kind == paletteKind ? Color.primary : Color.secondary)
+                                                .lineLimit(1)
+                                                .minimumScaleFactor(0.8)
+                                        }
+                                        .frame(width: 64)
+                                        .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityLabel(option.title)
+                                    .accessibilityAddTraits(option.kind == paletteKind ? .isSelected : [])
                                 }
-                                .frame(maxWidth: .infinity)
-                                .contentShape(Rectangle())
                             }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(option.title)
-                            .accessibilityAddTraits(option == palette ? .isSelected : [])
+                            .padding(.vertical, 6)
                         }
+                        // Bring the chosen palette into view; Custom sits past the edge.
+                        .onAppear { proxy.scrollTo(paletteKind.rawValue, anchor: .center) }
                     }
-                    .padding(.vertical, 6)
+                    NavigationLink {
+                        CustomPaletteView()
+                    } label: {
+                        LabeledContent("Custom Colors", value: paletteKind == .custom ? "In Use" : "")
+                    }
                 } header: {
                     Text("Colors")
                 } footer: {
-                    Text("Changes the colors of everyone's tiles and the app's buttons.")
+                    Text("Changes the colors of everyone's tiles and the app's buttons. Custom Colors are your own: pick each tile color and the accent.")
                 }
 
                 Section {

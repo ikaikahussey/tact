@@ -1,40 +1,77 @@
 import SwiftUI
 
 /// The app's colour scheme: the colours tiles are drawn in and the accent
-/// used for buttons and highlights. Every palette keeps the twelve tile
+/// used for buttons and highlights. Every preset keeps the twelve tile
 /// colours in the same order and roughly the same hue, so a tile keeps its
-/// colour name when the palette changes.
-enum AppPalette: String, CaseIterable, Identifiable {
-    case classic
-    case pastel
-    case earthy
-    case jewel
-    case nineties
-    case grayscale
+/// colour name when the palette changes. The Custom palette is the user's
+/// own: twelve tile colours and an accent picked in Settings, carried here
+/// so views redraw as they are changed.
+struct AppPalette: Hashable, Identifiable {
+    enum Kind: String, CaseIterable {
+        case classic
+        case pastel
+        case earthy
+        case jewel
+        case nineties
+        case grayscale
+        case custom
+    }
 
+    let kind: Kind
+    /// The user's colours; only the Custom palette draws with them.
+    var custom: CustomPalette
+
+    init(_ kind: Kind, custom: CustomPalette = .standard) {
+        self.kind = kind
+        self.custom = custom
+    }
+
+    static let classic = AppPalette(.classic)
+    static let pastel = AppPalette(.pastel)
+    static let earthy = AppPalette(.earthy)
+    static let jewel = AppPalette(.jewel)
+    static let nineties = AppPalette(.nineties)
+    static let grayscale = AppPalette(.grayscale)
+
+    /// The built-in palettes, in the order Settings shows them.
+    static let presets: [AppPalette] = Kind.allCases.filter { $0 != .custom }.map { AppPalette($0) }
+
+    /// Where the chosen kind is kept; the custom colours sit beside it under
+    /// `CustomPalette.storageKey`.
     static let storageKey = "appPalette"
 
     /// The palette chosen in Settings, for code that can't read the environment.
-    static var current: AppPalette {
-        UserDefaults.standard.string(forKey: storageKey).flatMap(AppPalette.init(rawValue:)) ?? .classic
+    static var current: AppPalette { load(from: .standard) }
+
+    static func load(from defaults: UserDefaults) -> AppPalette {
+        let kind = defaults.string(forKey: storageKey).flatMap(Kind.init(rawValue:)) ?? .classic
+        return AppPalette(kind, custom: CustomPalette.load(from: defaults))
     }
 
-    var id: String { rawValue }
+    /// The palette as `@AppStorage` holds it: the kind and the custom
+    /// colours' JSON.
+    init(kind: Kind, customData: Data) {
+        self.init(kind, custom: CustomPalette(data: customData))
+    }
+
+    var id: String { kind.rawValue }
+    var isCustom: Bool { kind == .custom }
 
     var title: String {
-        switch self {
+        switch kind {
         case .classic: "Classic"
         case .pastel:  "Pastel"
         case .earthy:  "Earthy"
         case .jewel:   "Jewel"
         case .nineties: "Nineties"
         case .grayscale: "Grayscale"
+        case .custom: "Custom"
         }
     }
 
     /// Buttons, selections and the tab bar. Dark enough for white symbols on top.
     var accent: Color {
-        switch self {
+        switch kind {
         // Named directly: `.tint(.accentColor)` falls back to system blue.
         case .classic: Color("AccentColor")
         case .pastel:  Color(red: 0.45, green: 0.38, blue: 0.72)
@@ -42,14 +79,20 @@ enum AppPalette: String, CaseIterable, Identifiable {
         case .jewel:   Color(red: 0.05, green: 0.45, blue: 0.47)
         case .nineties: Color(red: 0.58, green: 0.06, blue: 0.56)
         case .grayscale: Color(white: 0.22)
+        case .custom: custom.accent.color
         }
     }
 
     /// Symbols and text drawn on the accent. Classic's accent is black in light
     /// mode and white in dark mode, so what sits on it flips the other way;
-    /// the other accents are dark enough for white in both.
+    /// the other presets' accents are dark enough for white in both, and the
+    /// Custom palette goes by how light its accent is.
     var onAccent: Color {
-        self == .classic ? Color(uiColor: .systemBackground) : .white
+        switch kind {
+        case .classic: Color(uiColor: .systemBackground)
+        case .custom: custom.onAccent
+        default: .white
+        }
     }
 
     /// The Nineties, colour by colour: fuchsia, turquoise, lime and the rest
@@ -72,20 +115,25 @@ enum AppPalette: String, CaseIterable, Identifiable {
     /// Tile colour `index`, made from the classic colour of the same hue.
     /// Grayscale spreads the colours over shades of gray in menu order, so
     /// neighbours in the colour menu stay told apart; the Nineties has its
-    /// own colours outright.
+    /// own colours outright, and Custom the user's.
     func tileColor(_ index: Int) -> Color {
         let classic = TilePalette.colors[index]
-        guard self != .classic else { return classic }
-        if self == .nineties { return Self.ninetiesColors[index] }
-        if self == .grayscale {
+        switch kind {
+        case .classic:
+            return classic
+        case .custom:
+            return custom.tiles[index].color
+        case .nineties:
+            return Self.ninetiesColors[index]
+        case .grayscale:
             let step = Double(TilePalette.menuOrder.firstIndex(of: index) ?? index)
             return Color(white: 0.28 + 0.52 * step / Double(TilePalette.menuOrder.count - 1))
+        case .pastel, .earthy, .jewel:
+            break
         }
         var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
         UIColor(classic).getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
-        switch self {
-        case .classic, .grayscale, .nineties:
-            break
+        switch kind {
         case .pastel:
             saturation *= 0.45
             brightness = brightness * 0.35 + 0.65
@@ -95,6 +143,8 @@ enum AppPalette: String, CaseIterable, Identifiable {
         case .jewel:
             saturation = min(1, saturation * 1.15)
             brightness *= 0.66
+        default:
+            break
         }
         return Color(hue: hue, saturation: saturation, brightness: brightness)
     }
