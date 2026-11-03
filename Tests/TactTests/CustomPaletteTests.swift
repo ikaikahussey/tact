@@ -23,36 +23,42 @@ final class CustomPaletteTests: XCTestCase {
         XCTAssertEqual(nineties.accent.red, 0.58, accuracy: 0.01)
     }
 
-    func testMonochromeTakesAChosenAccentButKeepsItsInk() {
+    func testMonochromeDrawsEverythingInAChosenInk() {
         let plain = AppPalette.monochrome
-        XCTAssertNil(plain.monochromeAccent)
+        XCTAssertNil(plain.monochromeInk)
+        XCTAssertEqual(plain.ink, AppPalette.ink)
         XCTAssertEqual(plain.accent, AppPalette.ink)
         XCTAssertEqual(plain.onAccent, AppPalette.paper)
 
         let coral = CustomPalette.RGB(red: 0.9, green: 0.3, blue: 0.2)
-        let accented = AppPalette(.monochrome, monochromeAccent: coral)
-        XCTAssertEqual(accented.accent, coral.color)
-        XCTAssertEqual(accented.onAccent, .white, "a dark accent takes white on top")
-        XCTAssertEqual(AppPalette(.monochrome, monochromeAccent: CustomPalette.RGB(red: 1, green: 0.9, blue: 0.3)).onAccent, .black)
+        let red = AppPalette(.monochrome, monochromeInk: coral)
+        XCTAssertEqual(red.ink, coral.color)
+        XCTAssertEqual(red.accent, coral.color, "the accent is the ink")
+        XCTAssertEqual(red.onAccent, .white, "a dark ink takes white on top")
+        XCTAssertEqual(AppPalette(.monochrome, monochromeInk: CustomPalette.RGB(red: 1, green: 0.9, blue: 0.3)).onAccent, .black)
         for index in 0..<TileArt.colorCount {
-            XCTAssertEqual(accented.tileColor(index), AppPalette.ink, "tiles stay one bit")
+            XCTAssertEqual(red.tileColor(index), coral.color, "every tile is the ink")
         }
-        XCTAssertNotEqual(accented, plain)
+        let shades = TileShades(colorIndex: 4, palette: red)
+        XCTAssertEqual(shades.pale, .clear, "still one bit: the page shows through")
+        XCTAssertEqual(shades.base, coral.color)
+        XCTAssertEqual(shades.dark, coral.color)
+        XCTAssertNotEqual(red, plain)
 
-        // Saved as JSON beside the palette; nothing saved means the ink.
-        let data = AppPalette.monochromeAccentData(coral)
-        XCTAssertEqual(AppPalette.monochromeAccent(data: data), coral)
-        XCTAssertEqual(AppPalette.monochromeAccentData(nil), Data())
-        XCTAssertNil(AppPalette.monochromeAccent(data: Data()))
-        XCTAssertNil(AppPalette.monochromeAccent(data: Data("junk".utf8)))
-        XCTAssertEqual(AppPalette(kind: .monochrome, customData: Data(), monochromeAccentData: data).accent, coral.color)
-        XCTAssertEqual(AppPalette(kind: .classic, customData: Data(), monochromeAccentData: data).accent,
-                       AppPalette.classic.accent, "only Monochrome wears it")
+        // Saved as JSON beside the palette; nothing saved means black and white.
+        let data = AppPalette.monochromeInkData(coral)
+        XCTAssertEqual(AppPalette.monochromeInk(data: data), coral)
+        XCTAssertEqual(AppPalette.monochromeInkData(nil), Data())
+        XCTAssertNil(AppPalette.monochromeInk(data: Data()))
+        XCTAssertNil(AppPalette.monochromeInk(data: Data("junk".utf8)))
+        XCTAssertEqual(AppPalette(kind: .monochrome, customData: Data(), monochromeInkData: data).ink, coral.color)
+        XCTAssertEqual(AppPalette(kind: .classic, customData: Data(), monochromeInkData: data).tileColor(0),
+                       AppPalette.classic.tileColor(0), "only Monochrome wears it")
 
         let defaults = TestSupport.defaults()
         defaults.set("monochrome", forKey: AppPalette.storageKey)
-        defaults.set(data, forKey: AppPalette.monochromeAccentKey)
-        XCTAssertEqual(AppPalette.load(from: defaults).accent, coral.color)
+        defaults.set(data, forKey: AppPalette.monochromeInkKey)
+        XCTAssertEqual(AppPalette.load(from: defaults).ink, coral.color)
     }
 
     func testCustomPaletteDrawsWithItsOwnColours() {

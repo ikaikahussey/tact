@@ -35,14 +35,15 @@ struct AppPalette: Hashable, Identifiable {
     let kind: Kind
     /// The user's colours; only the Custom palette draws with them.
     var custom: CustomPalette
-    /// The accent chosen for Monochrome, or nil for the ink. Tiles stay
-    /// one bit either way; only buttons and highlights take the colour.
-    var monochromeAccent: CustomPalette.RGB?
+    /// The ink chosen for Monochrome, or nil for black on white and white
+    /// on black. Monochrome stays one bit: the colour is the whole of it,
+    /// on tiles and buttons alike, against the bare page.
+    var monochromeInk: CustomPalette.RGB?
 
-    init(_ kind: Kind, custom: CustomPalette = .standard, monochromeAccent: CustomPalette.RGB? = nil) {
+    init(_ kind: Kind, custom: CustomPalette = .standard, monochromeInk: CustomPalette.RGB? = nil) {
         self.kind = kind
         self.custom = custom
-        self.monochromeAccent = monochromeAccent
+        self.monochromeInk = monochromeInk
     }
 
     static let classic = AppPalette(.classic)
@@ -56,11 +57,11 @@ struct AppPalette: Hashable, Identifiable {
     static let presets: [AppPalette] = Kind.allCases.filter { $0 != .custom }.map { AppPalette($0) }
 
     /// Where the chosen kind is kept; the custom colours sit beside it under
-    /// `CustomPalette.storageKey`, and Monochrome's accent under
-    /// `monochromeAccentKey`.
+    /// `CustomPalette.storageKey`, and Monochrome's ink under
+    /// `monochromeInkKey`.
     static let storageKey = "appPalette"
-    /// Monochrome's chosen accent as JSON; empty for the ink.
-    static let monochromeAccentKey = "monochromeAccent"
+    /// Monochrome's chosen ink as JSON; empty for black and white.
+    static let monochromeInkKey = "monochromeInk"
 
     /// The palette chosen in Settings, for code that can't read the environment.
     static var current: AppPalette { load(from: .standard) }
@@ -68,24 +69,24 @@ struct AppPalette: Hashable, Identifiable {
     static func load(from defaults: UserDefaults) -> AppPalette {
         let kind = defaults.string(forKey: storageKey).flatMap(Kind.init(rawValue:)) ?? .classic
         return AppPalette(kind, custom: CustomPalette.load(from: defaults),
-                          monochromeAccent: Self.monochromeAccent(data: defaults.data(forKey: monochromeAccentKey) ?? Data()))
+                          monochromeInk: Self.monochromeInk(data: defaults.data(forKey: monochromeInkKey) ?? Data()))
     }
 
     /// The palette as `@AppStorage` holds it: the kind, the custom colours'
-    /// JSON and Monochrome's accent.
-    init(kind: Kind, customData: Data, monochromeAccentData: Data = Data()) {
+    /// JSON and Monochrome's ink.
+    init(kind: Kind, customData: Data, monochromeInkData: Data = Data()) {
         self.init(kind, custom: CustomPalette(data: customData),
-                  monochromeAccent: Self.monochromeAccent(data: monochromeAccentData))
+                  monochromeInk: Self.monochromeInk(data: monochromeInkData))
     }
 
-    /// Monochrome's saved accent, or nil when none is saved or it can't be read.
-    static func monochromeAccent(data: Data) -> CustomPalette.RGB? {
+    /// Monochrome's saved ink, or nil when none is saved or it can't be read.
+    static func monochromeInk(data: Data) -> CustomPalette.RGB? {
         try? JSONDecoder().decode(CustomPalette.RGB.self, from: data)
     }
 
-    /// Monochrome's accent as it is saved: the colour's JSON, or nothing for the ink.
-    static func monochromeAccentData(_ accent: CustomPalette.RGB?) -> Data {
-        accent.flatMap { try? JSONEncoder().encode($0) } ?? Data()
+    /// Monochrome's ink as it is saved: the colour's JSON, or nothing for black and white.
+    static func monochromeInkData(_ ink: CustomPalette.RGB?) -> Data {
+        ink.flatMap { try? JSONEncoder().encode($0) } ?? Data()
     }
 
     var id: String { kind.rawValue }
@@ -93,8 +94,10 @@ struct AppPalette: Hashable, Identifiable {
     /// One bit: tiles are ink on whatever is behind them, with no shades.
     var isMonochrome: Bool { kind == .monochrome }
 
-    /// Monochrome's ink: black in light mode, white in dark.
+    /// Monochrome's ink unless one is chosen: black in light mode, white in dark.
     static let ink = Color(uiColor: .label)
+    /// Monochrome's ink: the chosen colour, or black and white.
+    var ink: Color { monochromeInk?.color ?? Self.ink }
     /// What Monochrome leaves bare, for the places a tile needs something
     /// readable behind text.
     static let paper = Color(uiColor: .systemBackground)
@@ -120,20 +123,20 @@ struct AppPalette: Hashable, Identifiable {
         case .earthy:  Color(red: 0.62, green: 0.36, blue: 0.22)
         case .jewel:   Color(red: 0.05, green: 0.45, blue: 0.47)
         case .nineties: Color(red: 0.58, green: 0.06, blue: 0.56)
-        case .monochrome: monochromeAccent?.color ?? Self.ink
+        case .monochrome: ink
         case .custom: custom.accent.color
         }
     }
 
     /// Symbols and text drawn on the accent. Classic's accent, and
-    /// Monochrome's unless one is chosen, are black in light mode and white
-    /// in dark mode, so what sits on them flips the other way; the other
-    /// presets' accents are dark enough for white in both, and a chosen
-    /// accent goes by how light it is.
+    /// Monochrome's ink unless one is chosen, are black in light mode and
+    /// white in dark mode, so what sits on them flips the other way; the
+    /// other presets' accents are dark enough for white in both, and a
+    /// chosen ink goes by how light it is.
     var onAccent: Color {
         switch kind {
         case .classic: Self.paper
-        case .monochrome: monochromeAccent?.onTop ?? Self.paper
+        case .monochrome: monochromeInk?.onTop ?? Self.paper
         case .custom: custom.onAccent
         default: .white
         }
@@ -170,7 +173,7 @@ struct AppPalette: Hashable, Identifiable {
         case .nineties:
             return Self.ninetiesColors[index]
         case .monochrome:
-            return Self.ink
+            return ink
         case .pastel, .earthy, .jewel:
             break
         }
@@ -211,7 +214,7 @@ extension AppPalette {
     /// Monochrome, having one colour, shows as half ink and half bare.
     var gradient: LinearGradient {
         if isMonochrome {
-            return LinearGradient(stops: [.init(color: Self.ink, location: 0), .init(color: Self.ink, location: 0.5),
+            return LinearGradient(stops: [.init(color: ink, location: 0), .init(color: ink, location: 0.5),
                                           .init(color: Self.paper, location: 0.5), .init(color: Self.paper, location: 1)],
                                   startPoint: .leading, endPoint: .trailing)
         }

@@ -6,17 +6,17 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(AppPalette.storageKey) private var paletteKind: AppPalette.Kind = .classic
     @AppStorage(CustomPalette.storageKey) private var customColors = Data()
-    @AppStorage(AppPalette.monochromeAccentKey) private var monochromeAccentData = Data()
+    @AppStorage(AppPalette.monochromeInkKey) private var monochromeInkData = Data()
 
     private var customPalette: AppPalette { AppPalette(kind: .custom, customData: customColors) }
 
-    private var monochromeAccent: CustomPalette.RGB? {
-        get { AppPalette.monochromeAccent(data: monochromeAccentData) }
-        nonmutating set { monochromeAccentData = AppPalette.monochromeAccentData(newValue) }
+    private var monochromeInk: CustomPalette.RGB? {
+        get { AppPalette.monochromeInk(data: monochromeInkData) }
+        nonmutating set { monochromeInkData = AppPalette.monochromeInkData(newValue) }
     }
 
-    /// Monochrome with its chosen accent, so its swatch rings in that colour.
-    private var monochromePalette: AppPalette { AppPalette(.monochrome, monochromeAccent: monochromeAccent) }
+    /// Monochrome in its chosen ink, so its swatch shows that colour.
+    private var monochromePalette: AppPalette { AppPalette(.monochrome, monochromeInk: monochromeInk) }
 
     /// The palettes Settings offers, in order: the presets, with the user's
     /// choices on Monochrome and Custom.
@@ -57,7 +57,7 @@ struct SettingsView: View {
                         .onAppear { proxy.scrollTo(paletteKind.rawValue, anchor: .center) }
                     }
                     if paletteKind == .monochrome {
-                        monochromeAccentRow
+                        monochromeInkRow
                     }
                     NavigationLink {
                         CustomPaletteView()
@@ -67,7 +67,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Colors")
                 } footer: {
-                    Text("Changes the colors of everyone's tiles and the app's buttons. Monochrome is one bit: ink on the page, with an accent of your choosing for the buttons. Custom Colors are your own: pick each tile color and the accent.")
+                    Text("Changes the colors of everyone's tiles and the app's buttons. Monochrome is one bit: ink on the page, and you choose the ink. Custom Colors are your own: pick each tile color and the accent.")
                 }
 
                 Section {
@@ -139,39 +139,38 @@ struct SettingsView: View {
         }
     }
 
-    /// Monochrome's accent: a colour picker, and a way back to the ink once
-    /// a colour is chosen.
-    private var monochromeAccentRow: some View {
+    /// Monochrome's ink: a colour picker with a tile drawn in the ink, and
+    /// a way back to black and white once a colour is chosen.
+    private var monochromeInkRow: some View {
         HStack {
-            ColorPicker(selection: monochromeAccentBinding, supportsOpacity: false) {
+            ColorPicker(selection: monochromeInkBinding, supportsOpacity: false) {
                 Label {
-                    Text("Accent")
+                    Text("Ink")
                 } icon: {
-                    Image(systemName: "checkmark")
-                        .font(.tact(.caption).weight(.bold))
-                        .foregroundStyle(monochromePalette.onAccent)
+                    TileMotifView(bits: nil, pattern: .arcs, colorIndex: 0)
                         .frame(width: 28, height: 28)
-                        .background(monochromePalette.accent, in: RoundedRectangle(cornerRadius: 6))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .environment(\.appPalette, monochromePalette)
                 }
             }
-            if monochromeAccent != nil {
-                Button("Ink") {
+            if monochromeInk != nil {
+                Button("Black") {
                     UISelectionFeedbackGenerator().selectionChanged()
-                    monochromeAccent = nil
+                    monochromeInk = nil
                 }
                 .font(.tact(.footnote).weight(.semibold))
                 .buttonStyle(.bordered)
                 .buttonBorderShape(.capsule)
                 .controlSize(.small)
-                .accessibilityLabel("Use Ink for the Accent")
+                .accessibilityLabel("Use Black Ink")
             }
         }
     }
 
-    private var monochromeAccentBinding: Binding<Color> {
+    private var monochromeInkBinding: Binding<Color> {
         Binding(
-            get: { monochromeAccent?.color ?? AppPalette.ink },
-            set: { monochromeAccent = CustomPalette.RGB($0) }
+            get: { monochromePalette.ink },
+            set: { monochromeInk = CustomPalette.RGB($0) }
         )
     }
 
