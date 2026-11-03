@@ -45,13 +45,15 @@ enum TactLogoGrid {
 }
 
 /// Draws the Tact logo as tiles. `.wordmark` is the whole word; `.mark` is
-/// the first T. `tileColor` lets a theme supply its own colours.
+/// the first T. The tiles take the palette's colours, so in Monochrome the
+/// logo is the ink; `tileColor` lets a theme supply its own instead.
 struct TactLogo: View {
     enum Variant { case wordmark, mark }
 
     var variant: Variant = .wordmark
     var height: CGFloat = 16
-    var tileColor: (Int) -> Color = { TilePalette.color($0) }
+    var tileColor: ((Int) -> Color)? = nil
+    @Environment(\.appPalette) private var palette
 
     private var columns: Int { variant == .wordmark ? TactLogoGrid.columns : TactLogoGrid.markColumns }
     private var tiles: [TactLogoGrid.Tile] { variant == .wordmark ? TactLogoGrid.tiles : TactLogoGrid.markTiles }
@@ -66,7 +68,7 @@ struct TactLogo: View {
                 let rect = CGRect(x: CGFloat(tile.column) * pitch + inset,
                                   y: CGFloat(tile.row) * pitch + inset,
                                   width: side, height: side)
-                context.fill(Path(rect), with: .color(tileColor(tile.colorIndex)))
+                context.fill(Path(rect), with: .color(tileColor?(tile.colorIndex) ?? palette.tileColor(tile.colorIndex)))
             }
         }
         .frame(width: pitch * CGFloat(columns), height: height)
