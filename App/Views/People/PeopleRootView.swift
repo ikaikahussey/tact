@@ -25,15 +25,11 @@ struct PeopleRootView: View {
     @State private var addPersonCell: Int?
     /// What the canvas shows right now. Mode changes are staged through the
     /// tiles: a game flips them over, and any other mode flips them back
-    /// before the list fades in, so every change passes through the flip.
+    /// before the list slides in, so every change passes through the flip.
     @State private var canvasShowsGames = false
-    /// The list is in the hierarchy (laid out, so its rows report where
-    /// their avatars are) and whether it can be seen.
+    /// The list is on screen. The whole screen slides like a page: the
+    /// canvas goes off to the left as the list comes in from the right.
     @State private var showsList = false
-    @State private var listVisible = false
-    /// Tiles sliding between their grid cells and their list rows.
-    @State private var flight: TileFlight?
-    @State private var avatarFrames = AvatarFrames()
     @State private var stagedChange = 0
     /// The view is changing because of what was searched for, so the
     /// search must survive the change.
@@ -45,6 +41,8 @@ struct PeopleRootView: View {
     /// How long the whole wave takes: the last cell's stagger plus one turn.
     static let flipDuration = TileFlipFace.delay(forCell: TileLayout.columns * 4 - 1, columns: TileLayout.columns)
         + TileFlipFace.halfDuration * 2
+    /// The page slide between the tiles and the list.
+    static let slideDuration = 0.4
     private var query: String { isSearching ? searchText : "" }
 
     var body: some View {
@@ -55,12 +53,12 @@ struct PeopleRootView: View {
                 if isSearching {
                     recentTags
                 }
+                let slidOff = showsList && !reduceMotion
                 ZStack {
                     // The grid and the games share one canvas: a game is the
                     // back of the tiles, and choosing one turns them over. The
-                    // canvas stays while the list shows, so games keep their
-                    // progress. While tiles are in flight both the canvas and
-                    // the list are hidden and the overlay carries the tiles.
+                    // canvas stays while the list shows, slid off to the left,
+                    // so games keep their progress.
                     ZStack {
                         PeopleGridContent(query: query, isEditing: editMode.isEditing && !showsList,
                                           isListening: listening && !showsList,
@@ -81,23 +79,18 @@ struct PeopleRootView: View {
                         }
                         GamesSurface(showing: canvasShowsGames, selectedGameID: selectedGameID)
                     }
-                    .opacity(flight == nil && !listVisible ? 1 : 0)
-                    .allowsHitTesting(!showsList && flight == nil)
+                    .visualEffect { content, proxy in
+                        content.offset(x: slidOff ? -proxy.size.width : 0)
+                    }
+                    .opacity(showsList && reduceMotion ? 0 : 1)
+                    .allowsHitTesting(!showsList)
                     .accessibilityHidden(showsList)
                     if showsList {
                         PeopleListContent(query: query, editMode: $editMode, isListening: listening)
-                            .opacity(listVisible ? 1 : 0)
-                            .allowsHitTesting(listVisible)
+                            .transition(reduceMotion ? .opacity : .move(edge: .trailing))
+                            .zIndex(1)
                     }
                 }
-                .animation(.easeInOut(duration: 0.15), value: listVisible)
-                .overlayPreferenceValue(TileAnchors.self) { tiles in
-                    if let flight {
-                        TileFlightOverlay(flight: flight, people: store.people, tiles: tiles,
-                                          avatars: avatarFrames.frames)
-                    }
-                }
-                .environment(avatarFrames)
             }
             .safeAreaInset(edge: .bottom) {
                 Group {
@@ -140,7 +133,6 @@ struct PeopleRootView: View {
             .onAppear {
                 canvasShowsGames = layout == .games
                 showsList = layout == .list
-                listVisible = showsList
             }
             .onChange(of: layout) { from, to in
                 stage(from: from, to: to)
@@ -291,8 +283,8 @@ struct PeopleRootView: View {
     }
 
     /// Moves the canvas to `to` in steps. Leaving a game turns the tiles
-    /// back first, then the tiles slide into their list rows; leaving the
-    /// list slides them back to their cells, then a game turns them over.
+    /// back first, then the screen slides over to the list; leaving the
+    /// list slides back to the tiles, then a game turns them over.
     private func stage(from: PeopleLayout, to: PeopleLayout) {
         stagedChange += 1
         let change = stagedChange
@@ -302,46 +294,25 @@ struct PeopleRootView: View {
                 if stagedChange == change { action() }
             }
         }
-        /// Tiles fly from the grid into the list. The list is laid out
-        /// unseen first so its rows can say where their avatars are.
-        func flyToList() {
-            showsList = true
-            listVisible = false
-            guard !reduceMotion else { listVisible = true; return }
-            later(0.08) {
-                flight = TileFlight(toList: true)
-                later(0.02) { withAnimation { flight?.progress = 1 } }
-                later(TileFlight.duration + 0.05) {
-                    listVisible = true
-                    flight = nil
-                }
-            }
+        /// Slides the whole screen to the list or back to the tiles. With
+        /// Reduce Motion the two cross-fade instead.
+        func slide(toList: Bool) {
+            let animation: Animation = reduceMotion ? .easeInOut(duration: 0.2) : .smooth(duration: Self.slideDuration)
+            withAnimation(animation) { showsList = toList }
         }
-        /// Tiles fly from the list back to the grid, then `then` runs.
-        func flyToGrid(then: @escaping () -> Void) {
-            listVisible = false
-            guard !reduceMotion else { showsList = false; then(); return }
-            flight = TileFlight(toList: false)
-            later(0.02) { withAnimation { flight?.progress = 1 } }
-            later(TileFlight.duration + 0.05) {
-                showsList = false
-                flight = nil
-                then()
-            }
-        }
-        flight = nil
         switch (from, to) {
         case (.games, .list):
             canvasShowsGames = false
-            later(Self.flipDuration) { flyToList() }
+            later(Self.flipDuration) { slide(toList: true) }
         case (.list, .games):
-            flyToGrid { later(0.1) { canvasShowsGames = true } }
+            slide(toList: false)
+            later(Self.slideDuration) { canvasShowsGames = true }
         case (.list, _):
-            flyToGrid {}
+            slide(toList: false)
         case (_, .games):
             canvasShowsGames = true
         case (_, .list):
-            flyToList()
+            slide(toList: true)
         default:
             canvasShowsGames = false
         }

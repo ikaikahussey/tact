@@ -168,7 +168,6 @@ struct PeopleGridContent: View {
 
                     ForEach(items.tiles, id: \.person.id) { placed in
                         tile(for: placed.person, size: squareSize)
-                            .anchorPreference(key: TileAnchors.self, value: .bounds) { [placed.person.id: $0] }
                             .modifier(TileFlipFace(side: .front, showingBack: showingGames && tilesTurned,
                                                    delay: TileFlipFace.delay(forCell: placed.cell, columns: columns)))
                             .dropDestination(for: String.self) { items, _ in

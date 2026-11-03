@@ -16,7 +16,6 @@ struct PeopleListContent: View {
 
     @EnvironmentObject private var store: TactStore
     @Environment(\.pushRoute) private var pushRoute
-    @Environment(AvatarFrames.self) private var avatarFrames
     @AppStorage(ListGrouping.storageKey) private var grouping: ListGrouping = .person
     @State private var addingNoteFor: Person?
 
@@ -127,10 +126,6 @@ struct PeopleListContent: View {
         } label: {
             HStack(spacing: 10) {
                 PersonAvatar(person: section.person, size: 28)
-                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-                        avatarFrames.frames[section.person.id] = frame
-                    }
-                    .onDisappear { avatarFrames.frames[section.person.id] = nil }
                 // Section headers dim their text; the name is a row, so it stays dark.
                 Text(section.person.name)
                     .font(.tact(.headline))

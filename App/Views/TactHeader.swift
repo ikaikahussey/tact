@@ -144,7 +144,7 @@ struct HeaderIconButton: View {
     }
 }
 
-/// The bottom navigation: one capsule at the left thumb with People and
+/// The bottom navigation: one capsule centred at the bottom with People and
 /// Notes. The games are the back of the People tiles, so they live in the
 /// People segment rather than beside it: with Tiles showing, tapping the
 /// segment again lists the games (so does holding it from anywhere), and
@@ -179,8 +179,8 @@ struct ViewSwitch: View {
                 }
             }
             .accessibilityLabel("View")
-            Spacer()
         }
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, 16)
     }
 
