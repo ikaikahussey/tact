@@ -140,7 +140,7 @@ struct SettingsView: View {
     }
 
     /// Monochrome's ink: a colour picker with a tile drawn in the ink, and
-    /// a way back to black and white once a colour is chosen.
+    /// an undo once a colour is chosen, back to black and white.
     private var monochromeInkRow: some View {
         HStack {
             ColorPicker(selection: monochromeInkBinding, supportsOpacity: false) {
@@ -154,15 +154,17 @@ struct SettingsView: View {
                 }
             }
             if monochromeInk != nil {
-                Button("Black") {
+                Button {
                     UISelectionFeedbackGenerator().selectionChanged()
                     monochromeInk = nil
+                } label: {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.tact(.footnote).weight(.semibold))
                 }
-                .font(.tact(.footnote).weight(.semibold))
                 .buttonStyle(.bordered)
-                .buttonBorderShape(.capsule)
+                .buttonBorderShape(.circle)
                 .controlSize(.small)
-                .accessibilityLabel("Use Black Ink")
+                .accessibilityLabel("Revert to Black Ink")
             }
         }
     }
