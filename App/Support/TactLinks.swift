@@ -5,5 +5,5 @@ import Foundation
 enum TactLinks {
     /// Set this to the published privacy policy before submitting; it must
     /// match the Privacy Policy URL entered in App Store Connect.
-    static let privacyPolicy = URL(string: "https://tact.bitrig.app/privacy")!
+    static let privacyPolicy = URL(string: "https://tact.addhomonym.com/privacy/")!
 }
