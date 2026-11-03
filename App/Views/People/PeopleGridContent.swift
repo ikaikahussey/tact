@@ -119,16 +119,6 @@ struct PeopleGridContent: View {
             } message: {
                 Text("Notes linked only to this person are deleted too. Notes shared with other people are kept.")
             }
-            .overlay {
-                if store.people.isEmpty && !showingGames {
-                    ContentUnavailableView {
-                        Label("No People Yet", systemImage: "square.grid.2x2")
-                    } description: {
-                        Text("Tap + to add someone. Each person becomes a patterned tile: tap it to open them, or touch and hold to change its color.")
-                    }
-                    .allowsHitTesting(false)
-                }
-            }
     }
 
     private var tiles: some View {
@@ -164,6 +154,26 @@ struct PeopleGridContent: View {
                             }
                             .offset(origin(cell))
                             .accessibilityHidden(true)
+                    }
+
+                    // Nobody yet: the first cell blinks like a cursor, and
+                    // a tap adds the first person there.
+                    if store.people.isEmpty && !showingGames {
+                        Button {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            onAddPerson(0)
+                        } label: {
+                            Rectangle()
+                                .fill(palette.accent)
+                                .frame(width: squareSize, height: squareSize)
+                                .cursorBlink()
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .offset(origin(0))
+                        .accessibilityLabel("Add Your First Person")
+                        .accessibilityHint("Each person becomes a patterned tile")
+                        .transition(.opacity)
                     }
 
                     ForEach(items.tiles, id: \.person.id) { placed in

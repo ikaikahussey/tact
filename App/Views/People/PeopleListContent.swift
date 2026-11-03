@@ -18,6 +18,7 @@ struct PeopleListContent: View {
     @Environment(\.pushRoute) private var pushRoute
     @AppStorage(ListGrouping.storageKey) private var grouping: ListGrouping = .person
     @State private var addingNoteFor: Person?
+    @State private var showingNewNote = false
 
     private var sections: [PersonSection] {
         PeopleSearch.sections(people: store.people, notes: store.notes, query: query)
@@ -63,19 +64,9 @@ struct PeopleListContent: View {
         .animation(.snappy, value: editMode)
         .animation(.snappy, value: grouping)
         .overlay {
-            if store.people.isEmpty {
-                ContentUnavailableView {
-                    Label("No People Yet", systemImage: "person.2")
-                } description: {
-                    Text("Tap + to write a note, or switch to the grid to add someone.")
-                }
-            } else if isEmpty && !editMode.isEditing {
+            if isEmpty && !editMode.isEditing {
                 if query.isEmpty {
-                    ContentUnavailableView {
-                        Label("No Notes Yet", systemImage: "note.text")
-                    } description: {
-                        Text("Tap + to write a note about someone.")
-                    }
+                    newNoteCursor
                 } else {
                     ContentUnavailableView.search(text: query)
                 }
@@ -84,6 +75,24 @@ struct PeopleListContent: View {
         .sheet(item: $addingNoteFor) { person in
             AddNoteView(personID: person.id)
         }
+        .sheet(isPresented: $showingNewNote) { NewNoteSheet() }
+    }
+
+    /// No notes yet: a + blinks like a cursor, and a tap starts the first note.
+    private var newNoteCursor: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            showingNewNote = true
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 64, weight: .black))
+                .foregroundStyle(.tint)
+                .cursorBlink()
+                .frame(width: 120, height: 120)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Write Your First Note")
     }
 
     /// By Person or Recent, as a segmented control in the list's first row.
