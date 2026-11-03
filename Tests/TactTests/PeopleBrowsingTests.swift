@@ -24,6 +24,50 @@ final class PeopleBrowsingTests: XCTestCase {
         store.setNoteDate(id: graceNote.id, to: Date(timeIntervalSince1970: 1_500))
     }
 
+    // MARK: Recent grouping
+
+    func testRecentBucketsRunFromTodayToEarlier() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 11, day: 3, hour: 12))!
+        func ago(days: Int = 0, hours: Int = 0) -> Date {
+            calendar.date(byAdding: DateComponents(day: -days, hour: -hours), to: now)!
+        }
+        XCTAssertEqual(RecentBucket(now, now: now, calendar: calendar), .today)
+        XCTAssertEqual(RecentBucket(ago(hours: 11), now: now, calendar: calendar), .today)
+        XCTAssertEqual(RecentBucket(ago(days: 1), now: now, calendar: calendar), .yesterday)
+        XCTAssertEqual(RecentBucket(ago(days: 1, hours: 11), now: now, calendar: calendar), .yesterday)
+        XCTAssertEqual(RecentBucket(ago(days: 2), now: now, calendar: calendar), .thisWeek)
+        XCTAssertEqual(RecentBucket(ago(days: 6), now: now, calendar: calendar), .thisWeek)
+        XCTAssertEqual(RecentBucket(ago(days: 8), now: now, calendar: calendar), .thisMonth)
+        XCTAssertEqual(RecentBucket(ago(days: 29), now: now, calendar: calendar), .thisMonth)
+        XCTAssertEqual(RecentBucket(ago(days: 40), now: now, calendar: calendar), .earlier)
+        XCTAssertEqual(RecentBucket(ago(days: -3), now: now, calendar: calendar), .today, "a date ahead counts as today")
+        XCTAssertEqual(RecentBucket.allCases, [.today, .yesterday, .thisWeek, .thisMonth, .earlier])
+        XCTAssertEqual(ListGrouping.allCases.map(\.title), ["By Person", "Recent"])
+        XCTAssertEqual(ListGrouping(rawValue: "recent"), .recent)
+    }
+
+    func testRecentSectionsHoldTheNotesNewestFirstAndFollowTheSearch() {
+        let calendar = Calendar.current
+        let now = Date()
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: now)!
+        store.setNoteDate(id: newNote.id, to: now.addingTimeInterval(-60))
+        store.setNoteDate(id: graceNote.id, to: now.addingTimeInterval(-30))
+        store.setNoteDate(id: oldNote.id, to: yesterday)
+
+        let sections = PeopleSearch.recentSections(people: store.people, notes: store.notes, query: "", now: now)
+        XCTAssertEqual(sections.map(\.bucket), [.today, .yesterday], "empty buckets are left out")
+        XCTAssertEqual(sections[0].notes.map(\.id), [graceNote.id, newNote.id], "newest first")
+        XCTAssertEqual(sections[1].notes.map(\.id), [oldNote.id])
+
+        let byText = PeopleSearch.recentSections(people: store.people, notes: store.notes, query: "coffee", now: now)
+        XCTAssertEqual(byText.flatMap(\.notes).map(\.id), [newNote.id])
+        let byName = PeopleSearch.recentSections(people: store.people, notes: store.notes, query: "ada", now: now)
+        XCTAssertEqual(byName.flatMap(\.notes).map(\.id), [newNote.id, oldNote.id], "a person's name keeps all their notes")
+        XCTAssertEqual(PeopleSearch.recentSections(people: store.people, notes: store.notes, query: "zzz", now: now), [])
+    }
+
     // MARK: Grid / list toggle
 
     func testTheSwitchOffersPeopleNotesAndGames() {

@@ -1,9 +1,12 @@
 import SwiftUI
 
-/// The People list, which is also the Notes tab: one section per person,
-/// headed by their name and note count, with their notes beneath, newest
-/// first. A search keeps the people and notes that match. Edit shows one
-/// row per person for reordering and deleting; notes can be swiped away.
+/// The People list, which is also the Notes tab. Grouped by person it is
+/// one section per person, headed by their name and note count, with their
+/// notes beneath, newest first; grouped by recent it is the notes alone,
+/// newest first, under Today, Yesterday and so on, each row naming who it
+/// is about. A control at the top picks the grouping, and it is remembered.
+/// A search keeps the people and notes that match. Edit shows one row per
+/// person for reordering and deleting; notes can be swiped away.
 struct PeopleListContent: View {
     let query: String
     @Binding var editMode: EditMode
@@ -14,10 +17,19 @@ struct PeopleListContent: View {
     @EnvironmentObject private var store: TactStore
     @Environment(\.pushRoute) private var pushRoute
     @Environment(AvatarFrames.self) private var avatarFrames
+    @AppStorage(ListGrouping.storageKey) private var grouping: ListGrouping = .person
     @State private var addingNoteFor: Person?
 
     private var sections: [PersonSection] {
         PeopleSearch.sections(people: store.people, notes: store.notes, query: query)
+    }
+
+    private var recentSections: [RecentSection] {
+        PeopleSearch.recentSections(people: store.people, notes: store.notes, query: query)
+    }
+
+    private var isEmpty: Bool {
+        grouping == .recent ? recentSections.isEmpty : sections.isEmpty
     }
 
     var body: some View {
@@ -25,22 +37,32 @@ struct PeopleListContent: View {
             if editMode.isEditing {
                 peopleRows
             } else {
-                ForEach(sections) { section in
-                    Section {
-                        ForEach(section.notes) { note in
-                            NoteOutlineRow(note: note, personID: section.person.id)
+                groupingControl
+                switch grouping {
+                case .person:
+                    ForEach(sections) { section in
+                        Section {
+                            noteRows(section.notes, personID: section.person.id)
+                        } header: {
+                            sectionHeader(section)
                         }
-                        .onDelete { offsets in
-                            offsets.map { section.notes[$0].id }.forEach { store.deleteNote(id: $0) }
+                    }
+                case .recent:
+                    ForEach(recentSections) { section in
+                        Section {
+                            noteRows(section.notes, personID: nil)
+                        } header: {
+                            Text(section.bucket.title)
+                                .font(.tact(.subheadline).weight(.semibold))
+                                .textCase(nil)
                         }
-                    } header: {
-                        sectionHeader(section)
                     }
                 }
             }
         }
         .listStyle(.insetGrouped)
         .animation(.snappy, value: editMode)
+        .animation(.snappy, value: grouping)
         .overlay {
             if store.people.isEmpty {
                 ContentUnavailableView {
@@ -48,12 +70,46 @@ struct PeopleListContent: View {
                 } description: {
                     Text("Tap + to write a note, or switch to the grid to add someone.")
                 }
-            } else if sections.isEmpty {
-                ContentUnavailableView.search(text: query)
+            } else if isEmpty && !editMode.isEditing {
+                if query.isEmpty {
+                    ContentUnavailableView {
+                        Label("No Notes Yet", systemImage: "note.text")
+                    } description: {
+                        Text("Tap + to write a note about someone.")
+                    }
+                } else {
+                    ContentUnavailableView.search(text: query)
+                }
             }
         }
         .sheet(item: $addingNoteFor) { person in
             AddNoteView(personID: person.id)
+        }
+    }
+
+    /// By Person or Recent, as a segmented control in the list's first row.
+    private var groupingControl: some View {
+        Section {
+            Picker("Group By", selection: $grouping) {
+                ForEach(ListGrouping.allCases) { grouping in
+                    Text(grouping.title).tag(grouping)
+                }
+            }
+            .pickerStyle(.segmented)
+            .font(.tact(.subheadline))
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+            .accessibilityLabel("Group by")
+        }
+    }
+
+    /// The notes of a section, each swipeable away.
+    private func noteRows(_ notes: [Note], personID: UUID?) -> some View {
+        ForEach(notes) { note in
+            NoteOutlineRow(note: note, personID: personID)
+        }
+        .onDelete { offsets in
+            offsets.map { notes[$0].id }.forEach { store.deleteNote(id: $0) }
         }
     }
 

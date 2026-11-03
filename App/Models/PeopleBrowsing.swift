@@ -130,6 +130,28 @@ enum PeopleSearch {
     }
 }
 
+extension PeopleSearch {
+    /// The notes alone for the list's Recent grouping, newest first, in
+    /// sections by how long ago they are dated. With a query, a note stays
+    /// when it matches itself or when someone it is about does (by name,
+    /// or by their own tags). Buckets with no notes are left out.
+    static func recentSections(people: [Person], notes: [Note], query rawQuery: String,
+                               now: Date = Date(), calendar: Calendar = .current) -> [RecentSection] {
+        let query = normalized(rawQuery)
+        let byID = Dictionary(people.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let shown = notes.filter { note in
+            guard !query.isEmpty else { return true }
+            if noteMatches(note, query: query) { return true }
+            return note.personIds.contains { id in byID[id].map { personMatches($0, query: query) } ?? false }
+        }
+        .sorted { $0.date > $1.date }
+        let grouped = Dictionary(grouping: shown) { RecentBucket($0.date, now: now, calendar: calendar) }
+        return RecentBucket.allCases.compactMap { bucket in
+            grouped[bucket].map { RecentSection(bucket: bucket, notes: $0) }
+        }
+    }
+}
+
 struct PersonSection: Identifiable, Equatable {
     let person: Person
     let notes: [Note]

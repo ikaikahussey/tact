@@ -1,15 +1,17 @@
 import SwiftUI
 
-/// A note beneath a person in the list: its text, its date, and anyone
-/// else it is about.
+/// A note in the list: its text, its date, and who it is about. Beneath a
+/// person (`personID`) that is anyone else; in the Recent grouping, with
+/// no person heading the section, it is everyone.
 struct NoteOutlineRow: View {
     @EnvironmentObject private var store: TactStore
     let note: Note
-    let personID: UUID
+    var personID: UUID? = nil
 
     private var others: String? {
         let names = store.names(forPersonIDs: note.personIds.filter { $0 != personID })
-        return names.isEmpty ? nil : "With " + names.joined(separator: ", ")
+        guard !names.isEmpty else { return nil }
+        return (personID == nil ? "" : "With ") + names.joined(separator: ", ")
     }
 
     var body: some View {
