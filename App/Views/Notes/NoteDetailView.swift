@@ -11,10 +11,8 @@ struct NoteDetailView: View {
     @State private var selectedPersonIds: Set<UUID> = []
     @State private var hasLoaded = false
     @State private var showingDeleteAlert = false
-    @State private var showingAddPerson = false
     @State private var showingDatePicker = false
     @State private var draftDate = Date()
-    @State private var newPersonName = ""
     @FocusState private var editorFocused: Bool
 
     var body: some View {
@@ -37,7 +35,6 @@ struct NoteDetailView: View {
                 metadata(for: note)
                 section("People") {
                     PersonChipRow(selectedPersonIds: $selectedPersonIds,
-                                  onAdd: { showingAddPerson = true },
                                   onOpen: { pushRoute(.person($0)) })
                 }
                 Button(role: .destructive) { showingDeleteAlert = true } label: {
@@ -87,17 +84,6 @@ struct NoteDetailView: View {
             }
         } message: {
             Text("This note will be removed from everyone it is linked to.")
-        }
-        .alert("Add Person", isPresented: $showingAddPerson) {
-            TextField("Name", text: $newPersonName)
-                .textInputAutocapitalization(.words)
-            Button("Cancel", role: .cancel) { newPersonName = "" }
-            Button("Add") {
-                if let person = store.addPerson(named: newPersonName) {
-                    selectedPersonIds.insert(person.id)
-                }
-                newPersonName = ""
-            }
         }
         .sheet(isPresented: $showingDatePicker) {
             datePickerSheet

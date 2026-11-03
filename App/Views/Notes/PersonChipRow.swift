@@ -1,26 +1,31 @@
 import SwiftUI
 
-/// Wrapping row of person chips that toggle membership in `selectedPersonIds`,
-/// with an "Add" chip at the end. Long-press a chip to open that person.
+/// The people linked to a note, compactly: only the linked people show, as
+/// chips (tap one to unlink it), followed by a "+" chip that opens a
+/// searchable picker. Long-press a chip to open that person.
 struct PersonChipRow: View {
     @EnvironmentObject private var store: TactStore
     @Binding var selectedPersonIds: Set<UUID>
-    var onAdd: () -> Void
     var onOpen: ((UUID) -> Void)? = nil
+    @State private var showingPicker = false
+    @State private var pendingOpen: UUID?
+
+    private var selectedPeople: [Person] {
+        store.people.filter { selectedPersonIds.contains($0.id) }
+    }
 
     var body: some View {
         FlowLayout(spacing: 8) {
-            ForEach(store.people) { person in
-                let isSelected = selectedPersonIds.contains(person.id)
+            ForEach(selectedPeople) { person in
                 Button {
-                    if isSelected { selectedPersonIds.remove(person.id) } else { selectedPersonIds.insert(person.id) }
+                    selectedPersonIds.remove(person.id)
                 } label: {
-                    PersonChip(person: person, isSelected: isSelected)
+                    PersonChip(person: person, isSelected: true, removable: true)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(person.name)
-                .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-                .accessibilityHint(isSelected ? "Unlinks this person" : "Links this person")
+                .accessibilityAddTraits(.isSelected)
+                .accessibilityHint("Unlinks this person")
                 .contextMenu {
                     if let onOpen {
                         Button { onOpen(person.id) } label: {
@@ -29,22 +34,119 @@ struct PersonChipRow: View {
                     }
                 }
             }
-            Button(action: onAdd) {
-                Label("Add", systemImage: "plus")
+            Button { showingPicker = true } label: {
+                Label(selectedPeople.isEmpty ? "Link Person" : "Person", systemImage: "plus")
                     .font(.tact(.subheadline))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
                     .overlay(Capsule().strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4, 3])).foregroundStyle(.secondary))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Add Person")
+            .accessibilityLabel("Link Person")
         }
+        .sheet(isPresented: $showingPicker, onDismiss: {
+            if let id = pendingOpen { pendingOpen = nil; onOpen?(id) }
+        }) {
+            PersonPickerSheet(selectedPersonIds: $selectedPersonIds, onOpen: openFromPicker)
+        }
+    }
+
+    /// Opening someone from the picker closes it first, then navigates.
+    private var openFromPicker: ((UUID) -> Void)? {
+        guard onOpen != nil else { return nil }
+        return { id in
+            pendingOpen = id
+            showingPicker = false
+        }
+    }
+}
+
+/// Searchable list for linking people to a note. People written about most
+/// recently come first; typing a name nobody has offers to add them.
+struct PersonPickerSheet: View {
+    @EnvironmentObject private var store: TactStore
+    @Environment(\.dismiss) private var dismiss
+    @Binding var selectedPersonIds: Set<UUID>
+    var onOpen: ((UUID) -> Void)? = nil
+    @State private var query = ""
+    @State private var searchFocused = true
+
+    var body: some View {
+        let people = PersonPickerOrder.people(store.people, notes: store.notes, query: query)
+        let newName = PersonPickerOrder.newName(for: query, among: store.people)
+        NavigationStack {
+            List {
+                if let newName {
+                    Button {
+                        if let person = store.addPerson(named: newName) {
+                            selectedPersonIds.insert(person.id)
+                        }
+                        query = ""
+                    } label: {
+                        Label("Add \u{201C}\(newName)\u{201D}", systemImage: "plus.circle")
+                    }
+                }
+                ForEach(people) { person in
+                    let isSelected = selectedPersonIds.contains(person.id)
+                    Button {
+                        if isSelected { selectedPersonIds.remove(person.id) } else { selectedPersonIds.insert(person.id) }
+                    } label: {
+                        HStack(spacing: 10) {
+                            PersonAvatar(person: person, size: 28)
+                            Text(person.name)
+                                .font(.tact(.body))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                            Spacer()
+                            if isSelected {
+                                Image(systemName: "checkmark")
+                                    .font(.tact(.body).weight(.semibold))
+                                    .foregroundStyle(.tint)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel(person.name)
+                    .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+                    .accessibilityHint(isSelected ? "Unlinks this person" : "Links this person")
+                    .contextMenu {
+                        if let onOpen {
+                            Button { onOpen(person.id) } label: {
+                                Label("Open \(person.name)", systemImage: "person.crop.circle")
+                            }
+                        }
+                    }
+                }
+            }
+            .listStyle(.plain)
+            .searchable(text: $query, isPresented: $searchFocused,
+                        placement: .navigationBarDrawer(displayMode: .always), prompt: "Name")
+            .textInputAutocapitalization(.words)
+            .onSubmit(of: .search) {
+                if let newName, people.isEmpty {
+                    if let person = store.addPerson(named: newName) { selectedPersonIds.insert(person.id) }
+                    query = ""
+                } else if let first = people.first, !query.isEmpty {
+                    selectedPersonIds.insert(first.id)
+                    query = ""
+                }
+            }
+            .navigationTitle("People")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 
 struct PersonChip: View {
     let person: Person
     let isSelected: Bool
+    var removable = false
     @Environment(\.appPalette) private var palette
 
     var body: some View {
@@ -53,7 +155,11 @@ struct PersonChip: View {
             Text(person.name)
                 .font(.tact(.subheadline))
                 .lineLimit(1)
-            if isSelected {
+            if removable {
+                Image(systemName: "xmark")
+                    .font(.tact(.caption2).weight(.bold))
+                    .opacity(0.8)
+            } else if isSelected {
                 Image(systemName: "checkmark")
                     .font(.tact(.caption).weight(.bold))
             }
