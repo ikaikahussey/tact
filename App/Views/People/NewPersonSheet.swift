@@ -20,12 +20,16 @@ struct NewPersonSheet: View {
     @State private var savedPattern: SavedPattern?
     @FocusState private var nameFocused: Bool
 
-    init(onAdd: @escaping (String, Int, TilePattern, FatBits?) -> Void) {
+    /// Starts on the tile `seed` describes, or a random one.
+    init(seed: Int? = nil, onAdd: @escaping (String, Int, TilePattern, FatBits?) -> Void) {
         self.onAdd = onAdd
-        let seed = Int.random(in: 0..<360)
+        let seed = seed ?? Self.randomSeed()
         _colorIndex = State(initialValue: TileArt(seed: seed).colorIndex)
         _pattern = State(initialValue: TilePattern(seed: seed))
     }
+
+    /// A random tile look: a colour and a pattern.
+    static func randomSeed() -> Int { Int.random(in: 0..<360) }
 
     private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
 

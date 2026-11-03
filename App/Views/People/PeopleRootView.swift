@@ -18,11 +18,10 @@ struct PeopleRootView: View {
     /// changes all of them at once.
     @State private var selecting = false
     @State private var selectedIDs = Set<UUID>()
-    @State private var showingAddPerson = false
+    /// New Person is showing: where the tile goes and how it starts.
+    @State private var addingPerson: AddPersonRequest?
     @State private var showingAddNote = false
     @State private var showingSettings = false
-    /// The empty cell that was held to add someone; their tile goes there.
-    @State private var addPersonCell: Int?
     /// What the canvas shows right now. Mode changes are staged through the
     /// tiles: a game flips them over, and any other mode flips them back
     /// before the list slides in, so every change passes through the flip.
@@ -73,9 +72,8 @@ struct PeopleRootView: View {
                                 selecting = true
                                 selectedIDs = [person.id]
                             }
-                        }) { cell in
-                            addPersonCell = cell
-                            showingAddPerson = true
+                        }) { cell, seed in
+                            addingPerson = AddPersonRequest(cell: cell, seed: seed)
                         }
                         GamesSurface(showing: canvasShowsGames, selectedGameID: selectedGameID)
                     }
@@ -119,13 +117,12 @@ struct PeopleRootView: View {
             .navigationDestination(for: Route.self) { route in
                 destination(for: route)
             }
-            .sheet(isPresented: $showingAddPerson) {
-                NewPersonSheet { name, colorIndex, pattern, bits in
+            .sheet(item: $addingPerson) { request in
+                NewPersonSheet(seed: request.seed) { name, colorIndex, pattern, bits in
                     if let person = store.addPerson(named: name, colorIndex: colorIndex, pattern: pattern, bits: bits),
-                       let cell = addPersonCell {
+                       let cell = request.cell {
                         store.moveTile(personID: person.id, toCell: cell)
                     }
-                    addPersonCell = nil
                 }
             }
             .sheet(isPresented: $showingAddNote) { NewNoteSheet() }
@@ -179,7 +176,7 @@ struct PeopleRootView: View {
             }
         case .add:
             Menu {
-                Button { showingAddPerson = true } label: {
+                Button { addingPerson = AddPersonRequest() } label: {
                     Label("New Person", systemImage: "person.badge.plus")
                 }
                 Button { showingAddNote = true } label: {
@@ -373,4 +370,12 @@ struct PeopleRootView: View {
             NoteDetailView(noteID: id)
         }
     }
+}
+
+/// A request to add someone: the empty cell their tile goes in, if one was
+/// chosen, and the tile look to start from, if the grid showed one.
+private struct AddPersonRequest: Identifiable {
+    let id = UUID()
+    var cell: Int?
+    var seed: Int?
 }
