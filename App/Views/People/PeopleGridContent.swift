@@ -34,13 +34,14 @@ struct PeopleGridContent: View {
     /// Select from a tile's menu: the owner starts Select mode with that
     /// person chosen.
     var onSelect: (_ person: Person) -> Void = { _ in }
-    /// Touch and hold an empty cell to add someone there.
-    var onAddPerson: (_ cell: Int) -> Void = { _ in }
+    /// Touch and hold an empty cell to add someone there. From the cursor
+    /// tile, `seed` is that tile's look, so the new person starts with it.
+    var onAddPerson: (_ cell: Int, _ seed: Int?) -> Void = { _, _ in }
 
     init(query: String, isEditing: Bool = false, isListening: Bool = false, isSelecting: Bool = false,
          selection: Binding<Set<UUID>> = .constant([]), showingGames: Bool = false, tilesTurned: Bool = true,
          onSelect: @escaping (_ person: Person) -> Void = { _ in },
-         onAddPerson: @escaping (_ cell: Int) -> Void = { _ in }) {
+         onAddPerson: @escaping (_ cell: Int, _ seed: Int?) -> Void = { _, _ in }) {
         self.query = query
         self.isEditing = isEditing
         self.isListening = isListening
@@ -55,6 +56,8 @@ struct PeopleGridContent: View {
     @EnvironmentObject private var store: TactStore
     @Environment(\.appPalette) private var palette
     @State private var dropTarget: Int?
+    /// The look of the blinking tile shown before anyone is added.
+    @State private var cursorSeed = NewPersonSheet.randomSeed()
     @State private var addingNoteFor: Person?
     @State private var deleting: Person?
     /// While a group is dragged, the cells it would land on.
@@ -145,7 +148,7 @@ struct PeopleGridContent: View {
                             .onLongPressGesture(minimumDuration: 0.4) {
                                 guard !showingGames, !isEditing, !isSelecting else { return }
                                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                onAddPerson(cell)
+                                onAddPerson(cell, nil)
                             }
                             .dropDestination(for: String.self) { items, _ in
                                 drop(items, at: cell)
@@ -156,18 +159,22 @@ struct PeopleGridContent: View {
                             .accessibilityHidden(true)
                     }
 
-                    // Nobody yet: the first cell blinks like a cursor, and
-                    // a tap adds the first person there.
+                    // Nobody yet: a patterned tile blinks in the first cell
+                    // like a cursor, and a tap adds the first person there
+                    // with that tile.
                     if store.people.isEmpty && !showingGames {
+                        let art = TileArt(seed: cursorSeed)
                         Button {
                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                            onAddPerson(0)
+                            onAddPerson(0, cursorSeed)
                         } label: {
-                            Rectangle()
-                                .fill(palette.accent)
-                                .frame(width: squareSize, height: squareSize)
-                                .cursorBlink()
-                                .contentShape(Rectangle())
+                            ZStack {
+                                TileShades(colorIndex: art.colorIndex, palette: palette).pale
+                                TileMotifView(pattern: TilePattern(seed: cursorSeed), colorIndex: art.colorIndex)
+                            }
+                            .frame(width: squareSize, height: squareSize)
+                            .cursorBlink()
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .offset(origin(0))
