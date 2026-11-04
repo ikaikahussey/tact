@@ -33,6 +33,8 @@ struct PeopleRootView: View {
     /// The view is changing because of what was searched for, so the
     /// search must survive the change.
     @State private var switchingForSearch = false
+    /// The canvas width, for telling where an edge swipe began.
+    @State private var canvasWidth: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var layout: PeopleLayout { rememberedLayout.resolved }
@@ -89,6 +91,14 @@ struct PeopleRootView: View {
                             .zIndex(1)
                     }
                 }
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear
+                            .onAppear { canvasWidth = proxy.size.width }
+                            .onChange(of: proxy.size.width) { _, width in canvasWidth = width }
+                    }
+                }
+                .simultaneousGesture(edgeSwipe, including: edgeSwipeEnabled ? .all : .subviews)
             }
             .safeAreaInset(edge: .bottom) {
                 Group {
@@ -331,6 +341,29 @@ struct PeopleRootView: View {
             .background(Color.tactBackground)
             .transition(.move(edge: .top).combined(with: .opacity))
         }
+    }
+
+    /// Edge swipes switch views only when nothing else owns the touch:
+    /// not while editing or selecting, where tiles are being moved or picked.
+    private var edgeSwipeEnabled: Bool {
+        !editMode.isEditing && !selecting
+    }
+
+    /// Swipe in from the right edge over the tiles for the list; from the
+    /// left edge over the list for the tiles.
+    private var edgeSwipe: some Gesture {
+        DragGesture(minimumDistance: 15, coordinateSpace: .local)
+            .onEnded { value in
+                guard edgeSwipeEnabled,
+                      EdgeSwipe.begins(in: layout, startX: value.startLocation.x, width: canvasWidth),
+                      let target = EdgeSwipe.target(from: layout,
+                                                    startX: value.startLocation.x,
+                                                    translation: value.translation,
+                                                    predictedTranslation: value.predictedEndTranslation,
+                                                    width: canvasWidth)
+                else { return }
+                withAnimation(.snappy) { rememberedLayout = target }
+            }
     }
 
     /// The people on the grid right now, in cell order: what Select All gathers.
