@@ -33,8 +33,11 @@ struct PeopleRootView: View {
     /// The view is changing because of what was searched for, so the
     /// search must survive the change.
     @State private var switchingForSearch = false
-    /// The canvas width, for telling where an edge swipe began.
+    /// The canvas width: how far the tiles and list slide.
     @State private var canvasWidth: CGFloat = 0
+    /// Where an edge swipe has the screen, while a finger is down: 0 the
+    /// tiles, 1 the list. Nil when no swipe is under way.
+    @State private var swipeProgress: CGFloat?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var layout: PeopleLayout { rememberedLayout.resolved }
@@ -54,7 +57,10 @@ struct PeopleRootView: View {
                 if isSearching {
                     recentTags
                 }
-                let slidOff = showsList && !reduceMotion
+                // 0 shows the tiles, 1 the list; in between while a finger
+                // drags from the edge.
+                let progress = swipeProgress ?? (showsList ? 1 : 0)
+                let listPresent = showsList || swipeProgress != nil
                 ZStack {
                     // The grid and the games share one canvas: a game is the
                     // back of the tiles, and choosing one turns them over. The
@@ -79,18 +85,20 @@ struct PeopleRootView: View {
                         }
                         GamesSurface(showing: canvasShowsGames, selectedGameID: selectedGameID)
                     }
-                    .visualEffect { content, proxy in
-                        content.offset(x: slidOff ? -proxy.size.width : 0)
-                    }
-                    .opacity(showsList && reduceMotion ? 0 : 1)
-                    .allowsHitTesting(!showsList)
+                    .offset(x: reduceMotion ? 0 : -progress * canvasWidth)
+                    .opacity(reduceMotion ? 1 - progress : 1)
+                    .allowsHitTesting(!listPresent)
                     .accessibilityHidden(showsList)
-                    if showsList {
+                    if listPresent {
                         PeopleListContent(query: query, editMode: $editMode, isListening: listening)
+                            .offset(x: reduceMotion ? 0 : (1 - progress) * canvasWidth)
+                            .opacity(reduceMotion ? progress : 1)
+                            .allowsHitTesting(showsList && swipeProgress == nil)
                             .transition(reduceMotion ? .opacity : .move(edge: .trailing))
                             .zIndex(1)
                     }
                 }
+                .overlay(alignment: edgeStripAlignment) { edgeStrip }
                 .background {
                     GeometryReader { proxy in
                         Color.clear
@@ -98,7 +106,6 @@ struct PeopleRootView: View {
                             .onChange(of: proxy.size.width) { _, width in canvasWidth = width }
                     }
                 }
-                .simultaneousGesture(edgeSwipe, including: edgeSwipeEnabled ? .all : .subviews)
             }
             .safeAreaInset(edge: .bottom) {
                 Group {
@@ -349,20 +356,52 @@ struct PeopleRootView: View {
         !editMode.isEditing && !selecting
     }
 
-    /// Swipe in from the right edge over the tiles for the list; from the
-    /// left edge over the list for the tiles.
+    private var edgeStripAlignment: Alignment {
+        EdgeSwipe.side(for: layout) == .leading ? .leading : .trailing
+    }
+
+    /// A thin strip along the edge the swipe starts from. It sits above the
+    /// tiles and rows, so a touch that starts here is a swipe and never
+    /// opens the tile or row beneath.
+    @ViewBuilder
+    private var edgeStrip: some View {
+        if edgeSwipeEnabled, EdgeSwipe.side(for: layout) != nil {
+            Color.clear
+                .frame(width: EdgeSwipe.edgeWidth)
+                .frame(maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .gesture(edgeSwipe)
+                .accessibilityHidden(true)
+        }
+    }
+
+    /// The screen follows the finger: the tiles slide off to the left as
+    /// the list comes in from the right, or back again. Lifting finishes
+    /// the move or lets it settle back.
     private var edgeSwipe: some Gesture {
-        DragGesture(minimumDistance: 15, coordinateSpace: .local)
+        DragGesture(minimumDistance: 0, coordinateSpace: .global)
+            .onChanged { value in
+                swipeProgress = EdgeSwipe.progress(from: layout,
+                                                   translationX: value.translation.width,
+                                                   width: canvasWidth)
+            }
             .onEnded { value in
-                guard edgeSwipeEnabled,
-                      EdgeSwipe.begins(in: layout, startX: value.startLocation.x, width: canvasWidth),
-                      let target = EdgeSwipe.target(from: layout,
-                                                    startX: value.startLocation.x,
-                                                    translation: value.translation,
-                                                    predictedTranslation: value.predictedEndTranslation,
-                                                    width: canvasWidth)
-                else { return }
-                withAnimation(.snappy) { rememberedLayout = target }
+                let target = EdgeSwipe.target(from: layout,
+                                              translation: value.translation,
+                                              predictedTranslation: value.predictedEndTranslation,
+                                              width: canvasWidth)
+                let animation: Animation = reduceMotion ? .easeInOut(duration: 0.2)
+                    : .interpolatingSpring(stiffness: 300, damping: 32)
+                withAnimation(animation) {
+                    if let target {
+                        // Settle the slide here; `stage` then finds the list
+                        // already where it should be. From a game, the tiles
+                        // turn back off-screen.
+                        showsList = target == .list
+                        rememberedLayout = target
+                    }
+                    swipeProgress = nil
+                }
             }
     }
 
