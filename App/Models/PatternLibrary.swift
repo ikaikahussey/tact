@@ -109,6 +109,33 @@ struct PatternLibrary: Codable, Equatable {
     }
 }
 
+extension PatternLibrary {
+    /// Every drawing a tile can be changed to: the named patterns, then the
+    /// FatBits drawings people wear that were never named, so a drawing made
+    /// on one person can be given to anyone. An unnamed drawing goes by the
+    /// first person wearing it ("Keoni's Tile") and takes that person's id,
+    /// which no named pattern shares. Each drawing appears once. People in
+    /// `excluded` are left out as sources: a person's own drawing is shown
+    /// to them as their FatBits, not as someone else's tile.
+    func withDrawings(on people: [Person], excluding excluded: Set<UUID> = []) -> [SavedPattern] {
+        var result = patterns
+        var seen = Set(patterns.map(\.bits))
+        for person in people where !excluded.contains(person.id) {
+            guard let bits = person.tile.bits, !seen.contains(bits) else { continue }
+            seen.insert(bits)
+            result.append(SavedPattern(id: person.id, name: Self.drawingName(for: person.name), bits: bits))
+        }
+        return result
+    }
+
+    /// "Keoni's Tile"; a person with no name gives "Tile".
+    static func drawingName(for personName: String) -> String {
+        let trimmed = personName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "Tile" }
+        return String(trimmed.prefix(32)) + "'s Tile"
+    }
+}
+
 /// Decodes and discards any value, to step past an entry that cannot be read.
 private struct AnyCodableSkip: Decodable {
     init(from decoder: Decoder) throws {}

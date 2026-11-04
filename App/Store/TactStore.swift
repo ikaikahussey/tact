@@ -221,10 +221,17 @@ final class TactStore: ObservableObject {
         applyPattern(id: id, toPersonIDs: [personID])
     }
 
-    /// Gives several people a saved pattern as their tile, each in their
-    /// own colour.
+    /// The named patterns and every unnamed FatBits drawing people wear,
+    /// for picking a tile. See `PatternLibrary.withDrawings(on:excluding:)`.
+    func availablePatterns(excluding excluded: Set<UUID> = []) -> [SavedPattern] {
+        settings.patternLibrary.withDrawings(on: people, excluding: excluded)
+    }
+
+    /// Gives several people a saved pattern, or a drawing another person
+    /// wears, as their tile, each in their own colour.
     func applyPattern(id: UUID, toPersonIDs personIDs: Set<UUID>) {
-        guard let pattern = settings.patternLibrary[id] else { return }
+        guard let pattern = settings.patternLibrary[id]
+                ?? availablePatterns().first(where: { $0.id == id }) else { return }
         updateTiles(forPersonIDs: personIDs) {
             $0.bits = pattern.bits
             $0.showsPhoto = false

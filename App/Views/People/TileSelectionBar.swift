@@ -104,7 +104,7 @@ struct TileSelectionBar: View {
     private var tileMenu: some View {
         let shared = Set(selectedPeople.map(\.tile.colorIndex))
         let colorIndex = shared.count == 1 ? shared.first! : TilePalette.menuOrder[0]
-        let library = store.patternLibrary
+        let available = store.availablePatterns()
         return Menu {
             ForEach(TilePattern.allCases, id: \.self) { pattern in
                 Button {
@@ -120,9 +120,9 @@ struct TileSelectionBar: View {
                     }
                 }
             }
-            if !library.isEmpty {
+            if !available.isEmpty {
                 Divider()
-                ForEach(library.patterns) { saved in
+                ForEach(available) { saved in
                     Button {
                         UISelectionFeedbackGenerator().selectionChanged()
                         store.applyPattern(id: saved.id, toPersonIDs: selection)

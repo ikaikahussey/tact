@@ -129,6 +129,35 @@ final class PatternLibraryTests: XCTestCase {
         XCTAssertTrue(person.tile.isFatBits)
     }
 
+    func testUnnamedDrawingOnOnePersonIsOfferedToOthers() {
+        let ada = store.addPerson(named: "Ada", colorIndex: 2, pattern: .pinwheel)!
+        let bits = drawing(11)
+        store.updateTile(forPersonID: ada.id) { $0.bits = bits; $0.showsPhoto = false }
+        XCTAssertTrue(store.patternLibrary.isEmpty, "the drawing was never named")
+
+        let grace = store.addPerson(named: "Grace", colorIndex: 7, pattern: .frame)!
+        let offered = store.availablePatterns(excluding: [grace.id])
+        XCTAssertEqual(offered.map(\.name), ["Ada's Tile"])
+        XCTAssertEqual(offered.first?.bits, bits)
+        XCTAssertTrue(store.availablePatterns(excluding: [ada.id]).isEmpty, "Ada's own drawing is her FatBits, not an offer")
+
+        store.applyPattern(id: offered[0].id, toPersonID: grace.id)
+        let worn = store.person(id: grace.id)!
+        XCTAssertEqual(worn.tile.bits, bits)
+        XCTAssertEqual(worn.tile.colorIndex, 7, "in Grace's own colour")
+        XCTAssertEqual(store.availablePatterns().count, 1, "two people wearing one drawing offer it once")
+    }
+
+    func testNamedPatternComesFirstAndHidesTheSameUnnamedDrawing() {
+        let ada = store.addPerson(named: "Ada")!
+        let bob = store.addPerson(named: "Bob")!
+        store.updateTile(forPersonID: ada.id) { $0.bits = self.drawing(1) }
+        store.updateTile(forPersonID: bob.id) { $0.bits = self.drawing(2) }
+        store.savePattern(drawing(1), named: "Lei")
+        XCTAssertEqual(store.availablePatterns().map(\.name), ["Lei", "Bob's Tile"])
+        XCTAssertEqual(PatternLibrary.drawingName(for: "  "), "Tile")
+    }
+
     func testSavedPatternsSurviveReload() {
         store.savePattern(drawing(1), named: "Kept")
         store.flush(waitUntilDone: true)
