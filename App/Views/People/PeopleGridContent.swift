@@ -265,15 +265,18 @@ struct PeopleGridContent: View {
         .accessibilityLabel(title)
     }
 
-    /// A dragged tile lands on `cell`; a selected one brings the rest of
-    /// the selection with it.
+    /// A dragged tile lands on `cell`, shifting the tiles in its way; a
+    /// selected one brings the rest of the selection with it.
     private func drop(_ items: [String], at cell: Int) -> Bool {
         guard let id = items.first.flatMap(UUID.init(uuidString:)) else { return false }
         groupTarget = []
-        if selection.contains(id) {
-            store.moveTiles(personIDs: selection, dragging: id, toCell: cell)
-        } else {
-            store.moveTile(personID: id, toCell: cell)
+        // Tiles in the way slide aside to make room.
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            if selection.contains(id) {
+                store.moveTiles(personIDs: selection, dragging: id, toCell: cell)
+            } else {
+                store.moveTile(personID: id, toCell: cell)
+            }
         }
         return true
     }

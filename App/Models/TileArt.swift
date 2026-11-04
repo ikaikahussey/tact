@@ -122,6 +122,48 @@ enum TileLayout {
         return moved
     }
 
+    /// Where everyone sits after the tile at its anchor is moved to
+    /// `target`. An empty target just takes the tile. An occupied one makes
+    /// room: the run of tiles from the target back toward the tile's old
+    /// cell slides one step, into the nearest gap (or the cell the tile
+    /// left). Nobody trades places.
+    static func inserting(_ id: UUID, at target: Int, anchors: [UUID: Int]) -> [UUID: Int] {
+        guard target >= 0, let source = anchors[id], source != target else { return anchors }
+        var occupant: [Int: UUID] = [:]
+        for (person, cell) in anchors where person != id { occupant[cell] = person }
+        var moved = anchors
+        moved[id] = target
+        guard occupant[target] != nil else { return moved }
+        let step = source < target ? -1 : 1
+        var gap = target
+        while gap != source, occupant[gap] != nil { gap += step }
+        // Slide each tile in the run one cell toward the gap.
+        var cell = gap - step
+        while true {
+            if let person = occupant[cell] { moved[person] = cell + step }
+            if cell == target { break }
+            cell -= step
+        }
+        return moved
+    }
+
+    /// Where everyone sits once `group` lands on its cells: anyone in the
+    /// way is pushed forward to the next free cell, pushing whoever is
+    /// there in turn. Nobody trades places, and the cells the group left
+    /// stay empty.
+    static func pushing(aside group: [UUID: Int], anchors: [UUID: Int]) -> [UUID: Int] {
+        var moved = group
+        var taken = Set(group.values)
+        let others = anchors.filter { group[$0.key] == nil }.sorted { ($0.value, $0.key.uuidString) < ($1.value, $1.key.uuidString) }
+        for (person, current) in others {
+            var cell = current
+            while taken.contains(cell) { cell += 1 }
+            moved[person] = cell
+            taken.insert(cell)
+        }
+        return moved
+    }
+
     static func footprint(of person: Person, at anchor: Int) -> Set<Int>? {
         anchor >= 0 ? [anchor] : nil
     }
@@ -157,40 +199,6 @@ enum GridPlacement {
             }
         }
         return anchors
-    }
-
-    /// Pins everyone to their current anchor (so filling gaps doesn't shuffle
-    /// unplaced people around) and puts `id` at `anchor`. People it now
-    /// overlaps move to `vacated` when they fit there, and otherwise to the
-    /// first spot they fit.
-    static func pinning(_ people: [Person], moving id: UUID, to anchor: Int, anchors: [UUID: Int], vacated: Int?,
-                        cell: WritableKeyPath<Person, Int?>,
-                        footprint: (Person, Int) -> Set<Int>?) -> [Person] {
-        guard let moverIndex = people.firstIndex(where: { $0.id == id }) else { return people }
-        var updated = people
-        let moverUnits = footprint(updated[moverIndex], anchor) ?? []
-        updated[moverIndex][keyPath: cell] = anchor
-        var taken = moverUnits
-        var displaced: [Int] = []
-        for index in updated.indices where index != moverIndex {
-            let current = anchors[updated[index].id]
-            updated[index][keyPath: cell] = current
-            let units = current.flatMap { footprint(updated[index], $0) } ?? []
-            if moverUnits.isDisjoint(with: units) {
-                taken.formUnion(units)
-            } else {
-                displaced.append(index)
-            }
-        }
-        for index in displaced {
-            if let vacated, let units = footprint(updated[index], vacated), taken.isDisjoint(with: units) {
-                updated[index][keyPath: cell] = vacated
-                taken.formUnion(units)
-            } else {
-                updated[index][keyPath: cell] = nil
-            }
-        }
-        return updated
     }
 }
 
