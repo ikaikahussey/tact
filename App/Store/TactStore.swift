@@ -231,50 +231,33 @@ final class TactStore: ObservableObject {
         }
     }
 
-    /// Moves a person's tile to a cell on the canvas, swapping with whoever
-    /// is there.
+    /// Moves a person's tile to a cell on the canvas. Tiles in the way
+    /// shift along to make room; nobody trades places.
     func moveTile(personID id: UUID, toCell target: Int) {
         guard target >= 0 else { return }
         let anchors = TileLayout.anchors(for: people)
         guard let source = anchors[id], source != target else { return }
-        people = Self.pinningTile(people, moving: id, to: target, anchors: anchors, vacated: source)
+        place(TileLayout.inserting(id, at: target, anchors: anchors))
     }
 
     /// Moves a group of tiles together: the one dragged (`id`) lands on
     /// `target`, and the rest of `ids` keep their positions relative to it.
     /// Nothing moves when the group would run off the side or above the
-    /// top. Everyone pinned stays put; people the group lands on go to the
-    /// cells it left, in order, and anyone still without a cell takes the
-    /// first free one.
+    /// top. Tiles the group lands on are pushed forward to make room.
     func moveTiles(personIDs ids: Set<UUID>, dragging id: UUID, toCell target: Int) {
         guard ids.count > 1, ids.contains(id) else { return moveTile(personID: id, toCell: target) }
         let anchors = TileLayout.anchors(for: people)
         guard let source = anchors[id], source != target,
               let moved = TileLayout.shifted(ids, from: source, to: target, anchors: anchors)
         else { return }
+        place(TileLayout.pushing(aside: moved, anchors: anchors))
+    }
+
+    /// Pins everyone to the given cells.
+    private func place(_ cells: [UUID: Int]) {
         var updated = people
-        var taken = Set(moved.values)
-        var displaced: [Int] = []
         for index in updated.indices {
-            let person = updated[index]
-            if let cell = moved[person.id] {
-                updated[index].tile.cell = cell
-            } else if let current = anchors[person.id], !taken.contains(current) {
-                updated[index].tile.cell = current
-                taken.insert(current)
-            } else {
-                displaced.append(index)
-            }
-        }
-        var vacated = ids.compactMap { anchors[$0] }.filter { !taken.contains($0) }.sorted()
-        for index in displaced {
-            if !vacated.isEmpty {
-                let cell = vacated.removeFirst()
-                updated[index].tile.cell = cell
-                taken.insert(cell)
-            } else {
-                updated[index].tile.cell = nil
-            }
+            updated[index].tile.cell = cells[updated[index].id]
         }
         people = updated
     }
@@ -287,12 +270,6 @@ final class TactStore: ObservableObject {
             updated[index].tile.cell = cells[updated[index].id]
         }
         people = updated
-    }
-
-    private static func pinningTile(_ people: [Person], moving id: UUID, to anchor: Int,
-                                    anchors: [UUID: Int], vacated: Int?) -> [Person] {
-        GridPlacement.pinning(people, moving: id, to: anchor, anchors: anchors, vacated: vacated,
-                              cell: \.tile.cell, footprint: TileLayout.footprint(of:at:))
     }
 
     // MARK: Ditties

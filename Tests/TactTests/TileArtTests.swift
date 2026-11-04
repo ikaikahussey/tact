@@ -163,11 +163,47 @@ extension TactStoreTests {
         let mei = store.addPerson(named: "Mei")!
         XCTAssertEqual(TileLayout.cells(for: store.people)[0], mei.id)
 
-        // Dropping onto someone swaps the two.
+        // Dropping onto someone shifts them toward the dropped tile's old
+        // cell instead of swapping.
         store.moveTile(personID: kai.id, toCell: 10)
         layout = TileLayout.cells(for: store.people)
         XCTAssertEqual(layout[10], kai.id)
-        XCTAssertEqual(layout[2], ada.id)
+        XCTAssertEqual(layout[9], ada.id)
+        XCTAssertNil(layout[2])
+    }
+
+    func testMovingATileForwardShiftsTheRunBack() {
+        let store = TestSupport.makeStore(directory: TestSupport.temporaryDirectory(), defaults: TestSupport.defaults())
+        let a = store.addPerson(named: "A")!, b = store.addPerson(named: "B")!
+        let c = store.addPerson(named: "C")!, d = store.addPerson(named: "D")!
+        store.moveTile(personID: a.id, toCell: 2)
+        let layout = TileLayout.cells(for: store.people)
+        XCTAssertEqual(layout[0], b.id); XCTAssertEqual(layout[1], c.id)
+        XCTAssertEqual(layout[2], a.id); XCTAssertEqual(layout[3], d.id, "tiles past the target stay put")
+    }
+
+    func testMovingATileBackShiftsTheRunForward() {
+        let store = TestSupport.makeStore(directory: TestSupport.temporaryDirectory(), defaults: TestSupport.defaults())
+        let a = store.addPerson(named: "A")!, b = store.addPerson(named: "B")!
+        let c = store.addPerson(named: "C")!, d = store.addPerson(named: "D")!
+        store.moveTile(personID: d.id, toCell: 1)
+        let layout = TileLayout.cells(for: store.people)
+        XCTAssertEqual(layout[0], a.id); XCTAssertEqual(layout[1], d.id)
+        XCTAssertEqual(layout[2], b.id); XCTAssertEqual(layout[3], c.id)
+    }
+
+    func testShiftingStopsAtTheNearestGap() {
+        let store = TestSupport.makeStore(directory: TestSupport.temporaryDirectory(), defaults: TestSupport.defaults())
+        let a = store.addPerson(named: "A")!, b = store.addPerson(named: "B")!
+        let c = store.addPerson(named: "C")!
+        store.moveTile(personID: c.id, toCell: 5)     // 0 A, 1 B, 5 C
+        let d = store.addPerson(named: "D")!          // 2 D
+        store.moveTile(personID: c.id, toCell: 0)     // run A,B,D slides forward into 3
+        let layout = TileLayout.cells(for: store.people)
+        XCTAssertEqual(layout[0], c.id); XCTAssertEqual(layout[1], a.id)
+        XCTAssertEqual(layout[2], b.id); XCTAssertEqual(layout[3], d.id)
+        XCTAssertNil(layout[5])
+        XCTAssertEqual(layout.count, 4)
     }
 
     func testMovingSelectedTilesTogetherKeepsTheirShape() {
@@ -186,12 +222,13 @@ extension TactStoreTests {
         XCTAssertEqual(layout[3], mei.id)
         XCTAssertNil(layout[0]); XCTAssertNil(layout[1])
 
-        // Dragged onto Kai and Mei: they take the cells the group leaves.
+        // Dragged onto Kai and Mei: they are pushed along, not swapped.
         store.moveTiles(personIDs: [ada.id, grace.id], dragging: grace.id, toCell: 3)
         layout = TileLayout.cells(for: store.people)
         XCTAssertEqual(layout[2], ada.id)
         XCTAssertEqual(layout[3], grace.id)
-        XCTAssertEqual(Set([layout[5], layout[6]]), Set([kai.id, mei.id]), "the displaced pair moves into the vacated cells")
+        XCTAssertEqual(layout[4], kai.id, "Kai is pushed to the next free cell")
+        XCTAssertEqual(layout[5], mei.id, "Mei is pushed to the next free cell")
 
         // A move that would run off the right edge does nothing.
         let before = TileLayout.cells(for: store.people)
