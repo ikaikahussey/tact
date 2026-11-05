@@ -35,7 +35,7 @@ Each run posts a check run named **Tact build log** on the commit with the compi
 
 Pull requests do not trigger it: the repository is public and code from forks must not run on this Mac.
 
-Setup on the Mac (once): `zsh Scripts/setup-mac-runner.sh`. It selects Xcode, installs a simulator runtime, checks the signing pieces above, installs the runner as a login agent and turns off system sleep. Turn on automatic login so the runner comes back after a reboot.
+Setup on the Mac (once): `zsh Scripts/setup-mac-runner.sh`. It selects Xcode-beta.app if present (else Xcode.app), installs a simulator runtime, checks the signing pieces above, installs the runner as a login agent and turns off system sleep. Turn on automatic login so the runner comes back after a reboot.
 
 ## Export compliance
 

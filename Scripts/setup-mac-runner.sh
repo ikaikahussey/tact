@@ -30,13 +30,20 @@ warn() { print "    MISSING: $1"; missing+=("$1"); }
 
 # 1. Xcode -------------------------------------------------------------------
 step "Xcode"
-if [[ ! -d /Applications/Xcode.app ]]; then
-  print "Xcode is not in /Applications. Install it from the App Store, open it once, then rerun this."
+# Prefer Xcode-beta.app; XCODE_APP overrides.
+XCODE_APP="${XCODE_APP:-}"
+if [[ -z "$XCODE_APP" ]]; then
+  for app in /Applications/Xcode-beta.app /Applications/Xcode.app; do
+    [[ -d "$app" ]] && { XCODE_APP="$app"; break; }
+  done
+fi
+if [[ -z "$XCODE_APP" || ! -d "$XCODE_APP" ]]; then
+  print "Neither Xcode-beta.app nor Xcode.app is in /Applications. Install one, open it once, then rerun this."
   exit 1
 fi
-if [[ "$(xcode-select -p)" != /Applications/Xcode.app/* ]]; then
-  print "    Pointing command-line tools at Xcode (sudo)"
-  sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+if [[ "$(xcode-select -p)" != "$XCODE_APP"/* ]]; then
+  print "    Pointing command-line tools at $XCODE_APP (sudo)"
+  sudo xcode-select -s "$XCODE_APP/Contents/Developer"
 fi
 if ! xcodebuild -checkFirstLaunchStatus >/dev/null 2>&1 || ! xcodebuild -version >/dev/null 2>&1; then
   print "    Accepting the Xcode licence and finishing first launch (sudo)"
