@@ -47,6 +47,7 @@ struct PersonDetailView: View {
             }
             .padding()
         }
+        .balancedMargins()
         .navigationTitle(person.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
