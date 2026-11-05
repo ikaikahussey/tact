@@ -35,6 +35,15 @@ else
   DEST="id=$SIM_ID"
 fi
 
+# Which iPhone simulators and device types this Mac has, for the digest.
+SIMS=$( {
+  echo "Available iPhone simulators:"
+  xcrun simctl list devices available | grep -E '^[[:space:]]+iPhone' | sed -E 's/^[[:space:]]+/  /'
+  echo "iPhone device types:"
+  xcrun simctl list devicetypes | grep -E '^iPhone' | sed -E 's/^/  /'
+} 2>&1 )
+echo "$SIMS"
+
 echo "==> xcodebuild $ACTION ($DEST)"
 xcodebuild "$ACTION" \
   -project Tact.xcodeproj \
@@ -48,6 +57,8 @@ rc=${pipestatus[1]}
 {
   echo "xcodebuild $ACTION exit $rc"
   echo "Xcode: $(xcodebuild -version | head -1)  Destination: $DEST"
+  echo
+  echo "$SIMS"
   echo
   echo "--- Errors and failures ---"
   grep -E ': error: |: fatal error: |error: |Test Case .* failed|\*\* (BUILD|TEST) (FAILED|SUCCEEDED)|Executed [0-9]+ tests' "$LOG" \
