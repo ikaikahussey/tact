@@ -22,6 +22,21 @@ The script does not use the Xcode login: `xcodebuild` run from a terminal cannot
 
 Or in Xcode: select "Any iOS Device (arm64)", Product > Archive, then Distribute App > TestFlight & App Store. That path uses the Xcode login and cloud signing and works independently of the above.
 
+## Remote builds on the Mac mini
+
+The Mac mini runs a self-hosted GitHub Actions runner (label `tact`) for `.github/workflows/mac-build.yml`:
+
+- Any push that touches `App/`, `Tests/`, `Tact.xcodeproj/` or `Scripts/` builds and runs the unit tests (`Scripts/ci-build.sh`).
+- Pushing a tag named `testflight-<anything>` builds, tests, then runs `Scripts/testflight.sh`:
+  `git tag testflight-$(date -u +%Y%m%d%H%M) && git push origin --tags`
+- Actions > Mac build > Run workflow does the same, with a TestFlight checkbox.
+
+Each run posts a check run named **Tact build log** on the commit with the compiler errors, test failures and log tail, so it can be read with `gh api repos/ikaikahussey/tact/commits/<sha>/check-runs` without Actions log access.
+
+Pull requests do not trigger it: the repository is public and code from forks must not run on this Mac.
+
+Setup on the Mac (once): `zsh Scripts/setup-mac-runner.sh`. It selects Xcode, installs a simulator runtime, checks the signing pieces above, installs the runner as a login agent and turns off system sleep. Turn on automatic login so the runner comes back after a reboot.
+
 ## Export compliance
 
 `ITSAppUsesNonExemptEncryption` is set to `false` in `App/Info.plist`, so TestFlight will not stop to ask about encryption. The app uses no encryption beyond the system's.

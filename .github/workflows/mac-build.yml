@@ -1,0 +1,116 @@
+# Builds and tests Tact on the self-hosted Mac mini runner, and uploads to TestFlight on request.
+#
+# Triggers
+#   - push to any branch that touches the app: build + unit tests
+#   - push of a tag named testflight-*:       build + tests, then Scripts/testflight.sh
+#   - "Run workflow" in the Actions tab:       build + tests, optionally TestFlight
+#
+# No pull_request trigger: the repository is public and this runs on a personal Mac,
+# so code from forks must never reach it.
+#
+# Results are posted as a check run named "Tact build log" on the commit, holding the
+# compiler errors, test failures and the tail of the log, so they can be read through
+# the commit's check-runs API without access to Actions logs.
+
+name: Mac build
+
+on:
+  push:
+    branches: ['**']
+    tags: ['testflight-*']
+    paths:
+      - 'App/**'
+      - 'Tests/**'
+      - 'Tact.xcodeproj/**'
+      - 'Scripts/**'
+      - '.github/workflows/mac-build.yml'
+  workflow_dispatch:
+    inputs:
+      testflight:
+        description: 'Upload to TestFlight after the tests pass'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  checks: write
+
+concurrency:
+  group: mac-build-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/testflight-') }}
+
+jobs:
+  build:
+    runs-on: [self-hosted, macOS, tact]
+    timeout-minutes: 60
+    env:
+      UPLOAD: ${{ startsWith(github.ref, 'refs/tags/testflight-') || inputs.testflight == true }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and test
+        id: test
+        run: Scripts/ci-build.sh test
+
+      - name: Upload to TestFlight
+        id: upload
+        if: env.UPLOAD == 'true'
+        run: |
+          set -o pipefail
+          Scripts/testflight.sh 2>&1 | tee build/logs/testflight.log
+
+      - name: Annotate compiler errors
+        if: always()
+        run: |
+          [[ -f build/logs/xcodebuild.log ]] || exit 0
+          grep -E '^/.+:[0-9]+:[0-9]+: error: ' build/logs/xcodebuild.log | awk '!seen[$0]++' | head -50 |
+          while IFS= read -r line; do
+            file="${line%%:*}"; rest="${line#*:}"
+            ln="${rest%%:*}"; rest="${rest#*:}"
+            col="${rest%%:*}"; msg="${rest#*: error: }"
+            echo "::error file=${file#$GITHUB_WORKSPACE/},line=$ln,col=$col::$msg"
+          done
+
+      - name: Post build log check run
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TEST_OUTCOME: ${{ steps.test.outcome }}
+          UPLOAD_OUTCOME: ${{ steps.upload.outcome }}
+        run: |
+          /usr/bin/python3 - <<'PY'
+          import json, os, urllib.request
+          def read(p):
+              try: return open(p, errors="replace").read()
+              except OSError: return ""
+          test, upload = os.environ["TEST_OUTCOME"], os.environ["UPLOAD_OUTCOME"]
+          ok = test == "success" and upload in ("success", "skipped", "")
+          text = read("build/logs/digest.txt") or "No digest; the build did not start."
+          if upload not in ("skipped", ""):
+              text += "\n\n--- TestFlight (last 60 lines) ---\n" + "\n".join(read("build/logs/testflight.log").splitlines()[-60:])
+          ref = os.environ["GITHUB_REF_NAME"]
+          summary = f"ref {ref}; tests: {test}; TestFlight: {upload or 'skipped'}"
+          body = {
+              "name": "Tact build log",
+              "head_sha": os.environ["GITHUB_SHA"],
+              "status": "completed",
+              "conclusion": "success" if ok else "failure",
+              "details_url": f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+              "output": {"title": ("Passed" if ok else "Failed") + f" — {summary}",
+                         "summary": summary, "text": text[-60000:]},
+          }
+          req = urllib.request.Request(
+              f"{os.environ['GITHUB_API_URL']}/repos/{os.environ['GITHUB_REPOSITORY']}/check-runs",
+              data=json.dumps(body).encode(), method="POST",
+              headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                       "Accept": "application/vnd.github+json"})
+          print(urllib.request.urlopen(req).status)
+          PY
+
+      - name: Keep logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ github.run_id }}
+          path: build/logs/
+          retention-days: 7
