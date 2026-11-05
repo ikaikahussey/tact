@@ -43,10 +43,10 @@ xcodebuild "$ACTION" \
   -resultBundlePath build/TestResults.xcresult \
   CODE_SIGNING_ALLOWED=NO \
   2>&1 | tee "$LOG"
-status=${pipestatus[1]}
+rc=${pipestatus[1]}
 
 {
-  echo "xcodebuild $ACTION exit $status"
+  echo "xcodebuild $ACTION exit $rc"
   echo "Xcode: $(xcodebuild -version | head -1)  Destination: $DEST"
   echo
   echo "--- Errors and failures ---"
@@ -57,4 +57,4 @@ status=${pipestatus[1]}
   tail -40 "$LOG"
 } > "$DIGEST"
 
-exit $status
+exit $rc
