@@ -5,6 +5,10 @@ enum HeaderMetrics {
     static let height: CGFloat = 44
     static let logoHeight: CGFloat = 28
     static let iconWidth: CGFloat = 44
+    /// The least space the wordmark wants above it. In portrait the status
+    /// bar's safe area gives more than this; in landscape, where the safe
+    /// area is at the sides, the header adds the difference itself.
+    static let minimumHeadroom: CGFloat = 20
 }
 
 /// A small pill beside the wordmark naming a mode the root is in, such as
@@ -259,9 +263,13 @@ struct HeaderScreen<Header: View, Content: View>: View {
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        VStack(spacing: 0) {
-            header()
-            content()
+        GeometryReader { proxy in
+            VStack(spacing: 0) {
+                header()
+                    .padding(.top, max(0, HeaderMetrics.minimumHeadroom - proxy.safeAreaInsets.top))
+                content()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Color.tactBackground)
         .toolbar(.hidden, for: .navigationBar)
