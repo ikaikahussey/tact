@@ -5,6 +5,9 @@ enum HeaderMetrics {
     static let height: CGFloat = 44
     static let logoHeight: CGFloat = 28
     static let iconWidth: CGFloat = 44
+    /// The header's own side inset, from the screen edge to the wordmark
+    /// and the last icon's frame.
+    static let inset: CGFloat = 10
     /// The least space the wordmark wants above it. In portrait the status
     /// bar's safe area gives more than this; in landscape, where the safe
     /// area is at the sides, the header adds the difference itself.
@@ -81,7 +84,7 @@ struct TactHeader<Trailing: View>: View {
         }
         .buttonStyle(.plain)
         .frame(height: HeaderMetrics.height)
-        .padding(.horizontal, 10)
+        .padding(.horizontal, HeaderMetrics.inset)
         .background(Color.tactBackground)
         .animation(.snappy, value: badge)
         .onChange(of: searching) { _, now in
@@ -264,8 +267,16 @@ struct HeaderScreen<Header: View, Content: View>: View {
 
     var body: some View {
         GeometryReader { proxy in
+            // The board is centred on the canvas (on each page of a spread),
+            // so where its margin is wider than the header's inset the
+            // wordmark and icons move in to the board's edges.
+            let board = BoardLayout.make(size: proxy.size, fold: proxy.verticalFold)
+            let leading = board.pageX[0]
+            let trailing = proxy.size.width - (board.pageX[board.pageCount - 1] + board.boardWidth)
             VStack(spacing: 0) {
                 header()
+                    .padding(.leading, max(0, leading - HeaderMetrics.inset))
+                    .padding(.trailing, max(0, trailing - HeaderMetrics.inset))
                     .padding(.top, max(0, HeaderMetrics.minimumHeadroom - proxy.safeAreaInsets.top))
                 content()
             }
