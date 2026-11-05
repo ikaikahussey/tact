@@ -51,6 +51,19 @@ final class BoardLayoutTests: XCTestCase {
         XCTAssertLessThanOrEqual(layout.pageX[1] + layout.boardWidth, duo.width)
     }
 
+    /// With a status bar narrowing the right half, both pages still sit the
+    /// same distance in from the fold, so the spread is symmetrical about
+    /// the hinge rather than each page centred in its own half.
+    func testPagesMirrorAboutTheFold() {
+        let narrowedRight = CGSize(width: 860, height: 560)
+        let layout = BoardLayout.make(size: narrowedRight, fold: fold)
+        XCTAssertTrue(layout.isSpread)
+        let leftGap = fold.lowerBound - (layout.pageX[0] + layout.boardWidth)
+        let rightGap = layout.pageX[1] - fold.upperBound
+        XCTAssertEqual(leftGap, rightGap)
+        XCTAssertLessThanOrEqual(layout.pageX[1] + layout.boardWidth, narrowedRight.width)
+    }
+
     func testTilesFlowFromTheLeftPageToTheRightPageThenBelow() throws {
         let layout = spread
         let perPage = try XCTUnwrap(layout.rowsPerPage)

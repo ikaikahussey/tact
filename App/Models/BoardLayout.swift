@@ -41,8 +41,11 @@ struct BoardLayout: Equatable {
     }
 
     /// Two pages either side of a vertical `fold` (its left and right
-    /// edges on the canvas), each board centred in its half. Nil when a
-    /// half is too narrow to be a page.
+    /// edges on the canvas), mirrored about it: both boards are sized to
+    /// the narrower half and sit the same distance in from the fold, so
+    /// the spread is symmetrical about the hinge even when a safe area
+    /// narrows one side of the canvas. Nil when a half is too narrow to
+    /// be a page.
     static func spread(width: CGFloat, height: CGFloat, fold: ClosedRange<CGFloat>, zoom: CGFloat = 1) -> BoardLayout? {
         let left = fold.lowerBound
         let right = width - fold.upperBound
@@ -52,9 +55,10 @@ struct BoardLayout: Equatable {
         guard side > 0 else { return nil }
         let pitch = side + TileLayout.spacing
         let fits = Int(((height + TileLayout.spacing) / pitch).rounded(.down))
+        let inset = TileLayout.inset(forWidth: page, cellSide: side)
         return BoardLayout(cellSide: side, spacing: TileLayout.spacing,
-                           pageX: [TileLayout.inset(forWidth: left, cellSide: side),
-                                   fold.upperBound + TileLayout.inset(forWidth: right, cellSide: side)],
+                           pageX: [fold.lowerBound - inset - TileLayout.boardWidth(cellSide: side),
+                                   fold.upperBound + inset],
                            rowsPerPage: max(minimumPageRows, fits))
     }
 
