@@ -7,6 +7,7 @@ import SwiftUI
 struct TileSelectionBar: View {
     @EnvironmentObject private var store: TactStore
     @Environment(\.appPalette) private var palette
+    @Environment(\.displayScale) private var displayScale
     @Binding var selection: Set<UUID>
     /// Everyone who can be selected: the people on the grid right now.
     let candidates: [UUID]
@@ -116,7 +117,7 @@ struct TileSelectionBar: View {
                     }
                 } label: {
                     Label { Text(pattern.title) } icon: {
-                        Image(uiImage: TileMenuImage.motif(pattern: pattern, colorIndex: colorIndex))
+                        Image(uiImage: TileMenuImage.motif(pattern: pattern, colorIndex: colorIndex, scale: displayScale))
                     }
                 }
             }
@@ -128,7 +129,7 @@ struct TileSelectionBar: View {
                         store.applyPattern(id: saved.id, toPersonIDs: selection)
                     } label: {
                         Label { Text(saved.name) } icon: {
-                            Image(uiImage: TileMenuImage.motif(bits: saved.bits, pattern: .cross, colorIndex: colorIndex))
+                            Image(uiImage: TileMenuImage.motif(bits: saved.bits, pattern: .cross, colorIndex: colorIndex, scale: displayScale))
                         }
                     }
                 }

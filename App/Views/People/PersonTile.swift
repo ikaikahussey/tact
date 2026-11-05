@@ -123,8 +123,10 @@ enum TileMenuImage {
 
     /// A pattern, or a FatBits drawing when `bits` is given, in the colour.
     /// Monochrome's ink changes with the appearance, so its picture is drawn
-    /// for both and registered as one image that follows the menu.
-    static func motif(bits: FatBits? = nil, pattern: TilePattern, colorIndex: Int,
+    /// for both and registered as one image that follows the menu. `scale`
+    /// is the calling view's `displayScale`: a two-display iPhone has no
+    /// single main screen to ask.
+    static func motif(bits: FatBits? = nil, pattern: TilePattern, colorIndex: Int, scale: CGFloat,
                       palette: AppPalette = .current) -> UIImage {
         func render(_ scheme: ColorScheme) -> UIImage {
             let renderer = ImageRenderer(content: TileMotifView(bits: bits, pattern: pattern, colorIndex: colorIndex)
@@ -132,14 +134,14 @@ enum TileMenuImage {
                 .environment(\.colorScheme, scheme)
                 .frame(width: side, height: side)
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius)))
-            renderer.scale = UIScreen.main.scale
+            renderer.scale = scale
             return (renderer.uiImage ?? UIImage()).withRenderingMode(.alwaysOriginal)
         }
         guard palette.isMonochrome else { return render(.light) }
         let asset = UIImageAsset()
         for (scheme, style) in [(ColorScheme.light, UIUserInterfaceStyle.light), (.dark, .dark)] {
             asset.register(render(scheme), with: UITraitCollection(traitsFrom: [
-                UITraitCollection(userInterfaceStyle: style), UITraitCollection(displayScale: UIScreen.main.scale)]))
+                UITraitCollection(userInterfaceStyle: style), UITraitCollection(displayScale: scale)]))
         }
         return asset.image(with: .current).withRenderingMode(.alwaysOriginal)
     }

@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 /// How a person's tile looks and where it sits on the Tiles canvas: a
 /// square with the person's photo, or their geometric pattern
@@ -80,6 +81,31 @@ struct TileArt: Codable, Equatable, Hashable {
 /// Where everyone's tile sits on the canvas.
 enum TileLayout {
     static let columns = 4
+    /// Gap between cells on the canvas.
+    static let spacing: CGFloat = 1
+    /// Largest side a full-size cell is drawn at. Every single-screen
+    /// iPhone and the iPhone Duo's outer display fill four across below
+    /// this; wider canvases, such as the Duo's inner display, keep the
+    /// tiles at this size and centre the board instead of blowing it up.
+    static let maxCellSide: CGFloat = 120
+
+    /// Side of a full-size cell on a canvas `width` wide: four across,
+    /// capped at `maxCellSide`, in whole points.
+    static func cellSide(forWidth width: CGFloat) -> CGFloat {
+        let fill = ((width - spacing * CGFloat(columns - 1)) / CGFloat(columns)).rounded(.down)
+        return max(0, min(fill, maxCellSide))
+    }
+
+    /// Width of the board when cells are `cellSide` across.
+    static func boardWidth(cellSide: CGFloat) -> CGFloat {
+        cellSide * CGFloat(columns) + spacing * CGFloat(columns - 1)
+    }
+
+    /// Leading inset that centres a board of `cellSide` cells on a canvas
+    /// `width` wide. The grid and the games share it so pieces land on tiles.
+    static func inset(forWidth width: CGFloat, cellSide: CGFloat) -> CGFloat {
+        max(0, ((width - boardWidth(cellSide: cellSide)) / 2).rounded(.down))
+    }
 
     /// Maps cells to people. People keep the cell they were placed in (the
     /// first to claim a cell wins); everyone else fills the lowest free cells

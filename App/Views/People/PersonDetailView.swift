@@ -5,6 +5,7 @@ import Contacts
 struct PersonDetailView: View {
     @EnvironmentObject private var store: TactStore
     @Environment(\.appPalette) private var palette
+    @Environment(\.displayScale) private var displayScale
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.openURL) private var openURL
@@ -296,13 +297,13 @@ struct PersonDetailView: View {
             }
             if let bits = person.tile.bits, !available.contains(where: { $0.bits == bits }) {
                 Label { Text("FatBits") } icon: {
-                    Image(uiImage: TileMenuImage.motif(bits: bits, pattern: person.tilePattern, colorIndex: colorIndex))
+                    Image(uiImage: TileMenuImage.motif(bits: bits, pattern: person.tilePattern, colorIndex: colorIndex, scale: displayScale))
                 }
                 .tag(TileChoice.fatBits)
             }
             ForEach(TilePattern.allCases, id: \.self) { pattern in
                 Label { Text(pattern.title) } icon: {
-                    Image(uiImage: TileMenuImage.motif(pattern: pattern, colorIndex: colorIndex))
+                    Image(uiImage: TileMenuImage.motif(pattern: pattern, colorIndex: colorIndex, scale: displayScale))
                 }
                 .tag(TileChoice.pattern(pattern.rawValue))
             }
@@ -310,7 +311,7 @@ struct PersonDetailView: View {
                 Divider()
                 ForEach(available) { saved in
                     Label { Text(saved.name) } icon: {
-                        Image(uiImage: TileMenuImage.motif(bits: saved.bits, pattern: person.tilePattern, colorIndex: colorIndex))
+                        Image(uiImage: TileMenuImage.motif(bits: saved.bits, pattern: person.tilePattern, colorIndex: colorIndex, scale: displayScale))
                     }
                     .tag(TileChoice.saved(saved.id))
                 }

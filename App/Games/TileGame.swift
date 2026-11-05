@@ -91,7 +91,7 @@ struct TileGameContext {
     var activeCells: [Int] = []
 
     static let columns = TileLayout.columns
-    static let spacing: CGFloat = 1
+    static let spacing = TileLayout.spacing
 
     /// Rows the active cells span, down to the lowest tile.
     var activeRows: Int { activeCells.max().map { $0 / Self.columns + 1 } ?? 0 }
@@ -104,7 +104,7 @@ struct TileGameContext {
 
     /// Side of one cell, matching the Tiles grid so pieces land on the tiles.
     var cellSize: CGFloat {
-        ((size.width - Self.spacing * CGFloat(Self.columns - 1)) / CGFloat(Self.columns)).rounded(.down)
+        TileLayout.cellSide(forWidth: size.width)
     }
 
     /// Distance from one cell to the next.

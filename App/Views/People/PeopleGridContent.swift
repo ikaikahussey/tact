@@ -55,6 +55,7 @@ struct PeopleGridContent: View {
 
     @EnvironmentObject private var store: TactStore
     @Environment(\.appPalette) private var palette
+    @Environment(\.displayScale) private var displayScale
     @State private var dropTarget: Int?
     /// The look of the blinking tile shown before anyone is added.
     @State private var cursorSeed = NewPersonSheet.randomSeed()
@@ -76,7 +77,7 @@ struct PeopleGridContent: View {
     static let zoomRows = 8
 
     private let columns = TileLayout.columns
-    private let spacing: CGFloat = 1
+    private let spacing = TileLayout.spacing
 
     /// Cells to draw: enough rows to fill the screen, and always one empty
     /// row below the lowest tile so there is room to build downward.
@@ -126,11 +127,12 @@ struct PeopleGridContent: View {
 
     private var tiles: some View {
         GeometryReader { geometry in
-            let fullSize = (geometry.size.width - spacing * CGFloat(columns - 1)) / CGFloat(columns)
+            let fullSize = TileLayout.cellSide(forWidth: geometry.size.width)
             let squareSize = (fullSize * effectiveZoom).rounded(.down)
             let pitch = squareSize + spacing
-            // Zoomed out, the narrower board sits in the middle.
-            let inset = ((geometry.size.width - (pitch * CGFloat(columns) - spacing)) / 2).rounded(.down)
+            // Zoomed out, or on a canvas wider than four full tiles, the
+            // board sits in the middle.
+            let inset = TileLayout.inset(forWidth: geometry.size.width, cellSide: squareSize)
             let visibleRows = Int((geometry.size.height / pitch).rounded(.up))
             let items = PeopleGridItems(people: store.people, notes: store.notes, query: query)
             let cellCount = Self.cellCount(occupied: items.occupiedCells, visibleRows: visibleRows, columns: columns)
@@ -477,7 +479,7 @@ struct PeopleGridContent: View {
                 }
             } label: {
                 Label { Text(pattern.title) } icon: {
-                    Image(uiImage: TileMenuImage.motif(pattern: pattern, colorIndex: colorIndex))
+                    Image(uiImage: TileMenuImage.motif(pattern: pattern, colorIndex: colorIndex, scale: displayScale))
                 }
             }
         }
@@ -489,7 +491,7 @@ struct PeopleGridContent: View {
                     store.applyPattern(id: saved.id, toPersonID: person.id)
                 } label: {
                     Label { Text(saved.name) } icon: {
-                        Image(uiImage: TileMenuImage.motif(bits: saved.bits, pattern: person.tilePattern, colorIndex: colorIndex))
+                        Image(uiImage: TileMenuImage.motif(bits: saved.bits, pattern: person.tilePattern, colorIndex: colorIndex, scale: displayScale))
                     }
                 }
             }
