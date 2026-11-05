@@ -313,6 +313,8 @@ struct PeopleGridContent: View {
         }
     }
 
+    // The tile is built in three steps so the compiler type-checks each
+    // modifier chain on its own; as one expression it times out.
     private func tile(for person: Person, size: CGFloat) -> some View {
         let colorIndex = Binding(
             get: { person.tile.colorIndex },
@@ -322,62 +324,88 @@ struct PeopleGridContent: View {
             }
         )
         let isSelected = selection.contains(person.id)
-        return Group {
-            if isSelecting || isEditing {
-                Button { toggle(person) } label: {
-                    PersonTile(person: person, size: size)
-                        .contentShape(Rectangle())
-                }
-            } else if isListening {
-                Button { listen(to: person) } label: {
-                    PersonTile(person: person, size: size)
-                        .contentShape(Rectangle())
-                }
-            } else {
-                NavigationLink(value: Route.person(person.id)) {
-                    PersonTile(person: person, size: size)
-                        .contentShape(Rectangle())
-                }
+        let face = tileFace(for: person, size: size, isSelected: isSelected)
+            .contextMenu { if !isSelecting { tileMenu(for: person, colorIndex: colorIndex) } }
+            .draggable(person.id.uuidString) {
+                // The preview is made as the drag begins, which is the one
+                // moment the dragged tile is known before the drop.
+                PersonTile(person: person, size: size)
+                    .onAppear { dragging = person.id }
+            }
+        return tileAccessibility(face, for: person, isSelected: isSelected)
+    }
+
+    /// The tile and its tap, with the press, dimming and badges.
+    private func tileFace(for person: Person, size: CGFloat, isSelected: Bool) -> some View {
+        let isSounding: Bool = sounding == person.id
+        let scale: CGFloat = isSounding ? 0.92 : (isSelecting && isSelected ? 0.9 : 1)
+        let dimmed: Bool = isSelecting && !isSelected && !selection.isEmpty
+        return tileTap(for: person, size: size)
+            .buttonStyle(.plain)
+            .scaleEffect(scale)
+            .opacity(dimmed ? 0.55 : 1)
+            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: isSounding)
+            .overlay(alignment: .topLeading) { deleteBadge(for: person) }
+            .overlay(alignment: .topTrailing) { selectionBadge(for: person, isSelected: isSelected) }
+            .overlay { selectionRing(isSelected: isSelected) }
+    }
+
+    @ViewBuilder
+    private func tileTap(for person: Person, size: CGFloat) -> some View {
+        if isSelecting || isEditing {
+            Button { toggle(person) } label: {
+                PersonTile(person: person, size: size)
+                    .contentShape(Rectangle())
+            }
+        } else if isListening {
+            Button { listen(to: person) } label: {
+                PersonTile(person: person, size: size)
+                    .contentShape(Rectangle())
+            }
+        } else {
+            NavigationLink(value: Route.person(person.id)) {
+                PersonTile(person: person, size: size)
+                    .contentShape(Rectangle())
             }
         }
-        .buttonStyle(.plain)
-        .scaleEffect(sounding == person.id ? 0.92 : isSelecting && isSelected ? 0.9 : 1)
-        .opacity(isSelecting && !isSelected && !selection.isEmpty ? 0.55 : 1)
-        .animation(.spring(response: 0.25, dampingFraction: 0.6), value: sounding == person.id)
-        .overlay(alignment: .topLeading) { deleteBadge(for: person) }
-        .overlay(alignment: .topTrailing) { selectionBadge(for: person, isSelected: isSelected) }
-        .overlay {
-            if isSelected {
-                Rectangle().strokeBorder(.tint, lineWidth: 3)
-                    .allowsHitTesting(false)
-                    .transition(.opacity)
+    }
+
+    @ViewBuilder
+    private func selectionRing(isSelected: Bool) -> some View {
+        if isSelected {
+            Rectangle().strokeBorder(.tint, lineWidth: 3)
+                .allowsHitTesting(false)
+                .transition(.opacity)
+        }
+    }
+
+    private func tileHint(for person: Person, isSelected: Bool) -> String {
+        if isSelecting || isEditing {
+            return isSelected ? "Selected. Tap to deselect; drag to move the selection together." : "Tap to select; drag to move it."
+        }
+        if isListening { return "Plays \(person.name)'s ditty." }
+        return "Opens \(person.name). Touch and hold for a new note, the ditty, the color, turning, or deleting; drag to move it."
+    }
+
+    private func tileAccessibility(_ view: some View, for person: Person, isSelected: Bool) -> some View {
+        let label: String = "\(person.name), \(TilePalette.name(person.tile.colorIndex)) tile"
+        let traits: AccessibilityTraits = isSelected ? [.isButton, .isSelected] : .isButton
+        return view
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(label)
+            .accessibilityHint(tileHint(for: person, isSelected: isSelected))
+            .accessibilityAddTraits(traits)
+            .accessibilityAction(named: "Change color") {
+                let order = TilePalette.menuOrder
+                let next = order[((order.firstIndex(of: person.tile.colorIndex) ?? 0) + 1) % order.count]
+                store.updateTile(forPersonID: person.id) { $0.colorIndex = next }
             }
-        }
-        .contextMenu { if !isSelecting { tileMenu(for: person, colorIndex: colorIndex) } }
-        .draggable(person.id.uuidString) {
-            // The preview is made as the drag begins, which is the one
-            // moment the dragged tile is known before the drop.
-            PersonTile(person: person, size: size)
-                .onAppear { dragging = person.id }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(person.name), \(TilePalette.name(person.tile.colorIndex)) tile")
-        .accessibilityHint(isSelecting || isEditing
-                           ? (isSelected ? "Selected. Tap to deselect; drag to move the selection together." : "Tap to select; drag to move it.")
-                           : isListening ? "Plays \(person.name)'s ditty."
-                           : "Opens \(person.name). Touch and hold for a new note, the ditty, the color, turning, or deleting; drag to move it.")
-        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
-        .accessibilityAction(named: "Change color") {
-            let order = TilePalette.menuOrder
-            let next = order[((order.firstIndex(of: person.tile.colorIndex) ?? 0) + 1) % order.count]
-            store.updateTile(forPersonID: person.id) { $0.colorIndex = next }
-        }
-        .accessibilityAction(named: "Rotate") {
-            store.updateTile(forPersonID: person.id) { $0.rotate() }
-        }
-        .accessibilityAction(named: "Play ditty") { DittyPlayer.play(person) }
-        .accessibilityAction(named: "New note") { addingNoteFor = person }
-        .accessibilityAction(named: "Delete") { deleting = person }
+            .accessibilityAction(named: "Rotate") {
+                store.updateTile(forPersonID: person.id) { $0.rotate() }
+            }
+            .accessibilityAction(named: "Play ditty") { DittyPlayer.play(person) }
+            .accessibilityAction(named: "New note") { addingNoteFor = person }
+            .accessibilityAction(named: "Delete") { deleting = person }
     }
 
     /// Edit and Select modes' tap: in or out of the selection.
