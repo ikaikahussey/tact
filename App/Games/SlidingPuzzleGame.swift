@@ -16,10 +16,11 @@ struct SlidingPuzzleGame: View {
         ZStack(alignment: .topLeading) {
             PuzzleBoard(game: game, imageData: imageData, pitch: context.pitch, pieceSize: context.cellSize,
                         isShowing: context.isShowing, flipDelay: context.flipDelay)
+                .padding(.leading, context.boardLeading)
 
             status
                 .frame(width: context.size.width - 32, alignment: .leading)
-                .offset(x: 16, y: CGFloat(ArtPuzzle.rows) * context.pitch + 12)
+                .offset(x: 16, y: context.bottom(ofRows: ArtPuzzle.rows) + 12)
                 .opacity(context.isShowing ? 1 : 0)
                 .animation(.easeInOut(duration: 0.2).delay(context.isShowing ? 0.35 : 0), value: context.isShowing)
                 .accessibilityHidden(!context.isShowing)

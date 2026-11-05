@@ -82,13 +82,25 @@ struct TileGame: Identifiable {
 struct TileGameContext {
     /// Size of the canvas the game fills.
     let size: CGSize
+    /// Where each cell is drawn: the same layout as the Tiles grid, so
+    /// pieces land on the tiles, on one board or across a fold.
+    let layout: BoardLayout
     /// Whether this game is face up: the tiles are turned over and it is chosen.
-    var isShowing = true
+    var isShowing: Bool
     /// Stagger for the flip, by cell in a four-column grid.
-    var flipDelay: (Int) -> Double = { _ in 0 }
+    var flipDelay: (Int) -> Double
     /// The cells that have a people tile, in cell order: where the game's
     /// pieces go, since each is the back of a tile.
-    var activeCells: [Int] = []
+    var activeCells: [Int]
+
+    init(size: CGSize, layout: BoardLayout? = nil, isShowing: Bool = true,
+         flipDelay: @escaping (Int) -> Double = { _ in 0 }, activeCells: [Int] = []) {
+        self.size = size
+        self.layout = layout ?? .single(width: size.width)
+        self.isShowing = isShowing
+        self.flipDelay = flipDelay
+        self.activeCells = activeCells
+    }
 
     static let columns = TileLayout.columns
     static let spacing = TileLayout.spacing
@@ -97,16 +109,21 @@ struct TileGameContext {
     var activeRows: Int { activeCells.max().map { $0 / Self.columns + 1 } ?? 0 }
 
     /// The middle of a cell on the canvas.
-    func center(of cell: Int) -> CGPoint {
-        CGPoint(x: CGFloat(cell % Self.columns) * pitch + cellSize / 2,
-                y: CGFloat(cell / Self.columns) * pitch + cellSize / 2)
-    }
+    func center(of cell: Int) -> CGPoint { layout.center(of: cell) }
+
+    /// The cell under a point on the canvas, or nil off the board.
+    func cell(at point: CGPoint) -> Int? { layout.cell(at: point) }
+
+    /// How far down the canvas board rows `0..<rows` reach: where a line
+    /// under the board goes.
+    func bottom(ofRows rows: Int) -> CGFloat { layout.height(rows: rows) }
+
+    /// Leading edge of the first page's board.
+    var boardLeading: CGFloat { layout.pageX[0] }
 
     /// Side of one cell, matching the Tiles grid so pieces land on the tiles.
-    var cellSize: CGFloat {
-        TileLayout.cellSide(forWidth: size.width)
-    }
+    var cellSize: CGFloat { layout.cellSide }
 
     /// Distance from one cell to the next.
-    var pitch: CGFloat { cellSize + Self.spacing }
+    var pitch: CGFloat { layout.pitch }
 }

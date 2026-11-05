@@ -307,10 +307,8 @@ struct MosaicGame: View {
     // MARK: Geometry
 
     private func cell(at point: CGPoint) -> Int? {
-        guard point.x >= 0, point.y >= 0 else { return nil }
-        let column = Int(point.x / context.pitch), row = Int(point.y / context.pitch)
-        guard column < Self.columns, row < mosaic.rows else { return nil }
-        return row * Self.columns + column
+        guard let cell = context.cell(at: point), cell / Self.columns < mosaic.rows else { return nil }
+        return cell
     }
 }
 

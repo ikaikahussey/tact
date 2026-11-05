@@ -24,18 +24,14 @@ struct GamesSurface: View {
         let chosen = TileGame.named(selectedGameID)
         let available = chosen.isAvailable(tileCount: cells.count)
         GeometryReader { geometry in
-            // Games draw on a board as wide as the Tiles grid, placed where
-            // the grid is, so each piece lands on the back of its tile.
-            let side = TileLayout.cellSide(forWidth: geometry.size.width)
-            let board = CGSize(width: TileLayout.boardWidth(cellSide: side), height: geometry.size.height)
-            let inset = TileLayout.inset(forWidth: geometry.size.width, cellSide: side)
+            // Games draw on the same layout as the Tiles grid, so each piece
+            // lands on the back of its tile, across a fold too.
+            let layout = BoardLayout.make(size: geometry.size, fold: geometry.verticalFold)
             ForEach(TileGame.all) { game in
                 let isShowing = showing && available && chosen.id == game.id
-                game.board(TileGameContext(size: board, isShowing: isShowing,
+                game.board(TileGameContext(size: geometry.size, layout: layout, isShowing: isShowing,
                                            flipDelay: { TileFlipFace.delay(forCell: $0, columns: TileLayout.columns) },
                                            activeCells: cells))
-                    .frame(width: board.width, height: board.height, alignment: .topLeading)
-                    .padding(.leading, inset)
                     .allowsHitTesting(isShowing)
                     .accessibilityHidden(!isShowing)
             }

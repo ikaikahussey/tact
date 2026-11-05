@@ -127,17 +127,17 @@ struct PeopleGridContent: View {
 
     private var tiles: some View {
         GeometryReader { geometry in
-            let fullSize = TileLayout.cellSide(forWidth: geometry.size.width)
-            let squareSize = (fullSize * effectiveZoom).rounded(.down)
-            let pitch = squareSize + spacing
-            // Zoomed out, or on a canvas wider than four full tiles, the
-            // board sits in the middle.
-            let inset = TileLayout.inset(forWidth: geometry.size.width, cellSide: squareSize)
-            let visibleRows = Int((geometry.size.height / pitch).rounded(.up))
+            // One board, or across a fold a spread of two pages; the games
+            // use the same layout.
+            let layout = BoardLayout.make(size: geometry.size, fold: geometry.verticalFold, zoom: effectiveZoom)
+            let squareSize = layout.cellSide
+            let visibleRows = layout.visibleRows(height: geometry.size.height)
             let items = PeopleGridItems(people: store.people, notes: store.notes, query: query)
-            let cellCount = Self.cellCount(occupied: items.occupiedCells, visibleRows: visibleRows, columns: columns)
-            let origin = { (cell: Int) in
-                CGSize(width: inset + CGFloat(cell % columns) * pitch, height: CGFloat(cell / columns) * pitch)
+            let cellCount = layout.filledRows(atLeast: Self.cellCount(occupied: items.occupiedCells, visibleRows: visibleRows,
+                                                                      columns: columns) / columns) * columns
+            let origin = { (cell: Int) -> CGSize in
+                let point = layout.origin(of: cell)
+                return CGSize(width: point.x, height: point.y)
             }
 
             ScrollViewReader { proxy in
@@ -208,7 +208,7 @@ struct PeopleGridContent: View {
                             .allowsHitTesting(false)
                     }
                 }
-                .frame(width: geometry.size.width, height: CGFloat(cellCount / columns) * pitch, alignment: .topLeading)
+                .frame(width: geometry.size.width, height: layout.height(rows: cellCount / columns), alignment: .topLeading)
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: items)
                 .animation(.snappy, value: isEditing)
                 .animation(.snappy, value: isSelecting)

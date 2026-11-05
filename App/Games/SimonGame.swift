@@ -54,7 +54,7 @@ struct SimonGame: View {
 
             status
                 .frame(width: context.size.width - 32, alignment: .leading)
-                .offset(x: 16, y: CGFloat(context.activeRows) * context.pitch + 12)
+                .offset(x: 16, y: context.bottom(ofRows: context.activeRows) + 12)
                 .opacity(context.isShowing ? 1 : 0)
                 .animation(.easeInOut(duration: 0.2).delay(context.isShowing ? 0.35 : 0), value: context.isShowing)
                 .accessibilityHidden(!context.isShowing)
