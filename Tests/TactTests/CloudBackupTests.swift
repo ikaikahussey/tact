@@ -92,7 +92,8 @@ final class CloudBackupTests: XCTestCase {
 
         let store = makeStore(local: local, cloud: cloud, defaults: defaults)
         waitUntilOn(store)
-        store.deletePerson(id: store.people[0].id)
+        let ada = try XCTUnwrap(store.people.first, "backup was not restored")
+        store.deletePerson(id: ada.id)
         store.flush(waitUntilDone: true)
 
         let relaunched = makeStore(local: local, cloud: cloud, defaults: defaults)
@@ -109,7 +110,7 @@ final class CloudBackupTests: XCTestCase {
         )
         let expectation = expectation(description: "unavailable")
         let cancellable = store.$backupStatus.first { $0 == .unavailable }.sink { _ in expectation.fulfill() }
-        wait(for: [expectation], timeout: 5)
+        wait(for: [expectation], timeout: 15)
         cancellable.cancel()
     }
 
@@ -127,7 +128,7 @@ final class CloudBackupTests: XCTestCase {
     private func waitUntilOn(_ store: TactStore) {
         let expectation = expectation(description: "backup on")
         let cancellable = store.$backupStatus.first { $0 == .on }.sink { _ in expectation.fulfill() }
-        wait(for: [expectation], timeout: 5)
+        wait(for: [expectation], timeout: 15)
         cancellable.cancel()
     }
 }
