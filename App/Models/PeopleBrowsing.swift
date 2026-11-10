@@ -159,10 +159,19 @@ struct PersonSection: Identifiable, Equatable {
 }
 
 /// What the grid draws: the tiles that match the search, each at its cell.
+/// A stack is one tile, showing the person on top and carrying everyone in
+/// it; it is shown when anyone in it matches.
 struct PeopleGridItems: Equatable {
     struct Tile: Equatable {
         let cell: Int
         let person: Person
+        /// Everyone in the stack this tile is the top of, top first; empty
+        /// for a tile on its own.
+        var stack: [Person] = []
+
+        var isStack: Bool { !stack.isEmpty }
+        /// The people the tile stands for.
+        var ids: [UUID] { isStack ? stack.map(\.id) : [person.id] }
     }
 
     let tiles: [Tile]
@@ -171,12 +180,19 @@ struct PeopleGridItems: Equatable {
         let layout = TileLayout.cells(for: people)
         let shown = Set(PeopleSearch.people(people, notes: notes, query: query).map(\.id))
         let byID = Dictionary(people.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        tiles = layout.compactMap { cell, id in
-            guard shown.contains(id), let person = byID[id] else { return nil }
-            return Tile(cell: cell, person: person)
+        let stacks = TileLayout.stacks(for: people)
+        tiles = layout.compactMap { cell, id -> Tile? in
+            guard let person = byID[id] else { return nil }
+            let memberIDs: [UUID] = person.tile.stack.flatMap { stacks[$0] } ?? []
+            let members: [Person] = memberIDs.compactMap { byID[$0] }
+            guard shown.contains(id) || memberIDs.contains(where: { shown.contains($0) }) else { return nil }
+            return Tile(cell: cell, person: person, stack: members)
         }
         .sorted { $0.cell < $1.cell }
     }
+
+    /// Everyone the shown tiles stand for, in cell order: what Select All gathers.
+    var selectableIDs: [UUID] { tiles.flatMap { $0.ids } }
 
     /// Every cell something sits in, for sizing the canvas.
     var occupiedCells: [Int] { tiles.map(\.cell) }

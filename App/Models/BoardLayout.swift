@@ -140,3 +140,53 @@ struct BoardLayout: Equatable {
         return Int((height / pitch).rounded(.up))
     }
 }
+
+/// The tray an open stack's tiles are laid out in. It opens directly under
+/// the stack's row, and every row below moves down to make room.
+struct StackTray: Equatable {
+    /// Space above and below the tiles in the tray.
+    static let inset: CGFloat = 8
+    /// The cell the stack sits in.
+    let cell: Int
+    /// How many tiles the stack holds.
+    let count: Int
+}
+
+extension BoardLayout {
+    /// Rows of tiles in the tray, four across.
+    func trayRows(_ tray: StackTray) -> Int {
+        max(1, (tray.count + Self.columns - 1) / Self.columns)
+    }
+
+    /// How far the rows below the stack move down.
+    func trayHeight(_ tray: StackTray) -> CGFloat {
+        CGFloat(trayRows(tray)) * pitch + StackTray.inset * 2
+    }
+
+    /// Where the tray is drawn: the width of the stack's page, under its row.
+    func trayFrame(_ tray: StackTray) -> CGRect {
+        let slot = slot(of: tray.cell)
+        return CGRect(x: pageX[slot.page], y: CGFloat(slot.row + 1) * pitch,
+                      width: boardWidth, height: trayHeight(tray) - spacing)
+    }
+
+    /// Top-left corner of the tray's `index`th tile.
+    func trayOrigin(of index: Int, in tray: StackTray) -> CGPoint {
+        let frame = trayFrame(tray)
+        return CGPoint(x: frame.minX + CGFloat(index % Self.columns) * pitch,
+                       y: frame.minY + StackTray.inset + CGFloat(index / Self.columns) * pitch)
+    }
+
+    /// Top-left corner of a cell while `tray` is open: rows drawn below
+    /// the stack's row are pushed down by the tray, on every page.
+    func origin(of cell: Int, tray: StackTray?) -> CGPoint {
+        var point = origin(of: cell)
+        if let tray, slot(of: cell).row > slot(of: tray.cell).row { point.y += trayHeight(tray) }
+        return point
+    }
+
+    /// Height of the canvas for board rows `0..<rows` with `tray` open.
+    func height(rows: Int, tray: StackTray?) -> CGFloat {
+        height(rows: rows) + (tray.map(trayHeight) ?? 0)
+    }
+}

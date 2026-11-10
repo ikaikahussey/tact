@@ -24,15 +24,20 @@ struct TileArt: Codable, Equatable, Hashable {
     /// A motif drawn in FatBits, shown in place of the pattern when set.
     /// `pattern` is kept underneath, so reverting brings the original back.
     var bits: FatBits?
+    /// The stack the tile is grouped into, shared by every tile in it. A
+    /// stack takes one cell on the canvas, with its first person (in list
+    /// order) on top; tapping it opens the rest (`TileLayout.stacks`).
+    var stack: UUID?
 
     init(quarterTurns: Int = 0, colorIndex: Int = 0, cell: Int? = nil, pattern: Int? = nil,
-         showsPhoto: Bool = true, bits: FatBits? = nil) {
+         showsPhoto: Bool = true, bits: FatBits? = nil, stack: UUID? = nil) {
         self.quarterTurns = quarterTurns
         self.colorIndex = colorIndex
         self.cell = cell
         self.pattern = pattern
         self.showsPhoto = showsPhoto
         self.bits = bits
+        self.stack = stack
     }
 
     var isFatBits: Bool { bits != nil }
@@ -53,7 +58,7 @@ struct TileArt: Codable, Equatable, Hashable {
     }
 
     // Tiles saved with a shape or size from earlier versions decode without them.
-    private enum CodingKeys: String, CodingKey { case quarterTurns, colorIndex, cell, pattern, showsPhoto, bits }
+    private enum CodingKeys: String, CodingKey { case quarterTurns, colorIndex, cell, pattern, showsPhoto, bits, stack }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -65,6 +70,7 @@ struct TileArt: Codable, Equatable, Hashable {
         pattern = (try? container.decodeIfPresent(Int.self, forKey: .pattern)) ?? nil
         showsPhoto = (try? container.decodeIfPresent(Bool.self, forKey: .showsPhoto)) ?? nil ?? true
         bits = (try? container.decodeIfPresent(FatBits.self, forKey: .bits)) ?? nil
+        stack = (try? container.decodeIfPresent(UUID.self, forKey: .stack)) ?? nil
     }
 
     func encode(to encoder: Encoder) throws {
@@ -75,6 +81,7 @@ struct TileArt: Codable, Equatable, Hashable {
         try container.encodeIfPresent(pattern, forKey: .pattern)
         try container.encode(showsPhoto, forKey: .showsPhoto)
         try container.encodeIfPresent(bits, forKey: .bits)
+        try container.encodeIfPresent(stack, forKey: .stack)
     }
 }
 
@@ -109,13 +116,49 @@ enum TileLayout {
 
     /// Maps cells to people. People keep the cell they were placed in (the
     /// first to claim a cell wins); everyone else fills the lowest free cells
-    /// in list order. Empty cells are gaps.
+    /// in list order. Empty cells are gaps. A stack is one tile here: its
+    /// top person stands for it, and the people under them have no cell.
     static func cells(for people: [Person]) -> [Int: UUID] {
         Dictionary(uniqueKeysWithValues: anchors(for: people).map { ($1, $0) })
     }
 
     static func anchors(for people: [Person]) -> [UUID: Int] {
-        GridPlacement.anchors(for: people, cell: \.tile.cell, footprint: footprint(of:at:))
+        let covered = covered(for: people)
+        let onBoard = covered.isEmpty ? people : people.filter { covered[$0.id] == nil }
+        return GridPlacement.anchors(for: onBoard, cell: \.tile.cell, footprint: footprint(of:at:))
+    }
+
+    // MARK: Stacks
+
+    /// The stacks on the canvas: each stack's people in list order, the
+    /// first of them on top. A stack needs two people; one left alone with
+    /// a stack id is an ordinary tile.
+    static func stacks(for people: [Person]) -> [UUID: [UUID]] {
+        var members: [UUID: [UUID]] = [:]
+        for person in people {
+            if let stack = person.tile.stack { members[stack, default: []].append(person.id) }
+        }
+        return members.filter { $0.value.count > 1 }
+    }
+
+    /// Everyone under the top tile of a stack, with the person on top of them.
+    static func covered(for people: [Person]) -> [UUID: UUID] {
+        var tops: [UUID: UUID] = [:]
+        for members in stacks(for: people).values {
+            for id in members.dropFirst() { tops[id] = members[0] }
+        }
+        return tops
+    }
+
+    /// The first `count` empty cells after `cell`, for tiles leaving a stack.
+    static func freeCells(after cell: Int, count: Int, taken: Set<Int>) -> [Int] {
+        var free: [Int] = []
+        var next = cell
+        while free.count < count {
+            next += 1
+            if !taken.contains(next) { free.append(next) }
+        }
+        return free
     }
 
     /// Everyone's tile in the first cells, in the order they sit now, so the
@@ -128,7 +171,8 @@ enum TileLayout {
 
     /// Whether the tiles already fill the first cells with no gaps.
     static func isCompact(_ people: [Person]) -> Bool {
-        Set(anchors(for: people).values) == Set(0..<people.count)
+        let cells = anchors(for: people).values
+        return Set(cells) == Set(0..<cells.count)
     }
 
     /// Where `ids` land when the one at `source` is dragged to `target` and

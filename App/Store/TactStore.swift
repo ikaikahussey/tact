@@ -260,21 +260,105 @@ final class TactStore: ObservableObject {
         place(TileLayout.pushing(aside: moved, anchors: anchors))
     }
 
-    /// Pins everyone to the given cells.
+    /// Pins everyone to the given cells. The people under a stack's top
+    /// tile take its cell, so the stack stays put if the top person goes.
     private func place(_ cells: [UUID: Int]) {
+        let tops = TileLayout.covered(for: people)
         var updated = people
         for index in updated.indices {
-            updated[index].tile.cell = cells[updated[index].id]
+            let id = updated[index].id
+            updated[index].tile.cell = cells[id] ?? tops[id].flatMap { cells[$0] }
         }
         people = updated
     }
 
     /// Closes the gaps on the Tiles canvas, keeping everyone's order.
     func bringTilesTogether() {
-        let cells = TileLayout.compacted(people)
+        place(TileLayout.compacted(people))
+    }
+
+    // MARK: Stacks
+
+    /// Groups tiles into one stack, which takes the first of their cells;
+    /// the cells the others leave stay empty. A stack among them brings
+    /// everyone in it, so stacks merge. Returns the stack's id, or nil when
+    /// there are not two tiles to stack.
+    @discardableResult
+    func stackTiles(personIDs ids: Set<UUID>) -> UUID? {
+        let stacks = TileLayout.stacks(for: people)
+        let tops = TileLayout.covered(for: people)
+        let anchors = TileLayout.anchors(for: people)
+        var members = ids.intersection(people.map(\.id))
+        for list in stacks.values where !members.isDisjoint(with: list) { members.formUnion(list) }
+        guard members.count > 1 else { return nil }
+        // The tile sitting first on the canvas gives the stack its cell,
+        // and its id when it is already a stack.
+        var first: (id: UUID, cell: Int)?
+        for id in members {
+            guard let cell = anchors[tops[id] ?? id] else { continue }
+            if first == nil || cell < first!.cell { first = (id, cell) }
+        }
+        guard let first else { return nil }
+        let existing = person(id: first.id)?.tile.stack
+        let stackID = existing.flatMap { stacks[$0] == nil ? nil : $0 } ?? UUID()
         var updated = people
         for index in updated.indices {
-            updated[index].tile.cell = cells[updated[index].id]
+            let id = updated[index].id
+            if members.contains(id) {
+                updated[index].tile.stack = stackID
+                updated[index].tile.cell = first.cell
+            } else {
+                updated[index].tile.cell = anchors[id] ?? tops[id].flatMap { anchors[$0] }
+            }
+        }
+        people = updated
+        return stackID
+    }
+
+    /// Takes a stack apart: the top tile stays, and the rest go to the
+    /// nearest empty cells after it.
+    func unstack(id stackID: UUID) {
+        guard let members = TileLayout.stacks(for: people)[stackID] else { return }
+        release(Set(members.dropFirst()), from: members)
+    }
+
+    /// Takes one person out of their stack, to the nearest empty cell
+    /// after it. A stack left with one tile is no longer a stack.
+    func removeFromStack(personID id: UUID) {
+        guard let stackID = person(id: id)?.tile.stack,
+              let members = TileLayout.stacks(for: people)[stackID] else { return }
+        release([id], from: members)
+    }
+
+    /// Takes a person out of their stack and puts their tile on `target`,
+    /// as when it is dragged out of the open stack onto the canvas.
+    func moveOutOfStack(personID id: UUID, toCell target: Int) {
+        removeFromStack(personID: id)
+        moveTile(personID: id, toCell: target)
+    }
+
+    /// Moves `leaving` out of the stack `members` to the empty cells after
+    /// it. Everyone else is pinned where they are.
+    private func release(_ leaving: Set<UUID>, from members: [UUID]) {
+        let anchors = TileLayout.anchors(for: people)
+        let tops = TileLayout.covered(for: people)
+        guard let top = members.first, let cell = anchors[top] else { return }
+        let going = members.filter { leaving.contains($0) }
+        let staying = members.count - going.count
+        let free = TileLayout.freeCells(after: cell, count: going.count, taken: Set(anchors.values))
+        let cells = Dictionary(uniqueKeysWithValues: zip(going, free))
+        var updated = people
+        for index in updated.indices {
+            let id = updated[index].id
+            if let free = cells[id] {
+                updated[index].tile.stack = nil
+                updated[index].tile.cell = free
+            } else if members.contains(id) {
+                updated[index].tile.cell = cell
+                if staying < 2 { updated[index].tile.stack = nil }
+            } else {
+                updated[index].tile.cell = anchors[id] ?? tops[id].flatMap { anchors[$0] }
+            }
         }
         people = updated
     }

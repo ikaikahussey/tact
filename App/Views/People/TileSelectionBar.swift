@@ -3,7 +3,9 @@ import SwiftUI
 /// The bar that replaces the view switch while tiles are being selected:
 /// how many are chosen, Select All or None, and the changes made to every
 /// chosen tile at once — Color, Tile (a built-in pattern, a saved pattern,
-/// or back to each person's own pattern), Rotate, and Delete.
+/// or back to each person's own pattern), Rotate, Stack (group the chosen
+/// tiles into one stack, or Unstack when the selection is one whole
+/// stack), and Delete.
 struct TileSelectionBar: View {
     @EnvironmentObject private var store: TactStore
     @Environment(\.appPalette) private var palette
@@ -19,6 +21,10 @@ struct TileSelectionBar: View {
     private var hasSelection: Bool { !selection.isEmpty }
     private var allSelected: Bool { !candidates.isEmpty && Set(candidates).isSubset(of: selection) }
     private var selectedPeople: [Person] { store.people.filter { selection.contains($0.id) } }
+    /// The stack the selection is exactly, if it is one: Stack turns to Unstack.
+    private var selectedStack: UUID? {
+        TileLayout.stacks(for: store.people).first { Set($0.value) == selection }?.key
+    }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -45,6 +51,7 @@ struct TileSelectionBar: View {
                 action("Rotate", systemImage: "rotate.right") {
                     store.updateTiles(forPersonIDs: selection) { $0.rotate() }
                 }
+                stackAction
                 action("Delete", systemImage: "trash", role: .destructive) { confirmingDelete = true }
             }
         }
@@ -153,20 +160,45 @@ struct TileSelectionBar: View {
 
     // MARK: Buttons
 
-    private func action(_ title: String, systemImage: String, role: ButtonRole? = nil, perform: @escaping () -> Void) -> some View {
-        Button(role: role) {
+    /// Stack groups the chosen tiles into one; with one whole stack
+    /// chosen it is Unstack, which lays them out again.
+    @ViewBuilder
+    private var stackAction: some View {
+        if let stack = selectedStack {
+            action("Unstack", systemImage: "square.stack.3d.up.slash") {
+                store.unstack(id: stack)
+            }
+        } else {
+            action("Stack", systemImage: "square.stack.3d.up", isEnabled: count > 1) {
+                // A stack among them brings everyone in it.
+                if let stack = store.stackTiles(personIDs: selection) {
+                    selection = Set(TileLayout.stacks(for: store.people)[stack] ?? [])
+                }
+            }
+        }
+    }
+
+    private func action(_ title: String, systemImage: String, role: ButtonRole? = nil, isEnabled: Bool? = nil,
+                        perform: @escaping () -> Void) -> some View {
+        let enabled: Bool = isEnabled ?? hasSelection
+        return Button(role: role) {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             withAnimation(.snappy) { perform() }
         } label: {
-            actionLabel(title, systemImage: systemImage)
+            actionLabel(title, systemImage: systemImage, isEnabled: enabled)
         }
         .buttonStyle(.plain)
-        .disabled(!hasSelection)
+        .disabled(!enabled)
         .accessibilityLabel(title)
-        .accessibilityHint(hasSelection ? "\(title) every selected tile" : "Select tiles first")
+        .accessibilityHint(enabled ? "\(title) every selected tile" : hasSelection ? "Select two or more tiles" : "Select tiles first")
     }
 
-    private func actionLabel(_ title: String, systemImage: String) -> some View {
+    private func actionLabel(_ title: String, systemImage: String, isEnabled: Bool? = nil) -> some View {
+        let hasSelection: Bool = isEnabled ?? self.hasSelection
+        return actionLabelBody(title, systemImage: systemImage, hasSelection: hasSelection)
+    }
+
+    private func actionLabelBody(_ title: String, systemImage: String, hasSelection: Bool) -> some View {
         VStack(spacing: 3) {
             Image(systemName: systemImage)
                 .font(.tact(.body).weight(.semibold))

@@ -91,6 +91,51 @@ struct PersonTile: View {
     }
 }
 
+/// A stack on the Tiles canvas: the top person's tile, drawn a little
+/// smaller so the colors of the next two show at its lower right edges
+/// like tiles underneath, with a count of everyone in it.
+struct StackedTile: View {
+    /// Everyone in the stack, top first.
+    let people: [Person]
+    let size: CGFloat
+    /// The stack's tiles are laid out in the tray below.
+    var isOpen = false
+    @Environment(\.appPalette) private var palette
+
+    /// Tiles drawn under the top one.
+    static func layers(count: Int) -> Int { max(0, min(count - 1, 2)) }
+    /// How far each tile underneath shows.
+    static func step(size: CGFloat) -> CGFloat { max(3, (size * 0.06).rounded()) }
+
+    var body: some View {
+        let layers: Int = Self.layers(count: people.count)
+        let step: CGFloat = Self.step(size: size)
+        let top: CGFloat = size - step * CGFloat(layers)
+        return ZStack(alignment: .topLeading) {
+            Color.tactCardBackground
+            ForEach(Array((0..<layers).reversed()), id: \.self) { layer in
+                let shift: CGFloat = step * CGFloat(layer + 1)
+                TilePalette.color(people[layer + 1].tile.colorIndex, in: palette)
+                    .frame(width: top, height: top)
+                    .offset(x: shift, y: shift)
+            }
+            if let first = people.first {
+                PersonTile(person: first, size: top)
+                    .opacity(isOpen ? 0.55 : 1)
+            }
+            Text("\(people.count)")
+                .font(.tactBold(size: max(10, size * 0.12)))
+                .monospacedDigit()
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(.thinMaterial, in: Capsule())
+                .padding(5)
+        }
+        .frame(width: size, height: size)
+        .clipped()
+    }
+}
+
 /// Circular avatar used in lists and chips: the photo, or the person's tile
 /// pattern when there is none or they chose the pattern.
 struct PersonAvatar: View {

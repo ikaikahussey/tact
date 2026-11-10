@@ -12,6 +12,12 @@ import SwiftUI
 /// for the bar below to change together, and they too drag as one. All
 /// are on the header's More menu, with Bring Together, which closes the
 /// gaps.
+/// Tiles can be grouped into a stack (Stack on the Select bar), which
+/// takes one cell and shows its top tile over the edges of the next. A
+/// tap opens it: the rows below move down and the stack's tiles are laid
+/// out in a tray under its row (`StackTray`). There a tap opens a person
+/// as usual, and a tile leaves the stack from its menu or by being dragged
+/// out onto the canvas. Another tap on the stack closes it.
 /// Choosing a game turns the tiles over (`TileFlipFace`) to the game on
 /// the back (`GamesSurface`); only the tiles turn, so the game's pieces
 /// are the tiles. A game short of tiles leaves them face up under its
@@ -67,6 +73,11 @@ struct PeopleGridContent: View {
     @State private var dragging: UUID?
     /// The person whose ditty is sounding in Listen mode, for the pulse.
     @State private var sounding: UUID?
+    /// The stack whose tiles are laid out in the tray.
+    @State private var openStack: UUID?
+    /// What a tile dragged out of the tray carries, before its id, so the
+    /// drop takes it out of the stack instead of moving the stack.
+    static let memberPrefix = "stack-member:"
     /// How large the tiles are drawn, 1 being four across the screen.
     /// Zooming out shows more rows at once on a tall board; the controls
     /// appear once the board is past `zoomRows` rows. Games are played at
@@ -135,8 +146,10 @@ struct PeopleGridContent: View {
             let items = PeopleGridItems(people: store.people, notes: store.notes, query: query)
             let cellCount = layout.filledRows(atLeast: Self.cellCount(occupied: items.occupiedCells, visibleRows: visibleRows,
                                                                       columns: columns) / columns) * columns
+            let open: PeopleGridItems.Tile? = openTile(in: items)
+            let tray: StackTray? = open.map { StackTray(cell: $0.cell, count: $0.stack.count) }
             let origin = { (cell: Int) -> CGSize in
-                let point = layout.origin(of: cell)
+                let point = layout.origin(of: cell, tray: tray)
                 return CGSize(width: point.x, height: point.y)
             }
 
@@ -186,7 +199,7 @@ struct PeopleGridContent: View {
                     }
 
                     ForEach(items.tiles, id: \.person.id) { placed in
-                        tile(for: placed.person, size: squareSize)
+                        boardTile(placed, size: squareSize)
                             .modifier(TileFlipFace(side: .front, showingBack: showingGames && tilesTurned,
                                                    delay: TileFlipFace.delay(forCell: placed.cell, columns: columns)))
                             .dropDestination(for: String.self) { items, _ in
@@ -207,9 +220,15 @@ struct PeopleGridContent: View {
                             .offset(origin(cell))
                             .allowsHitTesting(false)
                     }
+
+                    if let open, let tray {
+                        stackTray(open, tray: tray, layout: layout)
+                            .transition(.opacity.combined(with: .scale(scale: 0.85, anchor: .top)))
+                    }
                 }
-                .frame(width: geometry.size.width, height: layout.height(rows: cellCount / columns), alignment: .topLeading)
+                .frame(width: geometry.size.width, height: layout.height(rows: cellCount / columns, tray: tray), alignment: .topLeading)
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: items)
+                .animation(.spring(response: 0.4, dampingFraction: 0.85), value: tray)
                 .animation(.snappy, value: isEditing)
                 .animation(.snappy, value: isSelecting)
                 .animation(.snappy, value: selection)
@@ -225,11 +244,150 @@ struct PeopleGridContent: View {
             .onAppear {
                 if showingGames { proxy.scrollTo(Self.topID, anchor: .top) }
             }
+            .onChange(of: openStack) { _, stack in
+                // A stack opened low on the screen: scroll its tray into view.
+                guard stack != nil else { return }
+                DispatchQueue.main.async {
+                    withAnimation { proxy.scrollTo(Self.trayID) }
+                }
+            }
             }
         }
     }
 
     private static let topID = "tilesTop"
+    private static let trayID = "stackTray"
+
+    // MARK: Stacks
+
+    /// The stack that is open, when its tray can show: not under a game,
+    /// and not while tiles are being edited or selected.
+    private func openTile(in items: PeopleGridItems) -> PeopleGridItems.Tile? {
+        guard let openStack, !showingGames, !isEditing, !isSelecting else { return nil }
+        return items.tiles.first { $0.isStack && $0.person.tile.stack == openStack }
+    }
+
+    @ViewBuilder
+    private func boardTile(_ placed: PeopleGridItems.Tile, size: CGFloat) -> some View {
+        if placed.isStack {
+            stackTile(placed, size: size)
+        } else {
+            tile(for: placed.person, size: size)
+        }
+    }
+
+    /// A stack on the canvas. A tap opens or closes it; while selecting
+    /// or editing, a tap selects everyone in it.
+    private func stackTile(_ placed: PeopleGridItems.Tile, size: CGFloat) -> some View {
+        let person = placed.person
+        let isSelected: Bool = selection.contains(person.id)
+        let isOpen: Bool = openStack != nil && person.tile.stack == openStack && !isSelecting && !isEditing
+        let face = stackFace(placed, size: size, isSelected: isSelected, isOpen: isOpen)
+            .contextMenu { if !isSelecting { stackMenu(for: placed, isOpen: isOpen) } }
+            .draggable(person.id.uuidString) {
+                StackedTile(people: placed.stack, size: size)
+                    .onAppear { dragging = person.id }
+            }
+        return stackAccessibility(face, for: placed, isSelected: isSelected, isOpen: isOpen)
+    }
+
+    private func stackFace(_ placed: PeopleGridItems.Tile, size: CGFloat, isSelected: Bool, isOpen: Bool) -> some View {
+        let scale: CGFloat = isSelecting && isSelected ? 0.9 : 1
+        let dimmed: Bool = isSelecting && !isSelected && !selection.isEmpty
+        return Button { tapStack(placed) } label: {
+            StackedTile(people: placed.stack, size: size, isOpen: isOpen)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .scaleEffect(scale)
+        .opacity(dimmed ? 0.55 : 1)
+        .overlay(alignment: .topTrailing) { selectionBadge(for: placed.person, isSelected: isSelected) }
+        .overlay { selectionRing(isSelected: isSelected) }
+    }
+
+    private func stackAccessibility(_ view: some View, for placed: PeopleGridItems.Tile, isSelected: Bool, isOpen: Bool) -> some View {
+        let names: String = placed.stack.map(\.name).formatted(.list(type: .and))
+        let label: String = "Stack of \(placed.stack.count): \(names)"
+        let hint: String = isSelecting || isEditing
+            ? (isSelected ? "Selected. Tap to deselect." : "Tap to select everyone in the stack.")
+            : (isOpen ? "Closes the stack." : "Opens the stack, moving the tiles below down. Touch and hold to unstack; drag to move it.")
+        let traits: AccessibilityTraits = isSelected ? [.isButton, .isSelected] : .isButton
+        return view
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(label)
+            .accessibilityHint(hint)
+            .accessibilityAddTraits(traits)
+            .accessibilityAction(named: "Unstack") { unstack(placed) }
+    }
+
+    private func tapStack(_ placed: PeopleGridItems.Tile) {
+        if isSelecting || isEditing {
+            // Everyone in the stack goes in or out together.
+            UISelectionFeedbackGenerator().selectionChanged()
+            if selection.contains(placed.person.id) {
+                selection.subtract(placed.ids)
+            } else {
+                selection.formUnion(placed.ids)
+            }
+        } else {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            let stack = placed.person.tile.stack
+            openStack = openStack == stack ? nil : stack
+        }
+    }
+
+    private func unstack(_ placed: PeopleGridItems.Tile) {
+        guard let stack = placed.person.tile.stack else { return }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            store.unstack(id: stack)
+        }
+    }
+
+    @ViewBuilder
+    private func stackMenu(for placed: PeopleGridItems.Tile, isOpen: Bool) -> some View {
+        Button { tapStack(placed) } label: {
+            Label(isOpen ? "Close Stack" : "Open Stack", systemImage: "square.stack.3d.up")
+        }
+        Button { unstack(placed) } label: {
+            Label("Unstack", systemImage: "square.stack.3d.up.slash")
+        }
+    }
+
+    /// The open stack's tiles, four across, under the stack's row, with a
+    /// notch pointing up at the stack.
+    private func stackTray(_ open: PeopleGridItems.Tile, tray: StackTray, layout: BoardLayout) -> some View {
+        let frame: CGRect = layout.trayFrame(tray)
+        let side: CGFloat = layout.cellSide
+        let notch: CGFloat = 9
+        let notchX: CGFloat = CGFloat(tray.cell % columns) * layout.pitch + side / 2 - notch
+        return ZStack(alignment: .topLeading) {
+            trayFill
+            StackNotch()
+                .fill(Color.tactBackground)
+                .overlay { StackNotch().fill(palette.accent.opacity(0.16)) }
+                .frame(width: notch * 2, height: notch)
+                .offset(x: notchX, y: -notch)
+                .allowsHitTesting(false)
+            ForEach(Array(open.stack.enumerated()), id: \.element.id) { index, person in
+                let point: CGPoint = layout.trayOrigin(of: index, in: tray)
+                tile(for: person, size: side, inStack: true)
+                    .offset(x: point.x - frame.minX, y: point.y - frame.minY)
+            }
+        }
+        .frame(width: frame.width, height: frame.height, alignment: .topLeading)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Open stack, \(open.stack.count) people")
+        // Padding, not an offset, so the scroll view can bring the tray
+        // into view.
+        .id(Self.trayID)
+        .padding(.leading, max(0, frame.minX))
+        .padding(.top, frame.minY)
+    }
+
+    private var trayFill: some View {
+        Color.tactBackground
+            .overlay { palette.accent.opacity(0.16) }
+    }
 
     // MARK: Zoom
 
@@ -270,8 +428,17 @@ struct PeopleGridContent: View {
     /// A dragged tile lands on `cell`, shifting the tiles in its way; a
     /// selected one brings the rest of the selection with it.
     private func drop(_ items: [String], at cell: Int) -> Bool {
-        guard let id = items.first.flatMap(UUID.init(uuidString:)) else { return false }
+        guard let item = items.first else { return false }
         groupTarget = []
+        // A tile dragged out of the open stack leaves it for this cell.
+        if item.hasPrefix(Self.memberPrefix) {
+            guard let member = UUID(uuidString: String(item.dropFirst(Self.memberPrefix.count))) else { return false }
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                store.moveOutOfStack(personID: member, toCell: cell)
+            }
+            return true
+        }
+        guard let id = UUID(uuidString: item) else { return false }
         // Tiles in the way slide aside to make room.
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
             if selection.contains(id) {
@@ -315,7 +482,7 @@ struct PeopleGridContent: View {
 
     // The tile is built in three steps so the compiler type-checks each
     // modifier chain on its own; as one expression it times out.
-    private func tile(for person: Person, size: CGFloat) -> some View {
+    private func tile(for person: Person, size: CGFloat, inStack: Bool = false) -> some View {
         let colorIndex = Binding(
             get: { person.tile.colorIndex },
             set: { newValue in
@@ -325,8 +492,8 @@ struct PeopleGridContent: View {
         )
         let isSelected = selection.contains(person.id)
         let face = tileFace(for: person, size: size, isSelected: isSelected)
-            .contextMenu { if !isSelecting { tileMenu(for: person, colorIndex: colorIndex) } }
-            .draggable(person.id.uuidString) {
+            .contextMenu { if !isSelecting { tileMenu(for: person, colorIndex: colorIndex, inStack: inStack) } }
+            .draggable((inStack ? Self.memberPrefix : "") + person.id.uuidString) {
                 // The preview is made as the drag begins, which is the one
                 // moment the dragged tile is known before the drop.
                 PersonTile(person: person, size: size)
@@ -450,15 +617,25 @@ struct PeopleGridContent: View {
     }
 
     @ViewBuilder
-    private func tileMenu(for person: Person, colorIndex: Binding<Int>) -> some View {
+    private func tileMenu(for person: Person, colorIndex: Binding<Int>, inStack: Bool = false) -> some View {
         Button { addingNoteFor = person } label: {
             Label("New Note", systemImage: "square.and.pencil")
         }
         Button { DittyPlayer.play(person) } label: {
             Label("Play Ditty", systemImage: "music.note")
         }
-        Button { onSelect(person) } label: {
-            Label("Select", systemImage: "checklist")
+        if !inStack {
+            Button { onSelect(person) } label: {
+                Label("Select", systemImage: "checklist")
+            }
+        } else {
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    store.removeFromStack(personID: person.id)
+                }
+            } label: {
+                Label("Remove from Stack", systemImage: "square.stack.3d.up.slash")
+            }
         }
         Divider()
         Menu {
@@ -524,5 +701,17 @@ struct PeopleGridContent: View {
                 }
             }
         }
+    }
+}
+
+/// The small triangle joining the tray to its stack.
+private struct StackNotch: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.closeSubpath()
+        return path
     }
 }

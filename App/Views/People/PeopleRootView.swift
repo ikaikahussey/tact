@@ -71,7 +71,7 @@ struct PeopleRootView: View {
                                           isListening: listening && !showsList,
                                           isSelecting: selecting && !showsList, selection: $selectedIDs,
                                           showingGames: canvasShowsGames,
-                                          tilesTurned: GamesSurface.isAvailable(gameID: selectedGameID, tileCount: store.people.count),
+                                          tilesTurned: GamesSurface.isAvailable(gameID: selectedGameID, tileCount: TileLayout.anchors(for: store.people).count),
                                           onSelect: { person in
                             // Select from a tile's menu: into Select mode with that tile chosen.
                             withAnimation(.snappy) {
@@ -407,7 +407,7 @@ struct PeopleRootView: View {
 
     /// The people on the grid right now, in cell order: what Select All gathers.
     private var shownPeopleIDs: [UUID] {
-        PeopleGridItems(people: store.people, notes: store.notes, query: query).tiles.map(\.person.id)
+        PeopleGridItems(people: store.people, notes: store.notes, query: query).selectableIDs
     }
 
     /// Ends Select mode and lets the selection go.
