@@ -162,19 +162,118 @@ final class TileStackTests: XCTestCase {
         XCTAssertEqual(found.tiles.map(\.cell), [1])
     }
 
-    func testStackedTileShowsUpToTwoTilesUnderneath() {
-        XCTAssertEqual(StackedTile.layers(count: 1), 0)
-        XCTAssertEqual(StackedTile.layers(count: 2), 1)
-        XCTAssertEqual(StackedTile.layers(count: 3), 2)
-        XCTAssertEqual(StackedTile.layers(count: 9), 2)
-        XCTAssertGreaterThanOrEqual(StackedTile.step(size: 20), 3)
+    func testDefaultLookIsFourSmallTilesTwoByTwo() {
+        XCTAssertEqual(StackedTile.shown, 4)
+        for size in [40, 60, 97, 120] as [CGFloat] {
+            let frames = (0..<4).map { StackedTile.miniFrame(index: $0, size: size) }
+            let bounds = CGRect(x: 0, y: 0, width: size, height: size)
+            for (index, frame) in frames.enumerated() {
+                XCTAssertTrue(bounds.contains(frame), "\(index) at \(size)")
+                XCTAssertEqual(frame.width, frame.height)
+                XCTAssertLessThan(frame.width, size / 2, "scaled down")
+                for other in frames[(index + 1)...] { XCTAssertFalse(frame.intersects(other)) }
+            }
+            XCTAssertEqual(frames[0].minY, frames[1].minY); XCTAssertEqual(frames[2].minY, frames[3].minY)
+            XCTAssertEqual(frames[0].minX, frames[2].minX); XCTAssertEqual(frames[1].minX, frames[3].minX)
+            XCTAssertLessThan(frames[0].maxX, frames[1].minX)
+            XCTAssertLessThan(frames[0].maxY, frames[2].minY)
+        }
+        XCTAssertFalse(StackedTile.showsCount(count: 4, hasDesign: false), "the tiles themselves show how many")
+        XCTAssertTrue(StackedTile.showsCount(count: 5, hasDesign: false))
+        XCTAssertTrue(StackedTile.showsCount(count: 2, hasDesign: true))
+    }
+
+    // MARK: Design
+
+    func testAStackHasNoDesignUntilOneIsSet() {
+        let stack = store.stackTiles(personIDs: [b.id, d.id])!
+        var items = PeopleGridItems(people: store.people, notes: store.notes, query: "")
+        XCTAssertNil(items.tiles[1].design, "default: the tiles scaled down")
+
+        let design = StackDesign(pattern: 2, colorIndex: 5)
+        store.setStackDesign(id: stack, design)
+        items = PeopleGridItems(people: store.people, notes: store.notes, query: "")
+        XCTAssertEqual(items.tiles[1].design, design)
+        XCTAssertEqual(tile(d).stackDesign, design, "kept on every tile in the stack")
+        XCTAssertNil(tile(a).stackDesign)
+
+        // The design stays when the top person goes and when someone joins.
+        store.addToStack(personIDs: [c.id], stackOf: b.id)
+        XCTAssertEqual(tile(c).stackDesign, design)
+        store.deletePerson(id: b.id)
+        items = PeopleGridItems(people: store.people, notes: store.notes, query: "")
+        XCTAssertEqual(items.tiles.first { $0.isStack }?.design, design)
+
+        // Back to the default.
+        store.setStackDesign(id: stack, nil)
+        XCTAssertTrue(store.people.allSatisfy { $0.tile.stackDesign == nil })
+        store.setStackDesign(id: UUID(), design)
+        XCTAssertTrue(store.people.allSatisfy { $0.tile.stackDesign == nil }, "no such stack")
+    }
+
+    func testLeavingAStackLeavesItsDesignBehind() {
+        let stack = store.stackTiles(personIDs: [a.id, b.id, c.id])!
+        let design = StackDesign(pattern: 1, colorIndex: 3)
+        store.setStackDesign(id: stack, design)
+        store.removeFromStack(personID: a.id)
+        XCTAssertNil(tile(a).stackDesign)
+        XCTAssertEqual(tile(b).stackDesign, design)
+        store.unstack(id: stack)
+        XCTAssertTrue(store.people.allSatisfy { $0.tile.stackDesign == nil && $0.tile.stack == nil })
+    }
+
+    // MARK: Dragging onto a stack
+
+    func testDroppingATileOnAStackAddsIt() {
+        let stack = store.stackTiles(personIDs: [c.id, d.id])!   // A 0, B 1, stack at 2
+        XCTAssertTrue(store.addToStack(personIDs: [a.id], stackOf: c.id))
+        XCTAssertEqual(TileLayout.stacks(for: store.people), [stack: [a.id, c.id, d.id]])
+        XCTAssertEqual(cells, [1: b.id, 2: a.id], "the stack stays in its cell; A's cell is left empty")
+
+        // Already in it, unknown people, or a target that is no stack: nothing joins.
+        XCTAssertFalse(store.addToStack(personIDs: [d.id], stackOf: c.id))
+        XCTAssertFalse(store.addToStack(personIDs: [UUID()], stackOf: c.id))
+        XCTAssertFalse(store.addToStack(personIDs: [a.id], stackOf: b.id))
+    }
+
+    func testDroppingAStackOnAStackMergesThem() {
+        let first = store.stackTiles(personIDs: [a.id, b.id])!   // at 0
+        let second = store.stackTiles(personIDs: [c.id, d.id])!  // at 2
+        XCTAssertNotEqual(first, second)
+        XCTAssertTrue(store.addToStack(personIDs: [a.id], stackOf: c.id))
+        XCTAssertEqual(TileLayout.stacks(for: store.people), [second: [a.id, b.id, c.id, d.id]])
+        XCTAssertEqual(cells, [2: a.id])
+    }
+
+    func testATileMovesFromOneStackToAnother() {
+        let first = store.stackTiles(personIDs: [a.id, b.id])!   // at 0
+        let second = store.stackTiles(personIDs: [c.id, d.id])!  // at 2
+        let extra = store.addPerson(named: "E")!                 // at 1
+        store.addToStack(personIDs: [extra.id], stackOf: a.id)
+        store.moveOutOfStack(personID: b.id, ontoStackOf: c.id)
+        XCTAssertEqual(TileLayout.stacks(for: store.people), [first: [a.id, extra.id], second: [b.id, c.id, d.id]])
+        XCTAssertEqual(cells, [0: a.id, 2: b.id])
+
+        // Onto its own stack: nothing changes.
+        let before = store.people
+        store.moveOutOfStack(personID: d.id, ontoStackOf: c.id)
+        XCTAssertEqual(store.people, before)
+    }
+
+    func testStackingAWholeStackAgainChangesNothing() {
+        let stack = store.stackTiles(personIDs: [b.id, d.id])!
+        store.setStackDesign(id: stack, StackDesign(pattern: 0, colorIndex: 1))
+        let before = store.people
+        XCTAssertEqual(store.stackTiles(personIDs: [b.id, d.id]), stack)
+        XCTAssertEqual(store.people, before)
     }
 
     // MARK: Coding
 
     func testStackIsSavedWithTheTile() throws {
         let stack = UUID()
-        let art = TileArt(quarterTurns: 1, colorIndex: 3, cell: 7, stack: stack)
+        let art = TileArt(quarterTurns: 1, colorIndex: 3, cell: 7, stack: stack,
+                          stackDesign: StackDesign(pattern: 4, colorIndex: 9))
         let decoded = try JSONDecoder().decode(TileArt.self, from: JSONEncoder().encode(art))
         XCTAssertEqual(decoded, art)
         XCTAssertEqual(decoded.stack, stack)
@@ -182,6 +281,7 @@ final class TileStackTests: XCTestCase {
         // Tiles saved before stacks have none.
         let old = try JSONDecoder().decode(TileArt.self, from: Data(#"{"quarterTurns":0,"colorIndex":2,"showsPhoto":true}"#.utf8))
         XCTAssertNil(old.stack)
+        XCTAssertNil(old.stackDesign)
     }
 
     func testStacksSurviveSavingAndLoading() {

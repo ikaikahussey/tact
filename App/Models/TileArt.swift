@@ -28,9 +28,13 @@ struct TileArt: Codable, Equatable, Hashable {
     /// stack takes one cell on the canvas, with its first person (in list
     /// order) on top; tapping it opens the rest (`TileLayout.stacks`).
     var stack: UUID?
+    /// The design chosen for the stack, kept the same on every tile in it
+    /// so it stays when the top person leaves. `nil` shows the stack as
+    /// its first four tiles, scaled down.
+    var stackDesign: StackDesign?
 
     init(quarterTurns: Int = 0, colorIndex: Int = 0, cell: Int? = nil, pattern: Int? = nil,
-         showsPhoto: Bool = true, bits: FatBits? = nil, stack: UUID? = nil) {
+         showsPhoto: Bool = true, bits: FatBits? = nil, stack: UUID? = nil, stackDesign: StackDesign? = nil) {
         self.quarterTurns = quarterTurns
         self.colorIndex = colorIndex
         self.cell = cell
@@ -38,6 +42,7 @@ struct TileArt: Codable, Equatable, Hashable {
         self.showsPhoto = showsPhoto
         self.bits = bits
         self.stack = stack
+        self.stackDesign = stackDesign
     }
 
     var isFatBits: Bool { bits != nil }
@@ -58,7 +63,7 @@ struct TileArt: Codable, Equatable, Hashable {
     }
 
     // Tiles saved with a shape or size from earlier versions decode without them.
-    private enum CodingKeys: String, CodingKey { case quarterTurns, colorIndex, cell, pattern, showsPhoto, bits, stack }
+    private enum CodingKeys: String, CodingKey { case quarterTurns, colorIndex, cell, pattern, showsPhoto, bits, stack, stackDesign }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -71,6 +76,7 @@ struct TileArt: Codable, Equatable, Hashable {
         showsPhoto = (try? container.decodeIfPresent(Bool.self, forKey: .showsPhoto)) ?? nil ?? true
         bits = (try? container.decodeIfPresent(FatBits.self, forKey: .bits)) ?? nil
         stack = (try? container.decodeIfPresent(UUID.self, forKey: .stack)) ?? nil
+        stackDesign = (try? container.decodeIfPresent(StackDesign.self, forKey: .stackDesign)) ?? nil
     }
 
     func encode(to encoder: Encoder) throws {
@@ -82,6 +88,23 @@ struct TileArt: Codable, Equatable, Hashable {
         try container.encode(showsPhoto, forKey: .showsPhoto)
         try container.encodeIfPresent(bits, forKey: .bits)
         try container.encodeIfPresent(stack, forKey: .stack)
+        try container.encodeIfPresent(stackDesign, forKey: .stackDesign)
+    }
+}
+
+/// A design chosen for a stack in place of its scaled-down tiles: a
+/// built-in pattern, or a FatBits drawing when `bits` is set, in a palette
+/// color.
+struct StackDesign: Codable, Equatable, Hashable {
+    /// Raw value of a `TilePattern`.
+    var pattern: Int
+    var colorIndex: Int
+    var bits: FatBits?
+
+    init(pattern: Int, colorIndex: Int, bits: FatBits? = nil) {
+        self.pattern = pattern
+        self.colorIndex = colorIndex
+        self.bits = bits
     }
 }
 

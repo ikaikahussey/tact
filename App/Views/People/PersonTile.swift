@@ -91,38 +91,85 @@ struct PersonTile: View {
     }
 }
 
-/// A stack on the Tiles canvas: the top person's tile, drawn a little
-/// smaller so the colors of the next two show at its lower right edges
-/// like tiles underneath, with a count of everyone in it.
+/// A person's photo or pattern alone, without their name: the small
+/// tiles a stack is drawn with.
+struct PersonTileFace: View {
+    let person: Person
+    let size: CGFloat
+
+    var body: some View {
+        Group {
+            if person.showsPhoto, let image = person.thumbnail(maxPixelSize: 256) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                TileArtView(art: person.tile, pattern: person.tilePattern, side: size)
+            }
+        }
+        .frame(width: size, height: size)
+        .clipped()
+    }
+}
+
+/// A stack on the Tiles canvas. Unless a design was chosen for it, it is
+/// drawn as its first four tiles scaled down, two by two; with a design it
+/// is that pattern or drawing, in the design's color. A count shows when
+/// the tiles alone do not: with a design, or past four.
 struct StackedTile: View {
     /// Everyone in the stack, top first.
     let people: [Person]
     let size: CGFloat
+    var design: StackDesign?
     /// The stack's tiles are laid out in the tray below.
     var isOpen = false
-    @Environment(\.appPalette) private var palette
 
-    /// Tiles drawn under the top one.
-    static func layers(count: Int) -> Int { max(0, min(count - 1, 2)) }
-    /// How far each tile underneath shows.
-    static func step(size: CGFloat) -> CGFloat { max(3, (size * 0.06).rounded()) }
+    /// How many tiles the default look shows.
+    static let shown = 4
+
+    /// Where the `index`th small tile sits in a stack `size` across: two
+    /// by two, inset from the edge with a gap between.
+    static func miniFrame(index: Int, size: CGFloat) -> CGRect {
+        let inset = (size * 0.08).rounded()
+        let gap = max(2, (size * 0.05).rounded())
+        let side = ((size - inset * 2 - gap) / 2).rounded(.down)
+        return CGRect(x: inset + CGFloat(index % 2) * (side + gap), y: inset + CGFloat(index / 2) * (side + gap),
+                      width: side, height: side)
+    }
+
+    static func showsCount(count: Int, hasDesign: Bool) -> Bool {
+        hasDesign || count > shown
+    }
 
     var body: some View {
-        let layers: Int = Self.layers(count: people.count)
-        let step: CGFloat = Self.step(size: size)
-        let top: CGFloat = size - step * CGFloat(layers)
-        return ZStack(alignment: .topLeading) {
-            Color.tactCardBackground
-            ForEach(Array((0..<layers).reversed()), id: \.self) { layer in
-                let shift: CGFloat = step * CGFloat(layer + 1)
-                TilePalette.color(people[layer + 1].tile.colorIndex, in: palette)
-                    .frame(width: top, height: top)
-                    .offset(x: shift, y: shift)
+        ZStack(alignment: .topLeading) {
+            Color.tactTileGray.opacity(0.6)
+            face
+                .opacity(isOpen ? 0.55 : 1)
+        }
+        .frame(width: size, height: size)
+        .overlay(alignment: .bottomTrailing) { countBadge }
+        .clipped()
+    }
+
+    @ViewBuilder
+    private var face: some View {
+        if let design {
+            TileMotifView(bits: design.bits, pattern: TilePattern(rawValue: design.pattern) ?? .cross,
+                          colorIndex: design.colorIndex)
+                .frame(width: size, height: size)
+        } else {
+            ForEach(Array(people.prefix(Self.shown).enumerated()), id: \.element.id) { index, person in
+                let frame: CGRect = Self.miniFrame(index: index, size: size)
+                PersonTileFace(person: person, size: frame.width)
+                    .offset(x: frame.minX, y: frame.minY)
             }
-            if let first = people.first {
-                PersonTile(person: first, size: top)
-                    .opacity(isOpen ? 0.55 : 1)
-            }
+        }
+    }
+
+    @ViewBuilder
+    private var countBadge: some View {
+        if Self.showsCount(count: people.count, hasDesign: design != nil) {
             Text("\(people.count)")
                 .font(.tactBold(size: max(10, size * 0.12)))
                 .monospacedDigit()
@@ -131,8 +178,6 @@ struct StackedTile: View {
                 .background(.thinMaterial, in: Capsule())
                 .padding(5)
         }
-        .frame(width: size, height: size)
-        .clipped()
     }
 }
 

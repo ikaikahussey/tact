@@ -291,6 +291,8 @@ final class TactStore: ObservableObject {
         var members = ids.intersection(people.map(\.id))
         for list in stacks.values where !members.isDisjoint(with: list) { members.formUnion(list) }
         guard members.count > 1 else { return nil }
+        // Already one whole stack: nothing to do.
+        if let whole = stacks.first(where: { Set($0.value) == members }) { return whole.key }
         // The tile sitting first on the canvas gives the stack its cell,
         // and its id when it is already a stack.
         var first: (id: UUID, cell: Int)?
@@ -299,20 +301,58 @@ final class TactStore: ObservableObject {
             if first == nil || cell < first!.cell { first = (id, cell) }
         }
         guard let first else { return nil }
-        let existing = person(id: first.id)?.tile.stack
-        let stackID = existing.flatMap { stacks[$0] == nil ? nil : $0 } ?? UUID()
+        let firstTile = person(id: first.id)?.tile
+        let existing = firstTile?.stack.flatMap { stacks[$0] == nil ? nil : $0 }
+        let stackID = existing ?? UUID()
+        gather(members, into: stackID, at: first.cell, design: existing == nil ? nil : firstTile?.stackDesign)
+        return stackID
+    }
+
+    /// Adds tiles to the stack `target` is in, as when they are dragged
+    /// onto it. The stack stays in its cell and keeps its design; a stack
+    /// among the tiles brings everyone in it. False when nothing joined.
+    @discardableResult
+    func addToStack(personIDs ids: Set<UUID>, stackOf target: UUID) -> Bool {
+        let stacks = TileLayout.stacks(for: people)
+        guard let stackID = person(id: target)?.tile.stack, let current = stacks[stackID],
+              let cell = TileLayout.anchors(for: people)[current[0]] else { return false }
+        var members = ids.intersection(people.map(\.id)).union(current)
+        for list in stacks.values where !members.isDisjoint(with: list) { members.formUnion(list) }
+        guard members.count > current.count else { return false }
+        gather(members, into: stackID, at: cell, design: person(id: current[0])?.tile.stackDesign)
+        return true
+    }
+
+    /// Moves a person from the stack they are in to the stack `target` is in.
+    func moveOutOfStack(personID id: UUID, ontoStackOf target: UUID) {
+        guard let from = person(id: id)?.tile.stack, from != person(id: target)?.tile.stack else { return }
+        removeFromStack(personID: id)
+        addToStack(personIDs: [id], stackOf: target)
+    }
+
+    /// Sets the design a stack is shown with; `nil` goes back to its
+    /// first four tiles scaled down.
+    func setStackDesign(id stackID: UUID, _ design: StackDesign?) {
+        guard let members = TileLayout.stacks(for: people)[stackID] else { return }
+        updateTiles(forPersonIDs: Set(members)) { $0.stackDesign = design }
+    }
+
+    /// Puts `members` in the stack `stackID` at `cell`, pinning everyone else.
+    private func gather(_ members: Set<UUID>, into stackID: UUID, at cell: Int, design: StackDesign?) {
+        let tops = TileLayout.covered(for: people)
+        let anchors = TileLayout.anchors(for: people)
         var updated = people
         for index in updated.indices {
             let id = updated[index].id
             if members.contains(id) {
                 updated[index].tile.stack = stackID
-                updated[index].tile.cell = first.cell
+                updated[index].tile.stackDesign = design
+                updated[index].tile.cell = cell
             } else {
                 updated[index].tile.cell = anchors[id] ?? tops[id].flatMap { anchors[$0] }
             }
         }
         people = updated
-        return stackID
     }
 
     /// Takes a stack apart: the top tile stays, and the rest go to the
@@ -352,10 +392,14 @@ final class TactStore: ObservableObject {
             let id = updated[index].id
             if let free = cells[id] {
                 updated[index].tile.stack = nil
+                updated[index].tile.stackDesign = nil
                 updated[index].tile.cell = free
             } else if members.contains(id) {
                 updated[index].tile.cell = cell
-                if staying < 2 { updated[index].tile.stack = nil }
+                if staying < 2 {
+                    updated[index].tile.stack = nil
+                    updated[index].tile.stackDesign = nil
+                }
             } else {
                 updated[index].tile.cell = anchors[id] ?? tops[id].flatMap { anchors[$0] }
             }

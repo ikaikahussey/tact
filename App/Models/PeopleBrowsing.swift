@@ -170,6 +170,8 @@ struct PeopleGridItems: Equatable {
         var stack: [Person] = []
 
         var isStack: Bool { !stack.isEmpty }
+        /// The design chosen for the stack, if one was.
+        var design: StackDesign? { stack.first?.tile.stackDesign }
         /// The people the tile stands for.
         var ids: [UUID] { isStack ? stack.map(\.id) : [person.id] }
     }

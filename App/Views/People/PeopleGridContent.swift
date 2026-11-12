@@ -13,7 +13,8 @@ import SwiftUI
 /// are on the header's More menu, with Bring Together, which closes the
 /// gaps.
 /// Tiles can be grouped into a stack (Stack on the Select bar), which
-/// takes one cell and shows its top tile over the edges of the next. A
+/// takes one cell and shows its first four tiles scaled down, or a design
+/// chosen from its menu. Dragging a tile onto a stack adds it. A
 /// tap opens it: the rows below move down and the stack's tiles are laid
 /// out in a tray under its row (`StackTray`). There a tap opens a person
 /// as usual, and a tile leaves the stack from its menu or by being dragged
@@ -285,7 +286,7 @@ struct PeopleGridContent: View {
         let face = stackFace(placed, size: size, isSelected: isSelected, isOpen: isOpen)
             .contextMenu { if !isSelecting { stackMenu(for: placed, isOpen: isOpen) } }
             .draggable(person.id.uuidString) {
-                StackedTile(people: placed.stack, size: size)
+                StackedTile(people: placed.stack, size: size, design: placed.design)
                     .onAppear { dragging = person.id }
             }
         return stackAccessibility(face, for: placed, isSelected: isSelected, isOpen: isOpen)
@@ -295,7 +296,7 @@ struct PeopleGridContent: View {
         let scale: CGFloat = isSelecting && isSelected ? 0.9 : 1
         let dimmed: Bool = isSelecting && !isSelected && !selection.isEmpty
         return Button { tapStack(placed) } label: {
-            StackedTile(people: placed.stack, size: size, isOpen: isOpen)
+            StackedTile(people: placed.stack, size: size, design: placed.design, isOpen: isOpen)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -310,7 +311,7 @@ struct PeopleGridContent: View {
         let label: String = "Stack of \(placed.stack.count): \(names)"
         let hint: String = isSelecting || isEditing
             ? (isSelected ? "Selected. Tap to deselect." : "Tap to select everyone in the stack.")
-            : (isOpen ? "Closes the stack." : "Opens the stack, moving the tiles below down. Touch and hold to unstack; drag to move it.")
+            : (isOpen ? "Closes the stack." : "Opens the stack, moving the tiles below down. Touch and hold for its design or to unstack; drag to move it, or drag a tile onto it to add it.")
         let traits: AccessibilityTraits = isSelected ? [.isButton, .isSelected] : .isButton
         return view
             .accessibilityElement(children: .ignore)
@@ -348,8 +349,86 @@ struct PeopleGridContent: View {
         Button { tapStack(placed) } label: {
             Label(isOpen ? "Close Stack" : "Open Stack", systemImage: "square.stack.3d.up")
         }
+        Divider()
+        Menu {
+            stackDesignChoices(for: placed)
+        } label: {
+            Label("Design", systemImage: "square.on.square")
+        }
+        // A design has a color; the tiles keep their own.
+        if placed.design != nil, !palette.isMonochrome {
+            Menu {
+                Picker("Color", selection: stackColor(for: placed)) {
+                    ForEach(TilePalette.menuOrder, id: \.self) { index in
+                        Image(uiImage: TilePalette.swatch(index))
+                            .accessibilityLabel(TilePalette.name(index).capitalized)
+                            .tag(index)
+                    }
+                }
+            } label: {
+                Label("Color", systemImage: "paintpalette")
+            }
+        }
+        Divider()
         Button { unstack(placed) } label: {
             Label("Unstack", systemImage: "square.stack.3d.up.slash")
+        }
+    }
+
+    /// Changes the stack's design, starting from the top person's pattern
+    /// and color when it has none yet.
+    private func setDesign(of placed: PeopleGridItems.Tile, _ change: (inout StackDesign) -> Void) {
+        guard let stack = placed.person.tile.stack else { return }
+        var design = placed.design ?? StackDesign(pattern: placed.person.tilePattern.rawValue,
+                                                  colorIndex: placed.person.tile.colorIndex)
+        change(&design)
+        UISelectionFeedbackGenerator().selectionChanged()
+        store.setStackDesign(id: stack, design)
+    }
+
+    private func stackColor(for placed: PeopleGridItems.Tile) -> Binding<Int> {
+        Binding(
+            get: { placed.design?.colorIndex ?? placed.person.tile.colorIndex },
+            set: { newValue in setDesign(of: placed) { $0.colorIndex = newValue } }
+        )
+    }
+
+    /// What a stack can look like: its own tiles scaled down (the
+    /// default), a built-in pattern, or a saved FatBits pattern.
+    @ViewBuilder
+    private func stackDesignChoices(for placed: PeopleGridItems.Tile) -> some View {
+        let colorIndex: Int = placed.design?.colorIndex ?? placed.person.tile.colorIndex
+        let available = store.availablePatterns()
+        Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            if let stack = placed.person.tile.stack { store.setStackDesign(id: stack, nil) }
+        } label: {
+            Label("Tiles", systemImage: placed.design == nil ? "checkmark" : "square.grid.2x2")
+        }
+        Divider()
+        ForEach(TilePattern.allCases, id: \.self) { pattern in
+            Button {
+                setDesign(of: placed) {
+                    $0.pattern = pattern.rawValue
+                    $0.bits = nil
+                }
+            } label: {
+                Label { Text(pattern.title) } icon: {
+                    Image(uiImage: TileMenuImage.motif(pattern: pattern, colorIndex: colorIndex, scale: displayScale))
+                }
+            }
+        }
+        if !available.isEmpty {
+            Divider()
+            ForEach(available) { saved in
+                Button {
+                    setDesign(of: placed) { $0.bits = saved.bits }
+                } label: {
+                    Label { Text(saved.name) } icon: {
+                        Image(uiImage: TileMenuImage.motif(bits: saved.bits, pattern: .cross, colorIndex: colorIndex, scale: displayScale))
+                    }
+                }
+            }
         }
     }
 
@@ -430,15 +509,35 @@ struct PeopleGridContent: View {
     private func drop(_ items: [String], at cell: Int) -> Bool {
         guard let item = items.first else { return false }
         groupTarget = []
-        // A tile dragged out of the open stack leaves it for this cell.
+        let spring = Animation.spring(response: 0.35, dampingFraction: 0.8)
+        // The stack sitting on the cell, by its top person: a drop on it adds to it.
+        let stackTop: UUID? = TileLayout.cells(for: store.people)[cell].flatMap { top in
+            TileLayout.stacks(for: store.people).values.contains { $0.first == top } ? top : nil
+        }
+        // A tile dragged out of the open stack leaves it for this cell,
+        // or for the stack on it.
         if item.hasPrefix(Self.memberPrefix) {
             guard let member = UUID(uuidString: String(item.dropFirst(Self.memberPrefix.count))) else { return false }
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                store.moveOutOfStack(personID: member, toCell: cell)
+            withAnimation(spring) {
+                if let stackTop {
+                    store.moveOutOfStack(personID: member, ontoStackOf: stackTop)
+                } else {
+                    store.moveOutOfStack(personID: member, toCell: cell)
+                }
             }
             return true
         }
         guard let id = UUID(uuidString: item) else { return false }
+        // Onto a stack: the tile joins it, with the rest of the selection
+        // when it is part of one. Another stack merges in.
+        if let stackTop {
+            guard id != stackTop else { return false }
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            withAnimation(spring) {
+                _ = store.addToStack(personIDs: selection.contains(id) ? selection : [id], stackOf: stackTop)
+            }
+            return true
+        }
         // Tiles in the way slide aside to make room.
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
             if selection.contains(id) {
