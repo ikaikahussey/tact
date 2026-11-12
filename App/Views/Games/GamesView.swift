@@ -11,7 +11,7 @@ struct GamesSurface: View {
     let selectedGameID: String
 
     /// The cells with a people tile, in cell order.
-    private var activeCells: [Int] { TileLayout.anchors(for: store.people).values.sorted() }
+    private var activeCells: [Int] { TileLayout.anchors(for: store.people, tagStacks: store.tagStacks).values.sorted() }
 
     /// Whether the chosen game has the tiles it needs. The grid flips its
     /// tiles only when this is true.

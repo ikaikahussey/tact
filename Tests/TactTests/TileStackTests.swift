@@ -358,4 +358,194 @@ final class TileStackTests: XCTestCase {
         XCTAssertEqual(layout.origin(of: 4, tray: tray).y, layout.origin(of: 4).y + layout.trayHeight(tray))
         XCTAssertEqual(layout.origin(of: cell + 4, tray: tray).y, layout.origin(of: cell + 4).y + layout.trayHeight(tray))
     }
+
+    // MARK: Tag stacks
+
+    private var board: [Int: UUID] { TileLayout.cells(for: store.people, tagStacks: store.tagStacks) }
+    private var items: PeopleGridItems {
+        PeopleGridItems(people: store.people, notes: store.notes, query: "", tagStacks: store.tagStacks)
+    }
+    private func tags(_ person: Person) -> [String] { store.person(id: person.id)!.tags }
+    /// B and D stacked at cell 1 and tagged `work`.
+    private func makeWorkStack() -> UUID {
+        let stack = store.stackTiles(personIDs: [b.id, d.id])!
+        XCTAssertTrue(store.tagStack(id: stack, as: "#work"))
+        return stack
+    }
+
+    func testTaggingAStackTagsEveryoneInIt() {
+        let stack = store.stackTiles(personIDs: [b.id, d.id])!
+        store.setStackDesign(id: stack, StackDesign(pattern: 1, colorIndex: 2))
+        XCTAssertFalse(store.tagStack(id: stack, as: "   "), "no tag typed")
+        XCTAssertFalse(store.tagStack(id: UUID(), as: "work"), "no such stack")
+        XCTAssertTrue(store.tagStack(id: stack, as: "#work"))
+
+        XCTAssertEqual(tags(b), ["work"])
+        XCTAssertEqual(tags(d), ["work"])
+        XCTAssertEqual(tags(a), [])
+        XCTAssertEqual(store.tagStacks, [TagStack(id: stack, tag: "work", cell: 1, design: StackDesign(pattern: 1, colorIndex: 2))])
+        XCTAssertTrue(store.people.allSatisfy { $0.tile.stack == nil && $0.tile.stackDesign == nil }, "the tag is the membership now")
+        XCTAssertEqual(board, [0: a.id, 1: stack, 2: c.id], "the stack keeps its cell")
+
+        let tile = items.tiles[1]
+        XCTAssertTrue(tile.isStack)
+        XCTAssertTrue(tile.isTagStack)
+        XCTAssertEqual(tile.tag, "work")
+        XCTAssertEqual(tile.stackID, stack)
+        XCTAssertEqual(tile.ids, [b.id, d.id])
+        XCTAssertEqual(tile.design, StackDesign(pattern: 1, colorIndex: 2))
+    }
+
+    func testTheTagIsTheMembership() {
+        let stack = makeWorkStack()
+        // Tagging someone anywhere puts them in the stack.
+        store.updateTags(forPersonID: a.id, ["Work"])
+        XCTAssertEqual(board, [1: stack, 2: c.id], "A's tile went into the stack; the rest stayed")
+        XCTAssertEqual(items.tiles[0].ids, [a.id, b.id, d.id])
+        // Taking the tag off brings their tile back.
+        store.updateTags(forPersonID: a.id, [])
+        XCTAssertEqual(board, [0: a.id, 1: stack, 2: c.id])
+        // Someone new with the tag is in it from the start.
+        let e = store.addPerson(named: "E")!
+        store.updateTags(forPersonID: e.id, ["work"])
+        XCTAssertEqual(items.tiles[1].ids, [b.id, d.id, e.id])
+    }
+
+    func testAPersonCanBeInSeveralTagStacks() {
+        let work = makeWorkStack()                                  // at 1
+        let family = store.stackTiles(personIDs: [a.id, c.id])!     // at 0
+        XCTAssertTrue(store.tagStack(id: family, as: "family"))
+        XCTAssertEqual(board, [0: family, 1: work])
+
+        XCTAssertTrue(store.addToTagStack(personIDs: [b.id], id: family))
+        XCTAssertFalse(store.addToTagStack(personIDs: [b.id], id: family), "already in it")
+        XCTAssertEqual(tags(b), ["work", "family"])
+        XCTAssertEqual(items.tiles.map(\.ids), [[a.id, b.id, c.id], [b.id, d.id]], "B is in both")
+        XCTAssertEqual(items.selectableIDs, [a.id, b.id, c.id, d.id], "each person once")
+
+        // Out of one, still in the other.
+        store.removeFromTagStack(personID: b.id, id: family)
+        XCTAssertEqual(tags(b), ["work"])
+        XCTAssertEqual(board, [0: family, 1: work])
+        // Out of the last one: the tile is back, after the stack.
+        store.removeFromTagStack(personID: b.id, id: work)
+        XCTAssertEqual(tags(b), [])
+        XCTAssertEqual(board, [0: family, 1: work, 2: b.id])
+        // The last person out takes the stack's cell, and the stack is gone.
+        store.removeFromTagStack(personID: d.id, id: work)
+        XCTAssertEqual(board, [0: family, 1: d.id, 2: b.id])
+        XCTAssertEqual(store.tagStacks.map(\.id), [family])
+    }
+
+    func testChangingTheTagChangesItOnEveryone() {
+        let stack = makeWorkStack()
+        XCTAssertTrue(store.tagStack(id: stack, as: "team"))
+        XCTAssertEqual(tags(b), ["team"])
+        XCTAssertEqual(tags(d), ["team"])
+        XCTAssertEqual(store.tagStacks, [TagStack(id: stack, tag: "team", cell: 1)])
+        XCTAssertEqual(board, [0: a.id, 1: stack, 2: c.id])
+    }
+
+    func testTaggingAStackWithATagAnotherStackHasJoinsThem() {
+        let work = makeWorkStack()
+        let other = store.stackTiles(personIDs: [a.id, c.id])!
+        XCTAssertTrue(store.tagStack(id: other, as: "WORK"))
+        XCTAssertEqual(store.tagStacks.map(\.id), [work])
+        XCTAssertEqual(board, [1: work])
+        XCTAssertEqual(items.tiles[0].ids, [a.id, b.id, c.id, d.id])
+    }
+
+    func testUnstackingATagStackKeepsTheTags() {
+        let stack = makeWorkStack()
+        store.unstack(id: stack)
+        XCTAssertTrue(store.tagStacks.isEmpty)
+        XCTAssertEqual(tags(b), ["work"])
+        XCTAssertEqual(tags(d), ["work"])
+        XCTAssertEqual(board, [0: a.id, 1: b.id, 2: c.id, 3: d.id], "the first takes the stack's cell, the rest the next empty ones")
+    }
+
+    func testTilesDroppedOnATagStackGetItsTag() {
+        let work = makeWorkStack()
+        XCTAssertTrue(store.addTiles([a.id], toStack: work))
+        XCTAssertEqual(tags(a), ["work"])
+        XCTAssertEqual(board, [1: work, 2: c.id])
+
+        // A plain stack dropped on it brings everyone, and stays a stack.
+        let e = store.addPerson(named: "E")!                       // cell 0
+        let plain = store.stackTiles(personIDs: [c.id, e.id])!     // at 0, C on top
+        XCTAssertTrue(store.addTiles([c.id], toStack: work))
+        XCTAssertEqual(tags(c), ["work"])
+        XCTAssertEqual(tags(e), ["work"])
+        XCTAssertEqual(TileLayout.stacks(for: store.people), [plain: [c.id, e.id]])
+        XCTAssertEqual(board, [0: c.id, 1: work])
+
+        // A tile dropped on a plain stack joins it as before.
+        store.updateTags(forPersonID: a.id, [])
+        XCTAssertTrue(store.addTiles([a.id], toStack: plain))
+        XCTAssertEqual(TileLayout.stacks(for: store.people), [plain: [a.id, c.id, e.id]])
+        XCTAssertFalse(store.addTiles([a.id], toStack: UUID()))
+    }
+
+    func testDraggingATileOutOfAnOpenTagStack() {
+        let work = makeWorkStack()
+        // Onto the canvas: the tag comes off and the tile lands there.
+        store.moveMember(d.id, ofStack: work, toCell: 9, ontoStack: nil)
+        XCTAssertEqual(tags(d), [])
+        XCTAssertEqual(board, [0: a.id, 1: work, 2: c.id, 9: d.id])
+
+        // Onto another tag stack: in both.
+        let family = store.stackTiles(personIDs: [a.id, c.id])!
+        store.tagStack(id: family, as: "family")
+        store.moveMember(b.id, ofStack: work, toCell: 0, ontoStack: family)
+        XCTAssertEqual(tags(b), ["work", "family"])
+        // Onto its own stack: nothing.
+        let before = store.people
+        store.moveMember(b.id, ofStack: work, toCell: 1, ontoStack: work)
+        XCTAssertEqual(store.people, before)
+    }
+
+    func testATagStackMovesAndTakesADesignLikeAnyStack() {
+        let stack = makeWorkStack()
+        store.moveTile(personID: stack, toCell: 6)
+        XCTAssertEqual(board, [0: a.id, 2: c.id, 6: stack])
+        XCTAssertEqual(store.tagStacks.first?.cell, 6)
+
+        let design = StackDesign(pattern: 3, colorIndex: 7)
+        store.setStackDesign(id: stack, design)
+        XCTAssertEqual(items.tiles.last?.design, design)
+        store.setStackDesign(id: stack, nil)
+        XCTAssertNil(items.tiles.last?.design)
+
+        store.bringTilesTogether()
+        XCTAssertEqual(board, [0: a.id, 1: c.id, 2: stack])
+        XCTAssertTrue(TileLayout.isCompact(store.people, tagStacks: store.tagStacks))
+    }
+
+    func testTagStacksSurviveSavingAndLoading() {
+        let directory = TestSupport.temporaryDirectory()
+        let defaults = TestSupport.defaults()
+        let first = TestSupport.makeStore(directory: directory, defaults: defaults)
+        let x = first.addPerson(named: "X")!, y = first.addPerson(named: "Y")!
+        let stack = first.stackTiles(personIDs: [x.id, y.id])!
+        first.tagStack(id: stack, as: "club")
+        first.flush(waitUntilDone: true)
+
+        let second = TestSupport.makeStore(directory: directory, defaults: defaults)
+        XCTAssertEqual(second.tagStacks, [TagStack(id: stack, tag: "club", cell: 0)])
+        XCTAssertEqual(TileLayout.cells(for: second.people, tagStacks: second.tagStacks), [0: stack])
+    }
+
+    func testATileDraggedFromAStackCarriesTheStack() {
+        let stack = UUID()
+        let plain = PeopleGridContent.payload(for: a, in: nil)
+        XCTAssertEqual(plain, a.id.uuidString)
+        XCTAssertNil(PeopleGridContent.member(in: plain))
+
+        let tile = PeopleGridItems.Tile(id: stack, cell: 0, person: a, stack: [a, b], stackID: stack, tag: "work")
+        let carried = PeopleGridContent.payload(for: a, in: tile)
+        let member = PeopleGridContent.member(in: carried)
+        XCTAssertEqual(member?.stack, stack)
+        XCTAssertEqual(member?.person, a.id)
+        XCTAssertNil(PeopleGridContent.member(in: PeopleGridContent.memberPrefix + "nonsense"))
+    }
 }

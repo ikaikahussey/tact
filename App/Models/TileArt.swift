@@ -108,6 +108,30 @@ struct StackDesign: Codable, Equatable, Hashable {
     }
 }
 
+/// A stack that holds everyone carrying a tag: the tag is the membership.
+/// Tagging a person puts them in it, taking the tag off takes them out,
+/// and a person with several such tags is in each of those stacks. Unlike
+/// a plain stack (`TileArt.stack`), it is a tile of its own on the canvas,
+/// with its own cell and design.
+struct TagStack: Codable, Equatable, Hashable, Identifiable {
+    var id: UUID
+    /// The tag as typed, without its `#`.
+    var tag: String
+    var cell: Int?
+    var design: StackDesign?
+
+    init(id: UUID = UUID(), tag: String, cell: Int? = nil, design: StackDesign? = nil) {
+        self.id = id
+        self.tag = tag
+        self.cell = cell
+        self.design = design
+    }
+
+    func holds(_ person: Person) -> Bool {
+        person.hasTag(NoteTags.normalized(tag))
+    }
+}
+
 /// Where everyone's tile sits on the canvas.
 enum TileLayout {
     static let columns = 4
@@ -141,14 +165,46 @@ enum TileLayout {
     /// first to claim a cell wins); everyone else fills the lowest free cells
     /// in list order. Empty cells are gaps. A stack is one tile here: its
     /// top person stands for it, and the people under them have no cell.
-    static func cells(for people: [Person]) -> [Int: UUID] {
-        Dictionary(uniqueKeysWithValues: anchors(for: people).map { ($1, $0) })
+    /// A tag stack is a tile too, under its own id, and the people it
+    /// holds have no cell (unless they are the top of a plain stack).
+    static func cells(for people: [Person], tagStacks: [TagStack] = []) -> [Int: UUID] {
+        Dictionary(uniqueKeysWithValues: anchors(for: people, tagStacks: tagStacks).map { ($1, $0) })
     }
 
-    static func anchors(for people: [Person]) -> [UUID: Int] {
-        let covered = covered(for: people)
-        let onBoard = covered.isEmpty ? people : people.filter { covered[$0.id] == nil }
-        return GridPlacement.anchors(for: onBoard, cell: \.tile.cell, footprint: footprint(of:at:))
+    /// The cell of every tile on the canvas: people by their id (a plain
+    /// stack by its top person's), tag stacks by theirs. Tag stacks claim
+    /// their cells first.
+    static func anchors(for people: [Person], tagStacks: [TagStack] = []) -> [UUID: Int] {
+        let hidden = hidden(for: people, tagStacks: tagStacks)
+        var items: [(id: UUID, cell: Int?)] = shown(tagStacks, people: people).map { (id: $0.id, cell: $0.cell) }
+        for person in people where !hidden.contains(person.id) {
+            items.append((id: person.id, cell: person.tile.cell))
+        }
+        return GridPlacement.anchors(items: items)
+    }
+
+    // MARK: Tag stacks
+
+    /// The tag stacks on the canvas: those holding someone, one per tag.
+    static func shown(_ tagStacks: [TagStack], people: [Person]) -> [TagStack] {
+        var seen = Set<String>()
+        return tagStacks.filter { stack in
+            seen.insert(NoteTags.normalized(stack.tag)).inserted && people.contains { stack.holds($0) }
+        }
+    }
+
+    /// Everyone with no tile of their own: under the top of a plain stack,
+    /// or in a tag stack. The top of a plain stack keeps its tile, standing
+    /// for that stack, even when a tag stack holds them too.
+    static func hidden(for people: [Person], tagStacks: [TagStack]) -> Set<UUID> {
+        var hidden = Set(covered(for: people).keys)
+        let shown = shown(tagStacks, people: people)
+        guard !shown.isEmpty else { return hidden }
+        let tops = Set(stacks(for: people).values.compactMap(\.first))
+        for person in people where !tops.contains(person.id) {
+            if shown.contains(where: { $0.holds(person) }) { hidden.insert(person.id) }
+        }
+        return hidden
     }
 
     // MARK: Stacks
@@ -186,15 +242,15 @@ enum TileLayout {
 
     /// Everyone's tile in the first cells, in the order they sit now, so the
     /// gaps close up.
-    static func compacted(_ people: [Person]) -> [UUID: Int] {
-        let anchors = anchors(for: people)
+    static func compacted(_ people: [Person], tagStacks: [TagStack] = []) -> [UUID: Int] {
+        let anchors = anchors(for: people, tagStacks: tagStacks)
         let order = anchors.sorted { $0.value < $1.value }.map(\.key)
         return Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
     }
 
     /// Whether the tiles already fill the first cells with no gaps.
-    static func isCompact(_ people: [Person]) -> Bool {
-        let cells = anchors(for: people).values
+    static func isCompact(_ people: [Person], tagStacks: [TagStack] = []) -> Bool {
+        let cells = anchors(for: people, tagStacks: tagStacks).values
         return Set(cells) == Set(0..<cells.count)
     }
 
@@ -264,6 +320,28 @@ enum TileLayout {
 /// Placement on the Tiles canvas: each person sits at
 /// an anchor cell and covers a set of grid units there.
 enum GridPlacement {
+    /// One-cell tiles: each keeps the cell it was placed in (the first to
+    /// claim it wins); the rest take the lowest free cells, in order.
+    static func anchors(items: [(id: UUID, cell: Int?)]) -> [UUID: Int] {
+        var anchors: [UUID: Int] = [:]
+        var taken = Set<Int>()
+        var unplaced: [UUID] = []
+        for item in items {
+            if let cell = item.cell, cell >= 0, taken.insert(cell).inserted {
+                anchors[item.id] = cell
+            } else {
+                unplaced.append(item.id)
+            }
+        }
+        var next = 0
+        for id in unplaced {
+            while taken.contains(next) { next += 1 }
+            anchors[id] = next
+            taken.insert(next)
+        }
+        return anchors
+    }
+
     /// People keep the anchor they were placed at (the first to claim the
     /// space wins); everyone else takes the lowest anchor where they fit, in
     /// list order.

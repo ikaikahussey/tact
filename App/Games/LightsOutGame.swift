@@ -28,7 +28,7 @@ struct LightsOutGame: View {
     static let scramblePresses = 5
 
     private var anchors: [Int: Person] {
-        let byPerson = TileLayout.anchors(for: store.people)
+        let byPerson = TileLayout.anchors(for: store.people, tagStacks: store.tagStacks)
         return Dictionary(uniqueKeysWithValues: store.people.compactMap { person in
             byPerson[person.id].map { ($0, person) }
         })

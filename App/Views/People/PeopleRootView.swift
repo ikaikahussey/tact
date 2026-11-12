@@ -71,7 +71,7 @@ struct PeopleRootView: View {
                                           isListening: listening && !showsList,
                                           isSelecting: selecting && !showsList, selection: $selectedIDs,
                                           showingGames: canvasShowsGames,
-                                          tilesTurned: GamesSurface.isAvailable(gameID: selectedGameID, tileCount: TileLayout.anchors(for: store.people).count),
+                                          tilesTurned: GamesSurface.isAvailable(gameID: selectedGameID, tileCount: TileLayout.anchors(for: store.people, tagStacks: store.tagStacks).count),
                                           onSelect: { person in
                             // Select from a tile's menu: into Select mode with that tile chosen.
                             withAnimation(.snappy) {
@@ -258,7 +258,7 @@ struct PeopleRootView: View {
                         } label: {
                             Label("Bring Together", systemImage: "square.grid.3x3.topleft.filled")
                         }
-                        .disabled(store.people.count < 2 || !query.isEmpty || TileLayout.isCompact(store.people))
+                        .disabled(store.people.count < 2 || !query.isEmpty || TileLayout.isCompact(store.people, tagStacks: store.tagStacks))
                     case .turnOver:
                         Button {
                             withAnimation(.snappy) { rememberedLayout = .grid }
@@ -407,7 +407,7 @@ struct PeopleRootView: View {
 
     /// The people on the grid right now, in cell order: what Select All gathers.
     private var shownPeopleIDs: [UUID] {
-        PeopleGridItems(people: store.people, notes: store.notes, query: query).selectableIDs
+        PeopleGridItems(people: store.people, notes: store.notes, query: query, tagStacks: store.tagStacks).selectableIDs
     }
 
     /// Ends Select mode and lets the selection go.

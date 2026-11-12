@@ -121,6 +121,8 @@ struct StackedTile: View {
     let people: [Person]
     let size: CGFloat
     var design: StackDesign?
+    /// The tag everyone in the stack carries, shown as its name.
+    var tag: String?
     /// The stack's tiles are laid out in the tray below.
     var isOpen = false
 
@@ -148,7 +150,8 @@ struct StackedTile: View {
                 .opacity(isOpen ? 0.55 : 1)
         }
         .frame(width: size, height: size)
-        .overlay(alignment: .bottomTrailing) { countBadge }
+        .overlay(alignment: .topLeading) { countBadge }
+        .overlay(alignment: .bottomLeading) { tagLabel }
         .clipped()
     }
 
@@ -164,6 +167,20 @@ struct StackedTile: View {
                 PersonTileFace(person: person, size: frame.width)
                     .offset(x: frame.minX, y: frame.minY)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var tagLabel: some View {
+        if let tag {
+            Text("#" + tag)
+                .font(.tactBold(size: max(10, size * 0.12)))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(.thinMaterial, in: Capsule())
+                .padding(5)
         }
     }
 

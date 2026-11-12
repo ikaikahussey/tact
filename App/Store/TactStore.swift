@@ -124,9 +124,16 @@ final class TactStore: ObservableObject {
         people[index].name = name
     }
 
+    /// Sets a person's tags. A tag that a stack is made of puts them in
+    /// that stack, and taking it off takes them out; every other tile
+    /// stays where it is.
     func updateTags(forPersonID id: UUID, _ tags: [String]) {
         guard let index = people.firstIndex(where: { $0.id == id }) else { return }
-        people[index].tags = tags
+        guard !settings.tagStacks.isEmpty else {
+            people[index].tags = tags
+            return
+        }
+        rearrange(after: nil) { people, _ in people[index].tags = tags }
     }
 
     func updatePhoto(forPersonID id: UUID, data: Data?) {
@@ -242,7 +249,7 @@ final class TactStore: ObservableObject {
     /// shift along to make room; nobody trades places.
     func moveTile(personID id: UUID, toCell target: Int) {
         guard target >= 0 else { return }
-        let anchors = TileLayout.anchors(for: people)
+        let anchors = boardAnchors
         guard let source = anchors[id], source != target else { return }
         place(TileLayout.inserting(id, at: target, anchors: anchors))
     }
@@ -253,14 +260,19 @@ final class TactStore: ObservableObject {
     /// top. Tiles the group lands on are pushed forward to make room.
     func moveTiles(personIDs ids: Set<UUID>, dragging id: UUID, toCell target: Int) {
         guard ids.count > 1, ids.contains(id) else { return moveTile(personID: id, toCell: target) }
-        let anchors = TileLayout.anchors(for: people)
+        let anchors = boardAnchors
         guard let source = anchors[id], source != target,
               let moved = TileLayout.shifted(ids, from: source, to: target, anchors: anchors)
         else { return }
         place(TileLayout.pushing(aside: moved, anchors: anchors))
     }
 
-    /// Pins everyone to the given cells. The people under a stack's top
+    /// The cell of every tile on the canvas, tag stacks included.
+    private var boardAnchors: [UUID: Int] {
+        TileLayout.anchors(for: people, tagStacks: settings.tagStacks)
+    }
+
+    /// Pins every tile to the given cells. The people under a stack's top
     /// tile take its cell, so the stack stays put if the top person goes.
     private func place(_ cells: [UUID: Int]) {
         let tops = TileLayout.covered(for: people)
@@ -270,11 +282,184 @@ final class TactStore: ObservableObject {
             updated[index].tile.cell = cells[id] ?? tops[id].flatMap { cells[$0] }
         }
         people = updated
+        var stacks = settings.tagStacks
+        for index in stacks.indices {
+            if let cell = cells[stacks[index].id] { stacks[index].cell = cell }
+        }
+        if stacks != settings.tagStacks { settings.tagStacks = stacks }
     }
 
     /// Closes the gaps on the Tiles canvas, keeping everyone's order.
     func bringTilesTogether() {
-        place(TileLayout.compacted(people))
+        place(TileLayout.compacted(people, tagStacks: settings.tagStacks))
+    }
+
+    // MARK: Tag stacks
+
+    /// The stacks that hold everyone carrying a tag.
+    var tagStacks: [TagStack] { settings.tagStacks }
+
+    func tagStack(id: UUID) -> TagStack? {
+        settings.tagStacks.first { $0.id == id }
+    }
+
+    /// Changes people and tag stacks, then keeps every tile that is still
+    /// on the canvas in its cell. Tiles new to the canvas (people let out
+    /// of a stack, a new tag stack whose cell is taken) go to the empty
+    /// cells after `cell`. Tag stacks left holding nobody are dropped.
+    private func rearrange(after cell: Int?, _ change: (inout [Person], inout [TagStack]) -> Void) {
+        let before = boardAnchors
+        var updated = people
+        var stacks = settings.tagStacks
+        change(&updated, &stacks)
+        stacks.removeAll { stack in !updated.contains { stack.holds($0) } }
+        let after = TileLayout.anchors(for: updated, tagStacks: stacks)
+        var cells: [UUID: Int] = [:]
+        var taken = Set<Int>()
+        for id in after.keys {
+            if let kept = before[id] {
+                cells[id] = kept
+                taken.insert(kept)
+            }
+        }
+        for stack in stacks where after[stack.id] != nil && cells[stack.id] == nil {
+            if let own = stack.cell, taken.insert(own).inserted { cells[stack.id] = own }
+        }
+        let fresh = (stacks.map(\.id) + updated.map(\.id)).filter { after[$0] != nil && cells[$0] == nil }
+        let free = TileLayout.freeCells(after: cell ?? -1, count: fresh.count, taken: taken)
+        for (id, cell) in zip(fresh, free) { cells[id] = cell }
+        let tops = TileLayout.covered(for: updated)
+        for index in updated.indices {
+            let id = updated[index].id
+            updated[index].tile.cell = cells[id] ?? tops[id].flatMap { cells[$0] }
+        }
+        for index in stacks.indices {
+            if let cell = cells[stacks[index].id] { stacks[index].cell = cell }
+        }
+        people = updated
+        if stacks != settings.tagStacks { settings.tagStacks = stacks }
+    }
+
+    /// Gives a stack a tag. Everyone in it gets the tag, and from then on
+    /// the tag is the membership: everyone carrying it is in the stack. A
+    /// tag stack given a new tag has it changed on everyone in it. When
+    /// another stack already has the tag, this one joins it. False when
+    /// `rawTag` holds no tag or there is no such stack.
+    @discardableResult
+    func tagStack(id stackID: UUID, as rawTag: String) -> Bool {
+        guard let tag = NoteTags.tags(in: NoteTags.hashingWords(rawTag)).first else { return false }
+        let wanted = NoteTags.normalized(tag)
+        if let record = tagStack(id: stackID) {
+            let old = NoteTags.normalized(record.tag)
+            rearrange(after: record.cell) { people, stacks in
+                for index in people.indices where record.holds(people[index]) {
+                    if old != wanted { people[index].tags.removeAll { NoteTags.normalized($0) == old } }
+                    if !people[index].hasTag(wanted) { people[index].tags.append(tag) }
+                }
+                if old != wanted, stacks.contains(where: { $0.id != stackID && NoteTags.normalized($0.tag) == wanted }) {
+                    stacks.removeAll { $0.id == stackID }
+                } else if let index = stacks.firstIndex(where: { $0.id == stackID }) {
+                    stacks[index].tag = tag
+                }
+            }
+            return true
+        }
+        guard let members = TileLayout.stacks(for: people)[stackID], let cell = boardAnchors[members[0]] else { return false }
+        let design = person(id: members[0])?.tile.stackDesign
+        rearrange(after: cell) { people, stacks in
+            for index in people.indices where members.contains(people[index].id) {
+                people[index].tile.stack = nil
+                people[index].tile.stackDesign = nil
+                if !people[index].hasTag(wanted) { people[index].tags.append(tag) }
+            }
+            if !stacks.contains(where: { NoteTags.normalized($0.tag) == wanted }) {
+                stacks.append(TagStack(id: stackID, tag: tag, cell: cell, design: design))
+            }
+        }
+        return true
+    }
+
+    /// Puts people in a tag stack by giving them its tag; the stacks they
+    /// are already in keep them. False when nobody was new to it.
+    @discardableResult
+    func addToTagStack(personIDs ids: Set<UUID>, id stackID: UUID) -> Bool {
+        guard let record = tagStack(id: stackID) else { return false }
+        let joining = people.filter { ids.contains($0.id) && !record.holds($0) }.map(\.id)
+        guard !joining.isEmpty else { return false }
+        rearrange(after: record.cell) { people, _ in
+            for index in people.indices where joining.contains(people[index].id) {
+                people[index].tags.append(record.tag)
+            }
+        }
+        return true
+    }
+
+    /// Takes a person out of a tag stack by taking its tag off them. With
+    /// no other stack holding them, their tile goes to the nearest empty
+    /// cell after it.
+    func removeFromTagStack(personID id: UUID, id stackID: UUID) {
+        guard let record = tagStack(id: stackID), person(id: id).map(record.holds) == true else { return }
+        let tag = NoteTags.normalized(record.tag)
+        // One cell back, so the last person out takes the stack's own cell.
+        rearrange(after: (boardAnchors[stackID] ?? record.cell).map { $0 - 1 }) { people, _ in
+            for index in people.indices where people[index].id == id {
+                people[index].tags.removeAll { NoteTags.normalized($0) == tag }
+            }
+        }
+    }
+
+    /// Tiles dropped on a stack join it. On a tag stack they get its tag
+    /// (a stack among them brings everyone in it, and stays as it was); on
+    /// a plain stack they move into it.
+    @discardableResult
+    func addTiles(_ ids: Set<UUID>, toStack stackID: UUID) -> Bool {
+        let plain = TileLayout.stacks(for: people)
+        if tagStack(id: stackID) != nil {
+            var joining = Set<UUID>()
+            for id in ids {
+                if let other = tagStack(id: id) {
+                    joining.formUnion(people.filter { other.holds($0) }.map(\.id))
+                } else if let own = person(id: id)?.tile.stack, let list = plain[own], list.first == id {
+                    joining.formUnion(list)
+                } else {
+                    joining.insert(id)
+                }
+            }
+            return addToTagStack(personIDs: joining, id: stackID)
+        }
+        guard let top = plain[stackID]?.first else { return false }
+        return addToStack(personIDs: ids, stackOf: top)
+    }
+
+    /// A tile dragged out of the open stack `source`. Onto the canvas it
+    /// leaves the stack for `cell`. Onto a tag stack it joins that one too.
+    /// Onto a plain stack it moves there from a plain stack, and joins it
+    /// from a tag stack.
+    func moveMember(_ id: UUID, ofStack source: UUID, toCell cell: Int, ontoStack target: UUID?) {
+        let fromTag = tagStack(id: source) != nil
+        guard let target else {
+            if fromTag {
+                removeFromTagStack(personID: id, id: source)
+                if boardAnchors[id] != nil { moveTile(personID: id, toCell: cell) }
+            } else {
+                moveOutOfStack(personID: id, toCell: cell)
+            }
+            return
+        }
+        guard target != source else { return }
+        if tagStack(id: target) != nil {
+            addToTagStack(personIDs: [id], id: target)
+            return
+        }
+        let plain = TileLayout.stacks(for: people)
+        guard let top = plain[target]?.first else { return }
+        if fromTag {
+            // Someone already in another plain stack stays in that one.
+            if let own = person(id: id)?.tile.stack, plain[own] != nil { return }
+            addToStack(personIDs: [id], stackOf: top)
+        } else {
+            moveOutOfStack(personID: id, ontoStackOf: top)
+        }
     }
 
     // MARK: Stacks
@@ -287,7 +472,7 @@ final class TactStore: ObservableObject {
     func stackTiles(personIDs ids: Set<UUID>) -> UUID? {
         let stacks = TileLayout.stacks(for: people)
         let tops = TileLayout.covered(for: people)
-        let anchors = TileLayout.anchors(for: people)
+        let anchors = boardAnchors
         var members = ids.intersection(people.map(\.id))
         for list in stacks.values where !members.isDisjoint(with: list) { members.formUnion(list) }
         guard members.count > 1 else { return nil }
@@ -315,7 +500,7 @@ final class TactStore: ObservableObject {
     func addToStack(personIDs ids: Set<UUID>, stackOf target: UUID) -> Bool {
         let stacks = TileLayout.stacks(for: people)
         guard let stackID = person(id: target)?.tile.stack, let current = stacks[stackID],
-              let cell = TileLayout.anchors(for: people)[current[0]] else { return false }
+              let cell = boardAnchors[current[0]] else { return false }
         var members = ids.intersection(people.map(\.id)).union(current)
         for list in stacks.values where !members.isDisjoint(with: list) { members.formUnion(list) }
         guard members.count > current.count else { return false }
@@ -333,6 +518,10 @@ final class TactStore: ObservableObject {
     /// Sets the design a stack is shown with; `nil` goes back to its
     /// first four tiles scaled down.
     func setStackDesign(id stackID: UUID, _ design: StackDesign?) {
+        if let index = settings.tagStacks.firstIndex(where: { $0.id == stackID }) {
+            settings.tagStacks[index].design = design
+            return
+        }
         guard let members = TileLayout.stacks(for: people)[stackID] else { return }
         updateTiles(forPersonIDs: Set(members)) { $0.stackDesign = design }
     }
@@ -340,7 +529,7 @@ final class TactStore: ObservableObject {
     /// Puts `members` in the stack `stackID` at `cell`, pinning everyone else.
     private func gather(_ members: Set<UUID>, into stackID: UUID, at cell: Int, design: StackDesign?) {
         let tops = TileLayout.covered(for: people)
-        let anchors = TileLayout.anchors(for: people)
+        let anchors = boardAnchors
         var updated = people
         for index in updated.indices {
             let id = updated[index].id
@@ -358,6 +547,13 @@ final class TactStore: ObservableObject {
     /// Takes a stack apart: the top tile stays, and the rest go to the
     /// nearest empty cells after it.
     func unstack(id stackID: UUID) {
+        // A tag stack goes; the people keep the tag and get their tiles back.
+        if let record = tagStack(id: stackID) {
+            rearrange(after: (boardAnchors[stackID] ?? record.cell).map { $0 - 1 }) { _, stacks in
+                stacks.removeAll { $0.id == stackID }
+            }
+            return
+        }
         guard let members = TileLayout.stacks(for: people)[stackID] else { return }
         release(Set(members.dropFirst()), from: members)
     }
@@ -380,7 +576,7 @@ final class TactStore: ObservableObject {
     /// Moves `leaving` out of the stack `members` to the empty cells after
     /// it. Everyone else is pinned where they are.
     private func release(_ leaving: Set<UUID>, from members: [UUID]) {
-        let anchors = TileLayout.anchors(for: people)
+        let anchors = boardAnchors
         let tops = TileLayout.covered(for: people)
         guard let top = members.first, let cell = anchors[top] else { return }
         let going = members.filter { leaving.contains($0) }
